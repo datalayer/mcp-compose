@@ -1,4 +1,4 @@
-# MCP Server Composer - Deployment Guide
+# MCP Compose - Deployment Guide
 
 ## Table of Contents
 
@@ -519,7 +519,7 @@ Import dashboard JSON (create `grafana-dashboards/mcp-composer.json`):
 ```json
 {
   "dashboard": {
-    "title": "MCP Server Composer",
+    "title": "MCP Compose",
     "panels": [
       {
         "title": "HTTP Requests",

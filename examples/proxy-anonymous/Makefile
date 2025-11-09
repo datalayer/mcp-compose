@@ -2,14 +2,14 @@
 
 # Default target
 help:
-	@echo "Git-File MCP Server Composer Example - Makefile"
+	@echo "Git-File MCP Compose Example - Makefile"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  install        - Install mcp-compose and MCP servers"
 	@echo "  install-agent  - Install pydantic-ai for agent support"
-	@echo "  start          - Start the MCP Server Composer (manages both servers)"
+	@echo "  start          - Start the MCP Compose (manages both servers)"
 	@echo "  agent          - Run the AI agent (requires composer to be running)"
-	@echo "  stop           - Stop the MCP Server Composer"
+	@echo "  stop           - Stop the MCP Compose"
 	@echo "  clean          - Clean up temporary files"
 	@echo ""
 
@@ -45,9 +45,9 @@ install-agent:
 	@echo "  1. Start composer: make start"
 	@echo "  2. In another terminal: make agent"
 
-# Start the MCP Server Composer
+# Start the MCP Compose
 start:
-	@echo "Starting MCP Server Composer..."
+	@echo "Starting MCP Compose..."
 	@echo ""
 	mcp-compose serve --config mcp_compose.toml
 
@@ -55,7 +55,7 @@ start:
 agent:
 	@echo "Starting AI Agent..."
 	@echo ""
-	@echo "⚠️  Make sure the MCP Server Composer is running!"
+	@echo "⚠️  Make sure the MCP Compose is running!"
 	@echo "   (Run 'make start' in another terminal)"
 	@echo ""
 	@echo "Usage: python agent.py [model]"

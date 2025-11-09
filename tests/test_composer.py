@@ -1,5 +1,5 @@
 """
-Test suite for MCP Server Composer.
+Test suite for MCP Compose.
 """
 
 import json

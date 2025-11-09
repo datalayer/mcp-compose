@@ -8,7 +8,7 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# ✨ MCP Server Composer
+# ✨ MCP Compose
 
 [![PyPI - Version](https://img.shields.io/pypi/v/mcp-compose)](https://pypi.org/project/mcp-compose)
 
@@ -16,9 +16,9 @@
 
 # Architecture
 
-The MCP Server Composer is a Python facade for multiple `Managed MCP Servers`.
+The MCP Compose is a Python facade for multiple `Managed MCP Servers`.
 
-The MCP Server Composer exposes all the tools of the managed MCP Servers as a single unified MCP Server, aggregating the tools, prompts, and resources.
+The MCP Compose exposes all the tools of the managed MCP Servers as a single unified MCP Server, aggregating the tools, prompts, and resources.
 
 ## Overview
 
@@ -33,7 +33,7 @@ The supported exposed **transports** are the official MCP transports: `STDIO` an
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│              MCP Server Composer (Facade)                     │
+│              MCP Compose (Facade)                     │
 ├───────────────────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐   │
 │  │    Authn     │  │    Authz     │  │    Transport       │   │
@@ -1030,7 +1030,7 @@ spec:
 ### Systemd Service
 ```ini
 [Unit]
-Description=MCP Server Composer
+Description=MCP Compose
 After=network.target
 
 [Service]
@@ -1119,4 +1119,4 @@ WantedBy=multi-user.target
 
 ## Conclusion
 
-The MCP Server Composer provides a robust, secure, and scalable solution for aggregating multiple MCP servers into a unified interface. With comprehensive authentication, authorization, monitoring, and management capabilities, it enables organizations to build complex MCP-based systems with confidence.
+The MCP Compose provides a robust, secure, and scalable solution for aggregating multiple MCP servers into a unified interface. With comprehensive authentication, authorization, monitoring, and management capabilities, it enables organizations to build complex MCP-based systems with confidence.

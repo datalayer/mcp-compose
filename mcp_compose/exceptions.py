@@ -1,5 +1,5 @@
 """
-Custom exceptions for MCP Server Composer.
+Custom exceptions for MCP Compose.
 
 This module defines exception classes for different types of errors
 that can occur during MCP server composition and discovery.
@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 
 class MCPComposerError(Exception):
-    """Base exception for MCP Server Composer errors."""
+    """Base exception for MCP Compose errors."""
 
     def __init__(self, message: str) -> None:
         super().__init__(message)

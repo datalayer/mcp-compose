@@ -1,5 +1,5 @@
 """
-FastAPI application for MCP Server Composer REST API.
+FastAPI application for MCP Compose REST API.
 
 This module provides the main FastAPI application with routing,
 middleware, and configuration for the REST API server.
@@ -33,10 +33,10 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events.
     """
     # Startup
-    logger.info("Starting MCP Server Composer API")
+    logger.info("Starting MCP Compose API")
     yield
     # Shutdown
-    logger.info("Shutting down MCP Server Composer API")
+    logger.info("Shutting down MCP Compose API")
     
     # Stop all translators
     from .routes.translators import shutdown_translators
@@ -44,8 +44,8 @@ async def lifespan(app: FastAPI):
 
 
 def create_app(
-    title: str = "MCP Server Composer API",
-    description: str = "REST API for managing MCP Server Composer",
+    title: str = "MCP Compose API",
+    description: str = "REST API for managing MCP Compose",
     version: str = __version__,
     cors_origins: Optional[list] = None,
     cors_credentials: bool = True,
@@ -237,7 +237,7 @@ def register_routes(app: FastAPI) -> None:
     async def root():
         """Root endpoint - redirects to docs."""
         return {
-            "name": "MCP Server Composer API",
+            "name": "MCP Compose API",
             "version": __version__,
             "docs": "/docs",
             "openapi": "/openapi.json",

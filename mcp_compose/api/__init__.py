@@ -1,8 +1,8 @@
 """
-REST API module for MCP Server Composer.
+REST API module for MCP Compose.
 
 This module provides a FastAPI-based REST API for managing and monitoring
-the MCP Server Composer, including server lifecycle management, tool invocation,
+the MCP Compose, including server lifecycle management, tool invocation,
 configuration, and health monitoring.
 """
 

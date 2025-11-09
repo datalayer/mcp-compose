@@ -1,5 +1,5 @@
 """
-Authorization middleware for MCP Server Composer.
+Authorization middleware for MCP Compose.
 
 This module provides Role-Based Access Control (RBAC) and resource-based
 authorization for MCP servers.

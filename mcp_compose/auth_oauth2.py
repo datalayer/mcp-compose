@@ -1,5 +1,5 @@
 """
-OAuth2 authentication for MCP Server Composer.
+OAuth2 authentication for MCP Compose.
 
 This module provides OAuth2 authentication with support for multiple providers.
 """
@@ -378,7 +378,7 @@ class MicrosoftOAuth2Provider(OAuth2Provider):
 
 class OAuth2Authenticator(Authenticator):
     """
-    OAuth2 authenticator for MCP Server Composer.
+    OAuth2 authenticator for MCP Compose.
     
     Supports multiple OAuth2 providers with PKCE flow.
     """

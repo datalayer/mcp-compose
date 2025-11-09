@@ -33,7 +33,7 @@ async def get_status(
     """
     Get composition status.
     
-    Returns the current status of the MCP Server Composer including
+    Returns the current status of the MCP Compose including
     information about all servers, tools, prompts, and resources.
     
     Args:
@@ -221,7 +221,7 @@ async def get_metrics(
     """
     Get aggregated metrics.
     
-    Returns aggregated metrics for the entire MCP Server Composer
+    Returns aggregated metrics for the entire MCP Compose
     including request counts, performance data, and resource usage.
     
     Args:

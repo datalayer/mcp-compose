@@ -1,4 +1,4 @@
-"""MCP Server Composer
+"""MCP Compose
 
 A generic Python library for composing Model Context Protocol (MCP) servers
 based on dependencies defined in pyproject.toml files.

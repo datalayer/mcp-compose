@@ -1,6 +1,6 @@
-# Contributing to MCP Server Composer
+# Contributing to MCP Compose
 
-Thank you for your interest in contributing to MCP Server Composer! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to MCP Compose! This document provides guidelines and instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -489,7 +489,7 @@ Contributors will be:
 - Mentioned in release notes
 - Credited in documentation
 
-Thank you for contributing to MCP Server Composer! 🎉
+Thank you for contributing to MCP Compose! 🎉
 
 ---
 

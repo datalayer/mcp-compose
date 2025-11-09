@@ -1,5 +1,5 @@
 """
-MCP Server Composer CLI.
+MCP Compose CLI.
 
 Command-line interface for managing MCP servers.
 """
@@ -220,7 +220,7 @@ def serve_command(args: argparse.Namespace) -> int:
 
 
 async def run_server(config, args: argparse.Namespace) -> int:
-    """Run the MCP server composer."""
+    """Run the MCP Compose."""
     from .config import StdioProxiedServerConfig
     from .composer import MCPServerComposer, ConflictResolution
     from .tool_proxy import ToolProxy
@@ -250,7 +250,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
         # Start process manager
         await process_manager.start()
         
-        print(f"\n🚀 MCP Server Composer: {config.composer.name}")
+        print(f"\n🚀 MCP Compose: {config.composer.name}")
         print(f"Conflict Resolution: {config.composer.conflict_resolution}")
         print(f"Log Level: {config.composer.log_level}")
         print()

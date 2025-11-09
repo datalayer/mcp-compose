@@ -1,5 +1,5 @@
 """
-Transport layer for MCP Server Composer.
+Transport layer for MCP Compose.
 
 This package provides transport implementations for communicating with MCP servers.
 """

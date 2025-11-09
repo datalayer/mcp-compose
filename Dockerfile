@@ -1,4 +1,4 @@
-# Multi-stage build for MCP Server Composer
+# Multi-stage build for MCP Compose
 
 # Stage 1: Build UI
 FROM node:18-alpine AS ui-builder

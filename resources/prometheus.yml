@@ -18,7 +18,7 @@ rule_files:
 
 # Scrape configurations
 scrape_configs:
-  # MCP Server Composer metrics
+  # MCP Compose metrics
   - job_name: 'mcp-composer'
     static_configs:
       - targets: ['mcp-composer:8000']

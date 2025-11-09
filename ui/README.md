@@ -1,6 +1,6 @@
-# MCP Server Composer UI
+# MCP Compose UI
 
-React-based web interface for managing MCP Server Composer.
+React-based web interface for managing MCP Compose.
 
 ## Features
 
@@ -144,7 +144,7 @@ Toggle theme using the sun/moon icon in the sidebar header.
 
 ## Contributing
 
-This is part of the MCP Server Composer project. See the main README for contribution guidelines.
+This is part of the MCP Compose project. See the main README for contribution guidelines.
 
 ## License
 

@@ -2,7 +2,7 @@
 Configuration management endpoints.
 
 Provides endpoints for retrieving, updating, validating, and reloading
-the MCP Server Composer configuration.
+the MCP Compose configuration.
 """
 
 from typing import Any, Dict
@@ -32,7 +32,7 @@ async def get_config(
     """
     Get current configuration.
     
-    Returns the current MCP Server Composer configuration including
+    Returns the current MCP Compose configuration including
     all server definitions, authentication settings, and global options.
     
     Args:
@@ -73,7 +73,7 @@ async def update_config(
     """
     Update configuration.
     
-    Updates the MCP Server Composer configuration with the provided
+    Updates the MCP Compose configuration with the provided
     settings. This does not automatically reload the configuration;
     use POST /config/reload to apply changes.
     

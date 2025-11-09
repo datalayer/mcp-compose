@@ -48,7 +48,7 @@ class TestApplication:
     def test_create_app_default(self):
         """Test creating app with default settings."""
         app = create_app()
-        assert app.title == "MCP Server Composer API"
+        assert app.title == "MCP Compose API"
         assert app.version is not None
         assert "/api/v1/health" in [route.path for route in app.routes]
     
@@ -73,7 +73,7 @@ class TestApplication:
         response = client.get("/")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["name"] == "MCP Server Composer API"
+        assert data["name"] == "MCP Compose API"
         assert "version" in data
         assert "docs" in data
 

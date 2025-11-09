@@ -1,5 +1,5 @@
 """
-Configuration models for MCP Server Composer.
+Configuration models for MCP Compose.
 
 This module defines the configuration schema using Pydantic models.
 """
@@ -372,7 +372,7 @@ class MonitoringConfig(BaseModel):
 # ============================================================================
 
 class MCPComposerConfig(BaseModel):
-    """Root configuration for MCP Server Composer."""
+    """Root configuration for MCP Compose."""
     
     composer: ComposerConfig = Field(default_factory=ComposerConfig)
     transport: TransportConfig = Field(default_factory=TransportConfig)

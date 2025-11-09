@@ -1,4 +1,4 @@
-# MCP Server Composer - API Reference
+# MCP Compose - API Reference
 
 ## Table of Contents
 
@@ -11,7 +11,7 @@
 
 ## REST API Overview
 
-The MCP Server Composer provides a comprehensive REST API for programmatic control.
+The MCP Compose provides a comprehensive REST API for programmatic control.
 
 **Base URL:** `http://localhost:8000/api/v1`
 

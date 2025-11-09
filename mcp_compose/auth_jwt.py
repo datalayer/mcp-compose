@@ -1,5 +1,5 @@
 """
-JWT (JSON Web Token) authentication for MCP Server Composer.
+JWT (JSON Web Token) authentication for MCP Compose.
 
 This module provides JWT-based authentication with token generation,
 validation, and refresh capabilities.

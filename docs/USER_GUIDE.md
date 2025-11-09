@@ -1,4 +1,4 @@
-# MCP Server Composer - User Guide
+# MCP Compose - User Guide
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@
 
 ## Introduction
 
-MCP Server Composer is a comprehensive solution for managing and composing multiple Model Context Protocol (MCP) servers. It provides:
+MCP Compose is a comprehensive solution for managing and composing multiple Model Context Protocol (MCP) servers. It provides:
 
 - **Unified Interface**: Single entry point for multiple MCP servers
 - **Web UI**: Modern web interface for management and monitoring

@@ -1,5 +1,5 @@
 """
-Protocol translator for MCP Server Composer.
+Protocol translator for MCP Compose.
 
 Provides bidirectional translation between STDIO and SSE transports,
 enabling STDIO clients to access SSE servers and vice versa.

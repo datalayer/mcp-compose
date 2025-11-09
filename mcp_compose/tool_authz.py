@@ -1,5 +1,5 @@
 """
-Tool-level authorization for MCP Server Composer.
+Tool-level authorization for MCP Compose.
 
 This module provides fine-grained permissions for individual tools and tool groups,
 extending the RBAC system to provide per-tool access control.

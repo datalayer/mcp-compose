@@ -1,5 +1,5 @@
 """
-Configuration loader for MCP Server Composer.
+Configuration loader for MCP Compose.
 
 This module handles loading and parsing TOML configuration files.
 """

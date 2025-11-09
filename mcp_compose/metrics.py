@@ -1,5 +1,5 @@
 """
-Prometheus metrics for MCP Server Composer.
+Prometheus metrics for MCP Compose.
 
 Provides comprehensive metrics collection for monitoring server health,
 performance, and usage patterns.
@@ -28,14 +28,14 @@ registry = CollectorRegistry()
 # Info about the system
 composer_info = Info(
     "mcp_composer",
-    "MCP Server Composer information",
+    "MCP Compose information",
     registry=registry,
 )
 
 # System uptime
 composer_uptime_seconds = Gauge(
     "mcp_composer_uptime_seconds",
-    "Uptime of the MCP Server Composer in seconds",
+    "Uptime of the MCP Compose in seconds",
     registry=registry,
 )
 
@@ -291,7 +291,7 @@ config_validation_errors_total = Counter(
 # ============================================================================
 
 class MetricsCollector:
-    """Collector for MCP Server Composer metrics."""
+    """Collector for MCP Compose metrics."""
     
     def __init__(self):
         """Initialize metrics collector."""
@@ -303,7 +303,7 @@ class MetricsCollector:
         Initialize system metrics.
         
         Args:
-            version: MCP Server Composer version.
+            version: MCP Compose version.
             platform: Platform information.
         """
         if not self._initialized:

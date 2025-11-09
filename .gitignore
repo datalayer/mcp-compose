@@ -192,7 +192,7 @@ cython_debug/
 ehthumbs.db
 Thumbs.db
 
-# MCP Server Composer specific
+# MCP Compose specific
 debug_*.py
 composed_servers/
 *.mcp

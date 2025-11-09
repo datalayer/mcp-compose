@@ -1,5 +1,5 @@
 """
-MCP Server Composer Module.
+MCP Compose Module.
 
 This module provides the main functionality for composing multiple MCP servers
 into a single unified server instance.
@@ -49,7 +49,7 @@ class MCPServerComposer:
         use_process_manager: bool = False,
     ) -> None:
         """
-        Initialize MCP server composer.
+        Initialize MCP Compose.
 
         Args:
             composed_server_name: Name for the composed server.

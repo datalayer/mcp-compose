@@ -10,7 +10,7 @@
 
 # Demo MCP Servers Example
 
-This example demonstrates how to use MCP Server Composer to manage multiple MCP servers from a configuration file.
+This example demonstrates how to use MCP Compose to manage multiple MCP servers from a configuration file.
 
 ## 🎯 Overview
 
@@ -19,7 +19,7 @@ This configuration launches two simple Python MCP servers managed by the compose
 1. **Calculator Server** (`mcp1.py`) - Math operations (add, subtract, multiply, divide)
 2. **Echo Server** (`mcp2.py`) - String operations (ping, echo, reverse, uppercase, lowercase, count_words)
 
-Both servers run in **proxy mode** via STDIO transport and are managed by the MCP Server Composer.
+Both servers run in **proxy mode** via STDIO transport and are managed by the MCP Compose.
 
 ## 📋 Features
 
@@ -74,7 +74,7 @@ make agent
 ```
 
 The agent is designed to:
-- Connect to the MCP Server Composer via SSE
+- Connect to the MCP Compose via SSE
 - Access tools from both Calculator and Echo servers through a unified interface
 - Provide an interactive CLI powered by Anthropic Claude
 

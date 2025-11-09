@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # MCP Server Composer
+  # MCP Compose
   mcp-composer:
     build:
       context: .

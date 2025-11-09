@@ -8,7 +8,7 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# ✨ MCP Server Composer
+# ✨ MCP Compose
 
 [![PyPI - Version](https://img.shields.io/pypi/v/mcp-compose)](https://pypi.org/project/mcp-compose)
 [![Github Actions Status](https://github.com/datalayer/mcp-compose/workflows/Build/badge.svg)](https://github.com/datalayer/mcp-compose/actions/workflows/build.yml)
@@ -21,7 +21,7 @@
 
 ## 🎯 Overview
 
-MCP Server Composer is a comprehensive solution for managing multiple MCP servers in a unified environment. It provides automatic discovery, intelligent composition, protocol translation, real-time monitoring, and a beautiful web interface for managing your MCP infrastructure.
+MCP Compose is a comprehensive solution for managing multiple MCP servers in a unified environment. It provides automatic discovery, intelligent composition, protocol translation, real-time monitoring, and a beautiful web interface for managing your MCP infrastructure.
 
 ### Key Capabilities
 
@@ -117,7 +117,7 @@ The modern web interface provides:
 
 ## 📖 Documentation
 
-- **[User Guide](docs/USER_GUIDE.md)** - Complete guide for using MCP Server Composer
+- **[User Guide](docs/USER_GUIDE.md)** - Complete guide for using MCP Compose
 - **[API Reference](docs/API_REFERENCE.md)** - Full REST API and Python API documentation
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment with Docker & Kubernetes
 - **[Architecture](ARCHITECTURE.md)** - System architecture and design decisions
@@ -136,7 +136,7 @@ The modern web interface provides:
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────┴──────────────────────────────────┐
-│                 MCP Server Composer Core                     │
+│                 MCP Compose Core                     │
 │  Server Manager │ Tool Broker │ Config Manager              │
 └───────┬──────────┬──────────┬──────────┬────────────────────┘
         │          │          │          │
@@ -623,7 +623,7 @@ print(f"Final server has {summary['total_tools']} tools from {summary['source_se
 
 ## Project Structure
 
-When using MCP Server Composer, structure your project like this:
+When using MCP Compose, structure your project like this:
 
 ```
 my-project/

@@ -1,5 +1,5 @@
 """
-Authentication middleware for MCP Server Composer.
+Authentication middleware for MCP Compose.
 
 This module provides authentication mechanisms to secure access to MCP servers
 and tools.
