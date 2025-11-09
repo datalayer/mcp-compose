@@ -60,7 +60,7 @@ class ToolProxy:
                         "tools": {}
                     },
                     "clientInfo": {
-                        "name": "mcp-server-composer",
+                        "name": "mcp-compose",
                         "version": "0.1.0"
                     }
                 }

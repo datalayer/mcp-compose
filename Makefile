@@ -34,10 +34,10 @@ clean: ## clean
 	git clean -fdx
 
 build-docker: ## build the docker image
-	docker buildx build --platform linux/amd64,linux/arm64 --push -t datalayer/mcp-server-composer:${VERSION} .
-	docker buildx build --platform linux/amd64,linux/arm64 --push -t datalayer/mcp-server-composer:latest .
-#	docker image tag datalayer/mcp-server-composer:${VERSION} datalayer/mcp-server-composer:latest
-	@exec echo open https://hub.docker.com/r/datalayer/mcp-server-composer/tags
+	docker buildx build --platform linux/amd64,linux/arm64 --push -t datalayer/mcp-compose:${VERSION} .
+	docker buildx build --platform linux/amd64,linux/arm64 --push -t datalayer/mcp-compose:latest .
+#	docker image tag datalayer/mcp-compose:${VERSION} datalayer/mcp-compose:latest
+	@exec echo open https://hub.docker.com/r/datalayer/mcp-compose/tags
 
 start-docker: ## start the jupyter mcp server in docker
 	docker run -i --rm \
@@ -48,15 +48,15 @@ start-docker: ## start the jupyter mcp server in docker
 	  -e START_NEW_RUNTIME=true \
 	  -e RUNTIME_TOKEN=MY_TOKEN \
 	  --network=host \
-	  datalayer/mcp-server-composer:latest
+	  datalayer/mcp-compose:latest
 
 pull-docker: ## pull the latest docker image
-	docker image pull datalayer/mcp-server-composer:latest
+	docker image pull datalayer/mcp-compose:latest
 
 push-docker: ## push the docker image to the registry
-	docker push datalayer/mcp-server-composer:${VERSION}
-	docker push datalayer/mcp-server-composer:latest
-	@exec echo open https://hub.docker.com/r/datalayer/mcp-server-composer/tags
+	docker push datalayer/mcp-compose:${VERSION}
+	docker push datalayer/mcp-compose:latest
+	@exec echo open https://hub.docker.com/r/datalayer/mcp-compose/tags
 
 claude-linux: ## run the claude desktop linux app using nix
 	NIXPKGS_ALLOW_UNFREE=1 nix run github:k3d3/claude-desktop-linux-flake?rev=6d9eb2a653be8a6c06bc29a419839570e0ffc858 \
@@ -70,7 +70,7 @@ start: ## start the jupyter mcp server with streamable-http transport
 	@exec echo
 	@exec echo 👉 Define in your favorite mcp client the server http://localhost:4040/mcp
 	@exec echo
-	mcp-server-composer start \
+	mcp-compose start \
 	  --transport streamable-http \
 	  --document-url http://localhost:8888 \
 	  --document-id notebook.ipynb \
@@ -86,7 +86,7 @@ start-no-runtime: ## start the jupyter mcp server with streamable-http transport
 	@exec echo
 	@exec echo 👉 Define in your favorite mcp client the server http://localhost:4040/mcp
 	@exec echo
-	mcp-server-composer start \
+	mcp-compose start \
 	  --transport streamable-http \
 	  --document-url http://localhost:8888 \
 	  --document-id notebook.ipynb \
@@ -111,4 +111,4 @@ publish-pypi: # publish the pypi package
 	@exec echo
 	@exec echo twine upload ./dist/*-py3-none-any.whl
 	@exec echo
-	@exec echo https://pypi.org/project/mcp-server-composer/#history
+	@exec echo https://pypi.org/project/mcp-compose/#history

@@ -10,9 +10,9 @@
 
 # ✨ MCP Server Composer
 
-[![PyPI - Version](https://img.shields.io/pypi/v/mcp-server-composer)](https://pypi.org/project/mcp-server-composer)
+[![PyPI - Version](https://img.shields.io/pypi/v/mcp-compose)](https://pypi.org/project/mcp-compose)
 
-[![Github Actions Status](https://github.com/datalayer/mcp-server-composer/workflows/Build/badge.svg)](https://github.com/datalayer/mcp-server-composer/actions/workflows/build.yml)
+[![Github Actions Status](https://github.com/datalayer/mcp-compose/workflows/Build/badge.svg)](https://github.com/datalayer/mcp-compose/actions/workflows/build.yml)
 
 # Architecture
 
@@ -24,8 +24,8 @@ The MCP Server Composer exposes all the tools of the managed MCP Servers as a si
 
 A `Managed MCP Server` can be:
 
-- **`Embedded`**: Python packages that implement MCP servers using the Python MCP SDK. These are loaded in-process and configured via a manual list in `mcp_server_composer.toml`.
-- **`Proxied`**: External MCP servers accessible via `STDIO` or `SSE (Server-Sent Events)`. The startup commands and configurations for these proxied servers are defined in `mcp_server_composer.toml`.
+- **`Embedded`**: Python packages that implement MCP servers using the Python MCP SDK. These are loaded in-process and configured via a manual list in `mcp_compose.toml`.
+- **`Proxied`**: External MCP servers accessible via `STDIO` or `SSE (Server-Sent Events)`. The startup commands and configurations for these proxied servers are defined in `mcp_compose.toml`.
 
 The supported exposed **transports** are the official MCP transports: `STDIO` and `SSE (Server-Sent Events)`.
 
@@ -64,12 +64,12 @@ The supported exposed **transports** are the official MCP transports: `STDIO` an
 
 ## Configuration
 
-All configuration is managed through a single `mcp_server_composer.toml` file. The previous dependency on `pyproject.toml` is removed.
+All configuration is managed through a single `mcp_compose.toml` file. The previous dependency on `pyproject.toml` is removed.
 
 ### Configuration Schema
 
 ```toml
-# mcp_server_composer.toml
+# mcp_compose.toml
 
 # ============================================================================
 # Composer Settings
@@ -728,7 +728,7 @@ Protects against abuse and ensures fair resource allocation:
 - Imported as Python modules
 - Share same process space
 - Direct function calls (no IPC overhead)
-- Configured via manual list in `mcp_server_composer.toml`
+- Configured via manual list in `mcp_compose.toml`
 - Must be installed in Python environment
 
 **Configuration:**
@@ -818,7 +818,7 @@ mode = "proxy"  # or "translator"
 **Timeline**: Weeks 1-4
 
 **Deliverables:**
-- ✅ Migration from `pyproject.toml` to `mcp_server_composer.toml`
+- ✅ Migration from `pyproject.toml` to `mcp_compose.toml`
 - ✅ Configuration schema implementation and validation
 - ✅ Enhanced Tool Manager with all conflict resolution strategies
 - ✅ Process Manager for STDIO proxied servers
@@ -1002,8 +1002,8 @@ mcp-compose serve --config /etc/mcp-composer/config.toml
 ### Docker Container
 ```dockerfile
 FROM python:3.11-slim
-COPY mcp_server_composer.toml /config/
-CMD ["mcp-compose", "serve", "--config", "/config/mcp_server_composer.toml"]
+COPY mcp_compose.toml /config/
+CMD ["mcp-compose", "serve", "--config", "/config/mcp_compose.toml"]
 ```
 
 ### Kubernetes
@@ -1021,7 +1021,7 @@ spec:
         image: datalayer/mcp-composer:latest
         env:
         - name: MCP_CONFIG
-          value: /config/mcp_server_composer.toml
+          value: /config/mcp_compose.toml
         volumeMounts:
         - name: config
           mountPath: /config

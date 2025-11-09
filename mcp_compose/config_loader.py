@@ -93,7 +93,7 @@ def load_config_from_dict(config_data: Dict) -> MCPComposerConfig:
 
 def find_config_file(
     start_dir: Optional[Union[str, Path]] = None,
-    filename: str = "mcp_server_composer.toml"
+    filename: str = "mcp_compose.toml"
 ) -> Optional[Path]:
     """
     Search for configuration file in current directory and parent directories.

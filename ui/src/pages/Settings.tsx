@@ -237,7 +237,7 @@ export default function Settings() {
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Documentation</span>
-            <a href="https://github.com/datalayer/mcp-server-composer" className="text-primary hover:underline">
+            <a href="https://github.com/datalayer/mcp-compose" className="text-primary hover:underline">
               View on GitHub
             </a>
           </div>

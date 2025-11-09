@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import Mock, patch
 from pathlib import Path
 
-from mcp_server_composer import (
+from mcp_compose import (
     MCPServerComposer,
     ConflictResolution,
     MCPServerDiscovery,
@@ -42,7 +42,7 @@ class TestMCPServerComposer:
         assert composer.conflict_resolution == ConflictResolution.OVERRIDE
         assert composer.discovery is custom_discovery
 
-    @patch('mcp_server_composer.discovery.MCPServerDiscovery.discover_from_pyproject')
+    @patch('mcp_compose.discovery.MCPServerDiscovery.discover_from_pyproject')
     def test_compose_from_pyproject_no_servers(self, mock_discover):
         """Test composition when no servers are discovered."""
         mock_discover.return_value = {}
@@ -53,7 +53,7 @@ class TestMCPServerComposer:
         assert result is composer.composed_server
         assert len(composer.composed_tools) == 0
 
-    @patch('mcp_server_composer.discovery.MCPServerDiscovery.discover_from_pyproject')
+    @patch('mcp_compose.discovery.MCPServerDiscovery.discover_from_pyproject')
     def test_compose_from_pyproject_with_servers(self, mock_discover):
         """Test composition with discovered servers."""
         # Mock discovered servers

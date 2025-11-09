@@ -6,8 +6,8 @@ import asyncio
 import pytest
 import httpx
 import json
-from mcp_server_composer.transport.sse_server import SSETransport, create_sse_server
-from mcp_server_composer.transport.base import TransportType
+from mcp_compose.transport.sse_server import SSETransport, create_sse_server
+from mcp_compose.transport.base import TransportType
 
 
 class TestSSETransport:

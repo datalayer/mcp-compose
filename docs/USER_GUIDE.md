@@ -41,14 +41,14 @@ MCP Server Composer is a comprehensive solution for managing and composing multi
 ### Install from PyPI
 
 ```bash
-pip install mcp-server-composer
+pip install mcp-compose
 ```
 
 ### Install from Source
 
 ```bash
-git clone https://github.com/datalayer/mcp-server-composer.git
-cd mcp-server-composer
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
 pip install -e .
 ```
 
@@ -62,7 +62,7 @@ mcp-composer --version
 
 ### 1. Create Configuration File
 
-Create `mcp_server_composer.toml`:
+Create `mcp_compose.toml`:
 
 ```toml
 [composer]
@@ -85,7 +85,7 @@ transport = "stdio"
 ### 2. Start the Composer
 
 ```bash
-mcp-composer serve --config mcp_server_composer.toml
+mcp-composer serve --config mcp_compose.toml
 ```
 
 ### 3. Access the Web UI
@@ -466,7 +466,7 @@ mcp-composer start-server filesystem
 
 **Via Python:**
 ```python
-from mcp_server_composer import MCPServerComposer
+from mcp_compose import MCPServerComposer
 
 composer = MCPServerComposer.from_config("config.toml")
 await composer.start_server("filesystem")
@@ -717,9 +717,9 @@ mcp-composer invoke-tool calculator:add '{}'
 
 ### Getting Help
 
-**Documentation:** https://github.com/datalayer/mcp-server-composer
+**Documentation:** https://github.com/datalayer/mcp-compose
 
-**Issues:** https://github.com/datalayer/mcp-server-composer/issues
+**Issues:** https://github.com/datalayer/mcp-compose/issues
 
 **Community:** Join our discussions on GitHub
 

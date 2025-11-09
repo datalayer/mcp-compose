@@ -10,8 +10,8 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 
-from mcp_server_composer.api import create_app
-from mcp_server_composer.api.dependencies import set_composer
+from mcp_compose.api import create_app
+from mcp_compose.api.dependencies import set_composer
 
 
 @pytest.fixture

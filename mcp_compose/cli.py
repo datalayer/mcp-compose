@@ -199,7 +199,7 @@ def serve_command(args: argparse.Namespace) -> int:
             config_path = find_config_file()
             if config_path is None:
                 print("Error: No configuration file found.", file=sys.stderr)
-                print("Create mcp_server_composer.toml in current directory or use --config", file=sys.stderr)
+                print("Create mcp_compose.toml in current directory or use --config", file=sys.stderr)
                 return 1
         
         print(f"Loading configuration from: {config_path}")
@@ -260,7 +260,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
             stdio_servers = config.servers.proxied.stdio
             
             if not stdio_servers:
-                print("⚠️  No servers configured in mcp_server_composer.toml")
+                print("⚠️  No servers configured in mcp_compose.toml")
                 print()
                 return 1
             
@@ -381,7 +381,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
 def create_parser() -> argparse.ArgumentParser:
     """Create the CLI argument parser."""
     parser = argparse.ArgumentParser(
-        prog="mcp-server-composer",
+        prog="mcp-compose",
         description="Compose multiple MCP servers into a unified server",
     )
     
@@ -401,7 +401,7 @@ def create_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument(
         "-c", "--config",
         type=str,
-        help="Path to mcp_server_composer.toml file (default: auto-detect)",
+        help="Path to mcp_compose.toml file (default: auto-detect)",
     )
     serve_parser.add_argument(
         "--host",

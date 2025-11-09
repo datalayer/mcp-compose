@@ -9,7 +9,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from mcp_server_composer.cli import (
+from mcp_compose.cli import (
     main,
     compose_command,
     discover_command,
@@ -17,7 +17,7 @@ from mcp_server_composer.cli import (
     print_summary,
     print_discovery_results,
 )
-from mcp_server_composer import MCPServerInfo, ConflictResolution
+from mcp_compose import MCPServerInfo, ConflictResolution
 
 
 class TestCLI:
@@ -84,7 +84,7 @@ class TestCLI:
         assert args.pyproject == 'custom/pyproject.toml'
         assert args.output_format == 'json'
 
-    @patch('mcp_server_composer.cli.MCPServerComposer')
+    @patch('mcp_compose.cli.MCPServerComposer')
     def test_compose_command_success(self, mock_composer_class):
         """Test successful compose command execution."""
         # Mock composer instance
@@ -118,7 +118,7 @@ class TestCLI:
         assert result == 0
         mock_composer.compose_from_pyproject.assert_called_once()
 
-    @patch('mcp_server_composer.cli.MCPServerComposer')
+    @patch('mcp_compose.cli.MCPServerComposer')
     def test_compose_command_with_output(self, mock_composer_class):
         """Test compose command with output file."""
         mock_composer = Mock()
@@ -153,7 +153,7 @@ class TestCLI:
             # Check that file was created
             assert Path(tmp_file.name).exists()
 
-    @patch('mcp_server_composer.cli.MCPServerDiscovery')
+    @patch('mcp_compose.cli.MCPServerDiscovery')
     def test_discover_command_success(self, mock_discovery_class):
         """Test successful discover command execution."""
         # Mock discovery instance
@@ -178,7 +178,7 @@ class TestCLI:
         assert result == 0
         mock_discovery.discover_from_pyproject.assert_called_once()
 
-    @patch('mcp_server_composer.cli.MCPServerDiscovery')
+    @patch('mcp_compose.cli.MCPServerDiscovery')
     def test_discover_command_json_output(self, mock_discovery_class):
         """Test discover command with JSON output."""
         mock_discovery = Mock()
@@ -262,7 +262,7 @@ class TestCLI:
         assert 'Tools: 2' in output
         assert 'Prompts: 1' in output
 
-    @patch('mcp_server_composer.cli.create_parser')
+    @patch('mcp_compose.cli.create_parser')
     def test_main_no_command(self, mock_create_parser):
         """Test main function with no command."""
         mock_parser = Mock()
@@ -274,8 +274,8 @@ class TestCLI:
         assert result == 1
         mock_parser.print_help.assert_called_once()
 
-    @patch('mcp_server_composer.cli.compose_command')
-    @patch('mcp_server_composer.cli.create_parser')
+    @patch('mcp_compose.cli.compose_command')
+    @patch('mcp_compose.cli.create_parser')
     def test_main_compose_command(self, mock_create_parser, mock_compose):
         """Test main function with compose command."""
         mock_args = Mock(command='compose', verbose=False)
@@ -289,8 +289,8 @@ class TestCLI:
         assert result == 0
         mock_compose.assert_called_once_with(mock_args)
 
-    @patch('mcp_server_composer.cli.discover_command')
-    @patch('mcp_server_composer.cli.create_parser')
+    @patch('mcp_compose.cli.discover_command')
+    @patch('mcp_compose.cli.create_parser')
     def test_main_discover_command(self, mock_create_parser, mock_discover):
         """Test main function with discover command."""
         mock_args = Mock(command='discover', verbose=False)

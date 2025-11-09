@@ -71,7 +71,7 @@ Host: localhost:8080
   "resource": "http://localhost:8080",
   "authorization_servers": ["http://localhost:8080"],
   "bearer_methods_supported": ["header"],
-  "resource_documentation": "https://github.com/datalayer/mcp-server-composer"
+  "resource_documentation": "https://github.com/datalayer/mcp-compose"
 }
 ```
 

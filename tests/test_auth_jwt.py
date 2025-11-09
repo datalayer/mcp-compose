@@ -7,13 +7,13 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from mcp_server_composer.auth import (
+from mcp_compose.auth import (
     AuthContext,
     AuthType,
     ExpiredTokenError,
     InvalidCredentialsError,
 )
-from mcp_server_composer.auth_jwt import (
+from mcp_compose.auth_jwt import (
     JWTAuthenticator,
     create_jwt_authenticator,
 )

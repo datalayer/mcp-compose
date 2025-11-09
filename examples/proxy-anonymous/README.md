@@ -25,7 +25,7 @@ Both servers run in **proxy mode** via STDIO transport and are managed by the MC
 
 - **Two Simple Servers**: Calculator and Echo servers with basic tools
 - **Pure Python**: No external dependencies beyond FastMCP
-- **Configuration-Based**: Define servers in `mcp_server_composer.toml`
+- **Configuration-Based**: Define servers in `mcp_compose.toml`
 - **Process Management**: Composer manages server lifecycles
 - **STDIO Transport**: Standard input/output for MCP communication
 - **SSE API**: Unified MCP server endpoint for client connections (coming soon)
@@ -43,7 +43,7 @@ make install
 ```
 
 This will install:
-- `mcp-server-composer` (the orchestrator)
+- `mcp-compose` (the orchestrator)
 - `fastmcp` (for the demo MCP servers)
 
 The example includes two simple Python MCP servers:
@@ -57,7 +57,7 @@ make start
 ```
 
 The composer will:
-- Read configuration from `mcp_server_composer.toml`
+- Read configuration from `mcp_compose.toml`
 - Start both Calculator and Echo MCP servers as child processes
 - Manage their lifecycles (coming soon: unified SSE endpoint)
 
@@ -92,7 +92,7 @@ Press `Ctrl+C` in the terminal where the composer is running.
 ## � Features
 
 - **Multiple Servers**: Git and Filesystem servers orchestrated together
-- **Configuration-Based**: Define servers in `mcp_server_composer.toml`
+- **Configuration-Based**: Define servers in `mcp_compose.toml`
 - **Process Management**: Composer manages server lifecycles
 - **STDIO Transport**: Standard input/output for MCP communication
 - **Easy Management**: Simple make commands to control everything
@@ -106,7 +106,7 @@ make install
 ```
 
 This will install:
-- `mcp-server-composer` (the orchestrator)
+- `mcp-compose` (the orchestrator)
 - `mcp-server-git` (Git operations)
 - `mcp-server-filesystem` (File operations)
 
@@ -117,7 +117,7 @@ make start
 ```
 
 The composer will:
-- Read configuration from `mcp_server_composer.toml`
+- Read configuration from `mcp_compose.toml`
 - Start both Git and Filesystem MCP servers
 - Manage their processes
 - Handle auto-restart if servers crash
@@ -254,7 +254,7 @@ Access the Web UI at http://localhost:8000
 
 ## 🔧 Configuration
 
-The configuration file `mcp_server_composer.toml` defines:
+The configuration file `mcp_compose.toml` defines:
 
 ```toml
 [composer]

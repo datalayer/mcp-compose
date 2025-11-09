@@ -7,7 +7,7 @@ requires = ["hatchling~=1.21"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mcp_server_composer"
+name = "mcp_compose"
 authors = [{ name = "Datalayer", email = "info@datalayer.ai" }]
 dynamic = ["version"]
 readme = "README.md"
@@ -50,16 +50,16 @@ dev = ["pre-commit>=3.0.0"]
 file = "LICENSE"
 
 [project.urls]
-Home = "https://github.com/datalayer/mcp-server-composer"
-Documentation = "https://github.com/datalayer/mcp-server-composer"
-Repository = "https://github.com/datalayer/mcp-server-composer"
-Issues = "https://github.com/datalayer/mcp-server-composer/issues"
+Home = "https://github.com/datalayer/mcp-compose"
+Documentation = "https://github.com/datalayer/mcp-compose"
+Repository = "https://github.com/datalayer/mcp-compose"
+Issues = "https://github.com/datalayer/mcp-compose/issues"
 
 [project.scripts]
-mcp-server-composer = "mcp_server_composer.cli:main"
+mcp-compose = "mcp_compose.cli:main"
 
 [tool.hatch.version]
-path = "mcp_server_composer/__version__.py"
+path = "mcp_compose/__version__.py"
 
 [tool.ruff]
 target-version = "py310"
@@ -96,7 +96,7 @@ python_functions = ["test_*"]
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=mcp_server_composer",
+    "--cov=mcp_compose",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",

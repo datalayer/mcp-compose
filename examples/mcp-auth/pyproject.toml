@@ -44,10 +44,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/datalayer/mcp-server-composer"
-Documentation = "https://github.com/datalayer/mcp-server-composer/tree/main/examples/mcp-auth"
-Repository = "https://github.com/datalayer/mcp-server-composer"
-Issues = "https://github.com/datalayer/mcp-server-composer/issues"
+Homepage = "https://github.com/datalayer/mcp-compose"
+Documentation = "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
+Repository = "https://github.com/datalayer/mcp-compose"
+Issues = "https://github.com/datalayer/mcp-compose/issues"
 
 [project.scripts]
 mcp-auth = "mcp_auth_example.__main__:main"

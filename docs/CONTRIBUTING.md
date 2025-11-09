@@ -50,14 +50,14 @@ We pledge to make participation in our project a harassment-free experience for 
 2. Clone your fork locally:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/mcp-server-composer.git
-cd mcp-server-composer
+git clone https://github.com/YOUR_USERNAME/mcp-compose.git
+cd mcp-compose
 ```
 
 3. Add the upstream repository:
 
 ```bash
-git remote add upstream https://github.com/datalayer/mcp-server-composer.git
+git remote add upstream https://github.com/datalayer/mcp-compose.git
 ```
 
 ## Development Setup
@@ -90,7 +90,7 @@ npm run dev
 
 # In another terminal, start the backend
 cd ..
-mcp-composer serve --config examples/mcp_server_composer.toml
+mcp-composer serve --config examples/mcp_compose.toml
 ```
 
 ### Pre-commit Hooks
@@ -181,16 +181,16 @@ We follow [PEP 8](https://pep8.org/) and use:
 
 ```bash
 # Format code
-black mcp_server_composer tests
+black mcp_compose tests
 
 # Sort imports
-isort mcp_server_composer tests
+isort mcp_compose tests
 
 # Type check
-mypy mcp_server_composer
+mypy mcp_compose
 
 # Lint
-flake8 mcp_server_composer tests
+flake8 mcp_compose tests
 ```
 
 ### TypeScript/React Code Style
@@ -238,7 +238,7 @@ npm run type-check
 pytest
 
 # Run with coverage
-pytest --cov=mcp_server_composer --cov-report=html
+pytest --cov=mcp_compose --cov-report=html
 
 # Run specific test file
 pytest tests/test_composer.py
@@ -256,7 +256,7 @@ npm test
 **Python:**
 ```python
 import pytest
-from mcp_server_composer import MCPServerComposer
+from mcp_compose import MCPServerComposer
 
 def test_composer_initialization():
     """Test that composer initializes correctly."""
@@ -460,8 +460,8 @@ We use [Semantic Versioning](https://semver.org/):
 
 ### Questions?
 
-- 💬 [GitHub Discussions](https://github.com/datalayer/mcp-server-composer/discussions)
-- 🐛 [Issue Tracker](https://github.com/datalayer/mcp-server-composer/issues)
+- 💬 [GitHub Discussions](https://github.com/datalayer/mcp-compose/discussions)
+- 🐛 [Issue Tracker](https://github.com/datalayer/mcp-compose/issues)
 - 📧 Email: support@datalayer.ai
 
 ### Reporting Bugs

@@ -34,7 +34,7 @@ Expected response:
         "protected_resource": "http://localhost:8080/.well-known/oauth-protected-resource",
         "authorization_server": "http://localhost:8080/.well-known/oauth-authorization-server"
     },
-    "documentation": "https://github.com/datalayer/mcp-server-composer/tree/main/examples/mcp-auth"
+    "documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
 }
 ```
 
@@ -63,7 +63,7 @@ Expected response:
     "resource": "http://localhost:8080",
     "authorization_servers": ["http://localhost:8080"],
     "bearer_methods_supported": ["header"],
-    "resource_documentation": "https://github.com/datalayer/mcp-server-composer/tree/main/examples/mcp-auth"
+    "resource_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
 }
 ```
 

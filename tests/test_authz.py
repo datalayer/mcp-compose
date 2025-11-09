@@ -5,7 +5,7 @@ Tests for authorization middleware.
 import pytest
 from unittest.mock import AsyncMock, Mock
 
-from mcp_server_composer.authz import (
+from mcp_compose.authz import (
     Action,
     AuthorizationMiddleware,
     Permission,
@@ -13,7 +13,7 @@ from mcp_server_composer.authz import (
     RoleManager,
     create_authorization_middleware,
 )
-from mcp_server_composer.auth import AuthContext, AuthType, InsufficientScopesError
+from mcp_compose.auth import AuthContext, AuthType, InsufficientScopesError
 
 
 class TestPermission:

@@ -4,12 +4,12 @@ import pytest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
-from mcp_server_composer.auth import (
+from mcp_compose.auth import (
     AuthType,
     AuthenticationError,
     InvalidCredentialsError,
 )
-from mcp_server_composer.auth_oauth2 import (
+from mcp_compose.auth_oauth2 import (
     OAuth2Provider,
     GoogleOAuth2Provider,
     GitHubOAuth2Provider,

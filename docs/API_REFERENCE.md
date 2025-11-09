@@ -768,7 +768,7 @@ curl -X POST http://localhost:8000/api/v1/translators/my-translator/translate \
 ### MCPServerComposer Class
 
 ```python
-from mcp_server_composer import MCPServerComposer, ConflictResolution
+from mcp_compose import MCPServerComposer, ConflictResolution
 
 # Create composer from config
 composer = MCPServerComposer.from_config("config.toml")
@@ -979,6 +979,6 @@ Currently no rate limiting is implemented. Future versions may include configura
 
 ## Support
 
-- Documentation: https://github.com/datalayer/mcp-server-composer
-- Issues: https://github.com/datalayer/mcp-server-composer/issues
+- Documentation: https://github.com/datalayer/mcp-compose
+- Issues: https://github.com/datalayer/mcp-compose/issues
 - API Updates: Check CHANGELOG.md

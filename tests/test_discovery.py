@@ -7,9 +7,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from mcp_server_composer.discovery import MCPServerDiscovery, MCPServerInfo
-from mcp_server_composer.exceptions import MCPDiscoveryError, MCPImportError
-from mcp_server_composer.config import EmbeddedServerConfig, MCPComposerConfig, ServersConfig, EmbeddedServersConfig
+from mcp_compose.discovery import MCPServerDiscovery, MCPServerInfo
+from mcp_compose.exceptions import MCPDiscoveryError, MCPImportError
+from mcp_compose.config import EmbeddedServerConfig, MCPComposerConfig, ServersConfig, EmbeddedServersConfig
 
 
 class TestMCPServerDiscovery:
@@ -96,7 +96,7 @@ class TestMCPServerDiscovery:
         assert not discovery._is_mcp_server_package("fastapi")
         assert not discovery._is_mcp_server_package("pytest")
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_analyze_mcp_server_success(self, mock_import):
         """Test successful MCP server analysis."""
         # Mock the imported module
@@ -124,7 +124,7 @@ class TestMCPServerDiscovery:
         assert "test_prompt" in info.prompts
         assert "test_resource" in info.resources
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_analyze_mcp_server_import_error(self, mock_import):
         """Test MCP server analysis with import error."""
         mock_import.side_effect = ImportError("Module not found")
@@ -134,7 +134,7 @@ class TestMCPServerDiscovery:
         with pytest.raises(MCPImportError):
             discovery._analyze_mcp_server("nonexistent_package", "1.0.0")
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_analyze_mcp_server_no_app(self, mock_import):
         """Test MCP server analysis when module has no app attribute."""
         # Create a module-like object that doesn't have any server names
@@ -146,7 +146,7 @@ class TestMCPServerDiscovery:
         with pytest.raises(MCPImportError):
             discovery._analyze_mcp_server("test_package", "1.0.0")
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_analyze_mcp_server_missing_managers(self, mock_import):
         """Test MCP server analysis with missing managers."""
         mock_server = Mock()
@@ -189,8 +189,8 @@ class TestMCPServerDiscovery:
             
         assert len(discovered) == 0
 
-    @patch('mcp_server_composer.discovery.MCPServerDiscovery._analyze_mcp_server')
-    @patch('mcp_server_composer.discovery.MCPServerDiscovery._is_mcp_server_package')
+    @patch('mcp_compose.discovery.MCPServerDiscovery._analyze_mcp_server')
+    @patch('mcp_compose.discovery.MCPServerDiscovery._is_mcp_server_package')
     def test_discover_from_pyproject_with_mcp_servers(self, mock_is_mcp, mock_analyze):
         """Test discovery with actual MCP servers."""
         toml_content = """
@@ -297,7 +297,7 @@ class TestMCPServerInfo:
 class TestConfigBasedDiscovery:
     """Test cases for config-based discovery."""
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_discover_from_config_with_single_server(self, mock_import):
         """Test discovering servers from configuration with single server."""
         # Mock the imported module
@@ -322,7 +322,7 @@ class TestConfigBasedDiscovery:
         assert len(servers) == 1
         mock_import.assert_called_once_with("test_mcp_server")
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_discover_from_config_with_full_config(self, mock_import):
         """Test discovering servers from full MCPComposerConfig."""
         # Mock the imported module
@@ -358,7 +358,7 @@ class TestConfigBasedDiscovery:
         assert "server2" in servers
         assert len(servers) == 2
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_discover_from_config_skip_disabled(self, mock_import):
         """Test that disabled servers are skipped."""
         # Mock the imported module
@@ -389,7 +389,7 @@ class TestConfigBasedDiscovery:
         assert len(servers) == 1
         mock_import.assert_called_once()  # Only called for enabled server
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_discover_from_config_with_version(self, mock_import):
         """Test discovering server with version constraint."""
         # Mock the imported module
@@ -414,7 +414,7 @@ class TestConfigBasedDiscovery:
         assert "versioned-server" in servers
         assert len(servers) == 1
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_discover_from_config_import_error(self, mock_import):
         """Test error handling when import fails."""
         # Mock import to raise error
@@ -432,7 +432,7 @@ class TestConfigBasedDiscovery:
         with pytest.raises(MCPDiscoveryError):
             discovery.discover_from_config(server_configs)
 
-    @patch('mcp_server_composer.discovery.importlib.import_module')
+    @patch('mcp_compose.discovery.importlib.import_module')
     def test_discover_from_config_custom_name(self, mock_import):
         """Test that custom server name is used instead of package name."""
         # Mock the imported module

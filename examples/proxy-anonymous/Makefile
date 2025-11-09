@@ -5,7 +5,7 @@ help:
 	@echo "Git-File MCP Server Composer Example - Makefile"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  install        - Install mcp-server-composer and MCP servers"
+	@echo "  install        - Install mcp-compose and MCP servers"
 	@echo "  install-agent  - Install pydantic-ai for agent support"
 	@echo "  start          - Start the MCP Server Composer (manages both servers)"
 	@echo "  agent          - Run the AI agent (requires composer to be running)"
@@ -15,7 +15,7 @@ help:
 
 # Install dependencies
 install:
-	@echo "Installing mcp-server-composer..."
+	@echo "Installing mcp-compose..."
 	pip install -e ../..
 	@echo ""
 	@echo "Installing FastMCP for demo servers..."
@@ -49,7 +49,7 @@ install-agent:
 start:
 	@echo "Starting MCP Server Composer..."
 	@echo ""
-	mcp-server-composer serve --config mcp_server_composer.toml
+	mcp-compose serve --config mcp_compose.toml
 
 # Run the AI agent
 agent:
