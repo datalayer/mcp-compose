@@ -1,0 +1,123 @@
+.PHONY: help install install-agent setup-auth start agent stop clean
+
+# Default target
+help:
+	@echo "Anaconda Authentication MCP Compose Example - Makefile"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  install        - Install mcp-compose and dependencies"
+	@echo "  setup-auth     - Check Anaconda authentication setup"
+	@echo "  install-agent  - Install pydantic-ai for agent support"
+	@echo "  start          - Start the MCP Compose with authentication"
+	@echo "  agent          - Run the AI agent (requires composer running)"
+	@echo "  stop           - Stop the MCP Compose"
+	@echo "  clean          - Clean up temporary files"
+	@echo ""
+
+# Install dependencies
+install:
+	@echo "Installing mcp-compose..."
+	pip install -e ../..
+	@echo ""
+	@echo "Installing FastMCP for demo servers..."
+	pip install fastmcp
+	@echo ""
+	@echo "Installing anaconda-auth for authentication..."
+	pip install anaconda-auth
+	@echo ""
+	@echo "✓ Installation complete!"
+	@echo ""
+	@echo "This example demonstrates Anaconda authentication at the composer level."
+	@echo ""
+	@echo "Backend servers:"
+	@echo "  • mcp1.py - Calculator tools (add, subtract, multiply, divide)"
+	@echo "  • mcp2.py - Echo tools (ping, echo, reverse, uppercase, etc.)"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Set up authentication: make setup-auth"
+	@echo "  2. Start the composer:    make start"
+	@echo "  3. Use the AI agent:      make install-agent && make agent"
+
+# Check authentication setup
+setup-auth:
+	@echo "Checking Anaconda authentication setup..."
+	@echo ""
+	@if [ -z "$$ANACONDA_API_KEY" ]; then \
+		echo "❌ ANACONDA_API_KEY environment variable not set"; \
+		echo ""; \
+		echo "Please set your Anaconda API key:"; \
+		echo "  export ANACONDA_API_KEY='your-api-key-here'"; \
+		echo ""; \
+		echo "To get an API key:"; \
+		echo "  1. Go to https://anaconda.com/app"; \
+		echo "  2. Navigate to Settings → Access"; \
+		echo "  3. Create a new API key"; \
+		echo ""; \
+		exit 1; \
+	else \
+		echo "✓ ANACONDA_API_KEY is set"; \
+		echo ""; \
+		echo "Testing authentication..."; \
+		anaconda auth whoami 2>/dev/null && echo "✓ Authentication successful!" || echo "⚠️  Could not verify authentication"; \
+	fi
+
+# Install pydantic-ai for agent support
+install-agent:
+	@echo "Installing pydantic-ai with MCP support..."
+	pip install 'pydantic-ai[mcp]'
+	@echo ""
+	@echo "✓ Agent dependencies installed!"
+	@echo ""
+	@echo "Usage:"
+	@echo "  1. Start composer: make start"
+	@echo "  2. In another terminal: make agent"
+
+# Start the MCP Compose (no auth key required to start)
+start:
+	@echo "Starting MCP Compose..."
+	@echo ""
+	@echo "Configuration:"
+	@echo "  • Authentication: Bearer token validation (when implemented)"
+	@echo "  • Backend servers: calculator, echo"
+	@echo "  • Port: 8080"
+	@echo ""
+	@echo "Note: Server starts without requiring ANACONDA_API_KEY."
+	@echo "      Clients must provide valid Anaconda bearer tokens."
+	@echo ""
+	mcp-compose serve --config mcp_compose.toml
+
+# Run the AI agent
+agent:
+	@echo "Starting AI Agent with Anaconda authentication..."
+	@echo ""
+	@echo "⚠️  Prerequisites:"
+	@echo "   1. MCP Compose must be running (make start)"
+	@echo "   2. Anaconda account credentials (will use login() if needed)"
+	@echo ""
+	@echo "The agent will authenticate using anaconda_auth.login() if needed."
+	@echo "This will open your browser for authentication."
+	@echo ""
+	@echo "Usage: python agent.py [model]"
+	@echo "  Default: anthropic:claude-sonnet-4-0"
+	@echo "  Examples:"
+	@echo "    python agent.py openai:gpt-4o"
+	@echo "    python agent.py anthropic:claude-sonnet-4-0"
+	@echo "    python agent.py azure-openai:gpt-4o-mini"
+	@echo ""
+	@echo "Note: For Azure OpenAI, set these environment variables:"
+	@echo "  - AZURE_OPENAI_API_KEY"
+	@echo "  - AZURE_OPENAI_ENDPOINT"
+	@echo "  - AZURE_OPENAI_API_VERSION (optional)"
+	@echo ""
+	python agent.py azure-openai:gpt-4o-mini
+
+# Stop the composer (use Ctrl+C in the terminal where it's running)
+stop:
+	@echo "To stop the composer, press Ctrl+C in the terminal where it's running"
+
+# Clean up
+clean:
+	@echo "Cleaning up..."
+	@rm -f *.log nohup.out
+	@rm -f .composer.pid composer.log
+	@echo "✓ Cleanup complete"

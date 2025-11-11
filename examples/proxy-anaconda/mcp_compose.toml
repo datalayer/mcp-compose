@@ -1,0 +1,39 @@
+# MCP Compose Configuration
+# Anaconda Authentication Example
+
+[composer]
+name = "anaconda-composer"
+conflict_resolution = "prefix"  # Prefix tool names with server name
+log_level = "INFO"
+
+# ============================================================================
+# Authentication Configuration
+# ============================================================================
+# TODO: Implement Anaconda bearer token validation
+# The composer will validate incoming bearer tokens using:
+#   from anaconda_auth.token import TokenInfo
+#   TokenInfo(domain="anaconda.com", api_key=bearer_token).get_access_token()
+#
+# For now, authentication is disabled to allow the example to run.
+# See README.md for implementation details.
+
+# [authentication]
+# enabled = false
+
+# ============================================================================
+# Backend MCP Servers (No auth - accessed via composer only)
+# ============================================================================
+
+# Calculator MCP Server (Proxied via STDIO)
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "mcp1.py"]
+restart_policy = "never"
+# Calculator tools: add, subtract, multiply, divide
+
+# Echo MCP Server (Proxied via STDIO)
+[[servers.proxied.stdio]]
+name = "echo"
+command = ["python", "mcp2.py"]
+restart_policy = "never"
+# Echo tools: ping, echo, reverse, uppercase, lowercase, count_words
