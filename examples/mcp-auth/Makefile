@@ -44,7 +44,20 @@ client:
 # Run the pydantic-ai agent
 agent:
 	@echo "🤖 Starting pydantic-ai agent..."
-	mcp-auth-agent
+	@echo ""
+	@echo "Usage: mcp-auth-agent [model]"
+	@echo "  Default: anthropic:claude-sonnet-4-0"
+	@echo "  Examples:"
+	@echo "    mcp-auth-agent openai:gpt-4o"
+	@echo "    mcp-auth-agent anthropic:claude-sonnet-4-0"
+	@echo "    mcp-auth-agent azure-openai:gpt-4o-mini"
+	@echo ""
+	@echo "Note: For Azure OpenAI, set these environment variables:"
+	@echo "  - AZURE_OPENAI_API_KEY"
+	@echo "  - AZURE_OPENAI_ENDPOINT (base URL, e.g., https://your-resource.openai.azure.com)"
+	@echo "  - AZURE_OPENAI_API_VERSION (optional)"
+	@echo ""
+	mcp-auth-agent azure-openai:gpt-4o-mini
 
 # Run tests
 test:

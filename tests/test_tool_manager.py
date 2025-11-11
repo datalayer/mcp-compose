@@ -4,15 +4,15 @@ Tests for Tool Manager.
 
 import pytest
 
-from mcp_server_composer.config import (
+from mcp_compose.config import (
     ConflictResolutionStrategy,
     CustomTemplateConfig,
     ToolManagerConfig,
     ToolOverrideConfig,
     VersioningConfig,
 )
-from mcp_server_composer.exceptions import MCPToolConflictError
-from mcp_server_composer.tool_manager import ToolManager
+from mcp_compose.exceptions import MCPToolConflictError
+from mcp_compose.tool_manager import ToolManager
 
 
 class TestToolManager:

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_server_composer.config import (
+from mcp_compose.config import (
     ApiConfig,
     AuthenticationConfig,
     AuthorizationConfig,
@@ -29,13 +29,13 @@ from mcp_server_composer.config import (
     TransportConfig,
     UiConfig,
 )
-from mcp_server_composer.config_loader import (
+from mcp_compose.config_loader import (
     find_config_file,
     load_config,
     load_config_from_dict,
     validate_config_file,
 )
-from mcp_server_composer.exceptions import MCPConfigurationError
+from mcp_compose.exceptions import MCPConfigurationError
 
 
 class TestConfigModels:
@@ -305,7 +305,7 @@ port = 8080
     def test_find_config_file_in_current_dir(self):
         """Test finding config file in current directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "mcp_server_composer.toml"
+            config_path = Path(tmpdir) / "mcp_compose.toml"
             config_path.write_text("[composer]\nname = 'test'")
             
             found_path = find_config_file(start_dir=tmpdir)
@@ -314,7 +314,7 @@ port = 8080
     def test_find_config_file_in_parent_dir(self):
         """Test finding config file in parent directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "mcp_server_composer.toml"
+            config_path = Path(tmpdir) / "mcp_compose.toml"
             config_path.write_text("[composer]\nname = 'test'")
             
             # Create subdirectory

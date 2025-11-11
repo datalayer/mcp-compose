@@ -10,7 +10,7 @@ from typing import Dict, Any
 
 import pytest
 
-from mcp_server_composer.transport import STDIOTransport, TransportType, create_stdio_transport
+from mcp_compose.transport import STDIOTransport, TransportType, create_stdio_transport
 
 
 # Helper script for testing - acts as a simple echo server

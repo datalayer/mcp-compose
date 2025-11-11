@@ -82,16 +82,24 @@ def authenticate() -> tuple[str, str]:
     return token, server_url
 
 
-def create_agent(access_token: str, server_url: str) -> Agent:
+def create_agent(access_token: str, server_url: str, model: str = "anthropic:claude-sonnet-4-0") -> Agent:
     """
     Create a pydantic-ai Agent connected to the authenticated MCP server
     
     Args:
         access_token: OAuth2 access token for authentication
         server_url: MCP server base URL
+        model: Model string in format 'provider:model-name' (e.g., 'anthropic:claude-sonnet-4-0', 'openai:gpt-4o')
+               For Azure OpenAI, use 'azure-openai:deployment-name'
     
     Returns:
         Configured pydantic-ai Agent
+    
+    Note:
+        For Azure OpenAI, requires these environment variables:
+        - AZURE_OPENAI_API_KEY
+        - AZURE_OPENAI_ENDPOINT (base URL only, e.g., https://your-resource.openai.azure.com)
+        - AZURE_OPENAI_API_VERSION (optional, defaults to latest)
     """
     print("\n" + "=" * 70)
     print("🏗️  Creating AI Agent with MCP Tools")
@@ -111,12 +119,20 @@ def create_agent(access_token: str, server_url: str) -> Agent:
         max_retries=2
     )
     
-    print("\n🤖 Initializing Agent with Anthropic Claude Sonnet 4.5")
+    print(f"\n🤖 Initializing Agent with {model}")
     
-    # Create Agent with Anthropic Claude Sonnet 4.5
+    # Handle Azure OpenAI specially - needs OpenAIChatModel with provider='azure'
+    model_obj = model
+    if model.startswith('azure-openai:'):
+        from pydantic_ai.models.openai import OpenAIChatModel
+        deployment_name = model.split(':', 1)[1]
+        model_obj = OpenAIChatModel(deployment_name, provider='azure')
+        print(f"   Using Azure OpenAI deployment: {deployment_name}")
+    
+    # Create Agent with the specified model
     # The agent will have access to all tools from the MCP server
     agent = Agent(
-        model='anthropic:claude-sonnet-4-0',
+        model=model_obj,
         toolsets=[mcp_server],
         system_prompt="""You are a helpful AI assistant with access to MCP server tools.
 
@@ -148,13 +164,20 @@ def main():
     if sys.stdout.encoding != 'utf-8':
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     
+    # Parse command-line arguments
+    model = "anthropic:claude-sonnet-4-0"  # Default model
+    if len(sys.argv) > 1:
+        model = sys.argv[1]
+    
     agent = None
     try:
+        print(f"\nUsing model: {model}")
+        
         # Step 1: Authenticate with OAuth2
         access_token, server_url = authenticate()
         
         # Step 2: Create agent with MCP server connection
-        agent = create_agent(access_token, server_url)
+        agent = create_agent(access_token, server_url, model=model)
         
         # Step 3: Launch interactive CLI
         print("\n" + "=" * 70)
@@ -179,7 +202,7 @@ def main():
         async def _run_cli() -> None:
             assert agent is not None
             async with agent:
-                await agent.to_cli()
+                await agent.to_cli(prog_name='mcp-auth-example')
 
         asyncio.run(_run_cli())
     
@@ -193,7 +216,7 @@ def main():
     except FileNotFoundError:
         print("\n❌ Error: config.json not found")
         print("   Please create config.json with your GitHub OAuth credentials")
-        print("   See the example in examples/mcp_server_composer.toml")
+        print("   See the example in examples/mcp_compose.toml")
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback

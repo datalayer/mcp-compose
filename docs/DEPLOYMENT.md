@@ -1,4 +1,4 @@
-# MCP Server Composer - Deployment Guide
+# MCP Compose - Deployment Guide
 
 ## Table of Contents
 
@@ -77,13 +77,13 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements first for better caching
 COPY pyproject.toml README.md ./
-COPY mcp_server_composer/ ./mcp_server_composer/
+COPY mcp_compose/ ./mcp_compose/
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -e .
 
 # Copy configuration
-COPY examples/mcp_server_composer.toml /etc/mcp-composer/config.toml
+COPY examples/mcp_compose.toml /etc/mcp-composer/config.toml
 
 # Copy Web UI
 COPY ui/dist /app/ui/dist
@@ -519,7 +519,7 @@ Import dashboard JSON (create `grafana-dashboards/mcp-composer.json`):
 ```json
 {
   "dashboard": {
-    "title": "MCP Server Composer",
+    "title": "MCP Compose",
     "panels": [
       {
         "title": "HTTP Requests",
@@ -871,5 +871,5 @@ curl -v http://localhost:8000/api/v1/health
 
 ## Support
 
-- Documentation: https://github.com/datalayer/mcp-server-composer
-- Issues: https://github.com/datalayer/mcp-server-composer/issues
+- Documentation: https://github.com/datalayer/mcp-compose
+- Issues: https://github.com/datalayer/mcp-compose/issues

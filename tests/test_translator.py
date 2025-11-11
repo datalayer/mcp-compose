@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from mcp_server_composer.proxy.translator import (
+from mcp_compose.proxy.translator import (
     ProtocolTranslator,
     SseToStdioTranslator,
     StdioToSseTranslator,

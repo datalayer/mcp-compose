@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from mcp_server_composer.auth import (
+from mcp_compose.auth import (
     AuthContext,
     AuthType,
     APIKeyAuthenticator,

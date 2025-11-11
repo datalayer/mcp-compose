@@ -4,8 +4,8 @@ Tests for Composer integration with Process Manager and Tool Manager.
 
 import asyncio
 import pytest
-from mcp_server_composer.composer import MCPServerComposer, ConflictResolution
-from mcp_server_composer.config import (
+from mcp_compose.composer import MCPServerComposer, ConflictResolution
+from mcp_compose.config import (
     MCPComposerConfig,
     ServersConfig,
     ProxiedServersConfig,
@@ -15,7 +15,7 @@ from mcp_server_composer.config import (
     ToolManagerConfig,
     ConflictResolutionStrategy,
 )
-from mcp_server_composer.process import ProcessState
+from mcp_compose.process import ProcessState
 
 
 class TestComposerIntegration:

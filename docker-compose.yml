@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # MCP Server Composer
+  # MCP Compose
   mcp-composer:
     build:
       context: .
@@ -11,7 +11,7 @@ services:
       - "8000:8000"
     volumes:
       # Configuration
-      - ./examples/mcp_server_composer.toml:/app/config.toml:ro
+      - ./examples/mcp_compose.toml:/app/config.toml:ro
       # Data directory for file-based MCP servers
       - mcp-data:/data
       # Logs

@@ -5,9 +5,9 @@ Tests for process management.
 import asyncio
 import pytest
 import sys
-from mcp_server_composer.process import Process, ProcessState
-from mcp_server_composer.process_manager import ProcessManager
-from mcp_server_composer.config import StdioProxiedServerConfig
+from mcp_compose.process import Process, ProcessState
+from mcp_compose.process_manager import ProcessManager
+from mcp_compose.config import StdioProxiedServerConfig
 
 
 class TestProcess:

@@ -4,14 +4,14 @@ Tests for tool-level authorization.
 
 import pytest
 
-from mcp_server_composer.tool_authz import (
+from mcp_compose.tool_authz import (
     ToolAction,
     ToolGroup,
     ToolPermission,
     ToolPermissionManager,
     create_tool_permission_manager,
 )
-from mcp_server_composer.authz import Permission, RoleManager
+from mcp_compose.authz import Permission, RoleManager
 
 
 class TestToolPermission:

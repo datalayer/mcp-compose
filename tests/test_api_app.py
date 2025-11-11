@@ -10,20 +10,20 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 
-from mcp_server_composer.api import create_app
-from mcp_server_composer.api.dependencies import (
+from mcp_compose.api import create_app
+from mcp_compose.api.dependencies import (
     set_composer,
     set_role_manager,
     set_authz_middleware,
     set_tool_permission_manager,
 )
-from mcp_server_composer.exceptions import (
+from mcp_compose.exceptions import (
     MCPComposerError,
     MCPConfigurationError,
     MCPDiscoveryError,
     MCPToolConflictError,
 )
-from mcp_server_composer.auth import AuthenticationError, InsufficientScopesError
+from mcp_compose.auth import AuthenticationError, InsufficientScopesError
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ class TestApplication:
     def test_create_app_default(self):
         """Test creating app with default settings."""
         app = create_app()
-        assert app.title == "MCP Server Composer API"
+        assert app.title == "MCP Compose API"
         assert app.version is not None
         assert "/api/v1/health" in [route.path for route in app.routes]
     
@@ -73,7 +73,7 @@ class TestApplication:
         response = client.get("/")
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["name"] == "MCP Server Composer API"
+        assert data["name"] == "MCP Compose API"
         assert "version" in data
         assert "docs" in data
 

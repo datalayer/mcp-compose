@@ -87,7 +87,7 @@ export default function Settings() {
               placeholder="http://localhost:8000"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              The base URL for the MCP Server Composer API
+              The base URL for the MCP Compose API
             </p>
           </div>
 
@@ -225,7 +225,7 @@ export default function Settings() {
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Application</span>
-            <span className="font-mono">MCP Server Composer</span>
+            <span className="font-mono">MCP Compose</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Version</span>
@@ -237,7 +237,7 @@ export default function Settings() {
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Documentation</span>
-            <a href="https://github.com/datalayer/mcp-server-composer" className="text-primary hover:underline">
+            <a href="https://github.com/datalayer/mcp-compose" className="text-primary hover:underline">
               View on GitHub
             </a>
           </div>

@@ -1,6 +1,16 @@
+<!--
+  ~ Copyright (c) 2023-2024 Datalayer, Inc.
+  ~
+  ~ BSD 3-Clause License
+-->
+
+[![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.ai)
+
+[![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
+
 # Demo MCP Servers Example
 
-This example demonstrates how to use MCP Server Composer to manage multiple MCP servers from a configuration file.
+This example demonstrates how to use MCP Compose to manage multiple MCP servers from a configuration file.
 
 ## 🎯 Overview
 
@@ -9,13 +19,13 @@ This configuration launches two simple Python MCP servers managed by the compose
 1. **Calculator Server** (`mcp1.py`) - Math operations (add, subtract, multiply, divide)
 2. **Echo Server** (`mcp2.py`) - String operations (ping, echo, reverse, uppercase, lowercase, count_words)
 
-Both servers run in **proxy mode** via STDIO transport and are managed by the MCP Server Composer.
+Both servers run in **proxy mode** via STDIO transport and are managed by the MCP Compose.
 
 ## 📋 Features
 
 - **Two Simple Servers**: Calculator and Echo servers with basic tools
 - **Pure Python**: No external dependencies beyond FastMCP
-- **Configuration-Based**: Define servers in `mcp_server_composer.toml`
+- **Configuration-Based**: Define servers in `mcp_compose.toml`
 - **Process Management**: Composer manages server lifecycles
 - **STDIO Transport**: Standard input/output for MCP communication
 - **SSE API**: Unified MCP server endpoint for client connections (coming soon)
@@ -33,7 +43,7 @@ make install
 ```
 
 This will install:
-- `mcp-server-composer` (the orchestrator)
+- `mcp-compose` (the orchestrator)
 - `fastmcp` (for the demo MCP servers)
 
 The example includes two simple Python MCP servers:
@@ -47,7 +57,7 @@ make start
 ```
 
 The composer will:
-- Read configuration from `mcp_server_composer.toml`
+- Read configuration from `mcp_compose.toml`
 - Start both Calculator and Echo MCP servers as child processes
 - Manage their lifecycles (coming soon: unified SSE endpoint)
 
@@ -64,7 +74,7 @@ make agent
 ```
 
 The agent is designed to:
-- Connect to the MCP Server Composer via SSE
+- Connect to the MCP Compose via SSE
 - Access tools from both Calculator and Echo servers through a unified interface
 - Provide an interactive CLI powered by Anthropic Claude
 
@@ -82,7 +92,7 @@ Press `Ctrl+C` in the terminal where the composer is running.
 ## � Features
 
 - **Multiple Servers**: Git and Filesystem servers orchestrated together
-- **Configuration-Based**: Define servers in `mcp_server_composer.toml`
+- **Configuration-Based**: Define servers in `mcp_compose.toml`
 - **Process Management**: Composer manages server lifecycles
 - **STDIO Transport**: Standard input/output for MCP communication
 - **Easy Management**: Simple make commands to control everything
@@ -96,7 +106,7 @@ make install
 ```
 
 This will install:
-- `mcp-server-composer` (the orchestrator)
+- `mcp-compose` (the orchestrator)
 - `mcp-server-git` (Git operations)
 - `mcp-server-filesystem` (File operations)
 
@@ -107,7 +117,7 @@ make start
 ```
 
 The composer will:
-- Read configuration from `mcp_server_composer.toml`
+- Read configuration from `mcp_compose.toml`
 - Start both Git and Filesystem MCP servers
 - Manage their processes
 - Handle auto-restart if servers crash
@@ -244,7 +254,7 @@ Access the Web UI at http://localhost:8000
 
 ## 🔧 Configuration
 
-The configuration file `mcp_server_composer.toml` defines:
+The configuration file `mcp_compose.toml` defines:
 
 ```toml
 [composer]
@@ -440,4 +450,4 @@ BSD 3-Clause License - see [LICENSE](../../LICENSE)
 
 ---
 
-**Made with ❤️ by [Datalayer](https://datalayer.io)**
+**Made with ❤️ by [Datalayer](https://datalayer.ai)**

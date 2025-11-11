@@ -1,4 +1,4 @@
-# Multi-stage build for MCP Server Composer
+# Multi-stage build for MCP Compose
 
 # Stage 1: Build UI
 FROM node:18-alpine AS ui-builder
@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy Python package files
 COPY pyproject.toml README.md ./
-COPY mcp_server_composer/ ./mcp_server_composer/
+COPY mcp_compose/ ./mcp_compose/
 
 # Install Python dependencies
 RUN pip install --user --no-cache-dir -e .
@@ -51,11 +51,11 @@ COPY --from=python-builder /root/.local /root/.local
 COPY --from=ui-builder /ui/dist /app/ui/dist
 
 # Copy application code
-COPY mcp_server_composer/ /app/mcp_server_composer/
+COPY mcp_compose/ /app/mcp_compose/
 COPY pyproject.toml README.md /app/
 
 # Copy example configuration
-COPY examples/mcp_server_composer.toml /app/config.toml
+COPY examples/mcp_compose.toml /app/config.toml
 
 # Make sure scripts in .local are usable
 ENV PATH=/root/.local/bin:$PATH

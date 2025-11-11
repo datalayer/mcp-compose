@@ -4,15 +4,15 @@
   ~ BSD 3-Clause License
 -->
 
-[![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.io)
+[![Datalayer](https://assets.datalayer.tech/datalayer-25.svg)](https://datalayer.ai)
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# ✨ MCP Server Composer
+# ✨ MCP Compose
 
-[![PyPI - Version](https://img.shields.io/pypi/v/mcp-server-composer)](https://pypi.org/project/mcp-server-composer)
-[![Github Actions Status](https://github.com/datalayer/mcp-server-composer/workflows/Build/badge.svg)](https://github.com/datalayer/mcp-server-composer/actions/workflows/build.yml)
-[![Test Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)](https://github.com/datalayer/mcp-server-composer)
+[![PyPI - Version](https://img.shields.io/pypi/v/mcp-compose)](https://pypi.org/project/mcp-compose)
+[![Github Actions Status](https://github.com/datalayer/mcp-compose/workflows/Build/badge.svg)](https://github.com/datalayer/mcp-compose/actions/workflows/build.yml)
+[![Test Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)](https://github.com/datalayer/mcp-compose)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](Dockerfile)
@@ -21,7 +21,7 @@
 
 ## 🎯 Overview
 
-MCP Server Composer is a comprehensive solution for managing multiple MCP servers in a unified environment. It provides automatic discovery, intelligent composition, protocol translation, real-time monitoring, and a beautiful web interface for managing your MCP infrastructure.
+MCP Compose is a comprehensive solution for managing multiple MCP servers in a unified environment. It provides automatic discovery, intelligent composition, protocol translation, real-time monitoring, and a beautiful web interface for managing your MCP infrastructure.
 
 ### Key Capabilities
 
@@ -41,11 +41,11 @@ MCP Server Composer is a comprehensive solution for managing multiple MCP server
 
 ```bash
 # Install from PyPI
-pip install mcp-server-composer
+pip install mcp-compose
 
 # Or install from source
-git clone https://github.com/datalayer/mcp-server-composer.git
-cd mcp-server-composer
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
 pip install -e .
 ```
 
@@ -53,8 +53,8 @@ pip install -e .
 
 ```bash
 # Clone repository
-git clone https://github.com/datalayer/mcp-server-composer.git
-cd mcp-server-composer
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
 
 # Start with docker-compose (includes Prometheus & Grafana)
 docker-compose up -d
@@ -67,7 +67,7 @@ open http://localhost:8000
 
 ```bash
 # Start the server with Web UI
-mcp-composer serve --config examples/mcp_server_composer.toml
+mcp-composer serve --config examples/mcp_compose.toml
 
 # Access Web UI at http://localhost:8000
 # Access API at http://localhost:8000/api/v1
@@ -83,7 +83,7 @@ mcp-composer invoke-tool calculator:add '{"a": 5, "b": 3}'
 ### Using Python API
 
 ```python
-from mcp_server_composer import MCPServerComposer
+from mcp_compose import MCPServerComposer
 
 # Create composer and start servers
 composer = MCPServerComposer()
@@ -117,7 +117,7 @@ The modern web interface provides:
 
 ## 📖 Documentation
 
-- **[User Guide](docs/USER_GUIDE.md)** - Complete guide for using MCP Server Composer
+- **[User Guide](docs/USER_GUIDE.md)** - Complete guide for using MCP Compose
 - **[API Reference](docs/API_REFERENCE.md)** - Full REST API and Python API documentation
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment with Docker & Kubernetes
 - **[Architecture](ARCHITECTURE.md)** - System architecture and design decisions
@@ -136,7 +136,7 @@ The modern web interface provides:
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────┴──────────────────────────────────┐
-│                 MCP Server Composer Core                     │
+│                 MCP Compose Core                     │
 │  Server Manager │ Tool Broker │ Config Manager              │
 └───────┬──────────┬──────────┬──────────┬────────────────────┘
         │          │          │          │
@@ -193,7 +193,7 @@ The modern web interface provides:
 
 ## 🛠️ Configuration
 
-Create `mcp_server_composer.toml`:
+Create `mcp_compose.toml`:
 
 ```toml
 [composer]
@@ -287,8 +287,8 @@ make lint
 
 ```bash
 # Clone repository
-git clone https://github.com/datalayer/mcp-server-composer.git
-cd mcp-server-composer
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
 
 # Install development dependencies
 pip install -e ".[dev]"
@@ -432,7 +432,7 @@ Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) 
 
 ```bash
 # Fork and clone
-git clone https://github.com/YOUR_USERNAME/mcp-server-composer.git
+git clone https://github.com/YOUR_USERNAME/mcp-compose.git
 
 # Create feature branch
 git checkout -b feature/amazing-feature
@@ -461,13 +461,13 @@ BSD 3-Clause License - see [LICENSE](LICENSE) for details.
 ## 📧 Support
 
 - **Documentation**: [Full documentation](docs/)
-- **Issues**: [GitHub Issues](https://github.com/datalayer/mcp-server-composer/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/datalayer/mcp-server-composer/discussions)
+- **Issues**: [GitHub Issues](https://github.com/datalayer/mcp-compose/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/datalayer/mcp-compose/discussions)
 - **Sponsor**: [Become a sponsor](https://github.com/sponsors/datalayer)
 
 ---
 
-Made with ❤️ by [Datalayer](https://datalayer.io)
+Made with ❤️ by [Datalayer](https://datalayer.ai)
 composer = MCPServerComposer(
     composed_server_name="unified-data-server",
     conflict_resolution=ConflictResolution.PREFIX
@@ -485,7 +485,7 @@ print(f"Created server with {summary['total_tools']} tools")
 
 ```python
 from pathlib import Path
-from mcp_server_composer import MCPServerComposer, ConflictResolution
+from mcp_compose import MCPServerComposer, ConflictResolution
 
 # Specify custom pyproject.toml location
 composer = MCPServerComposer(
@@ -512,7 +512,7 @@ print(f"Sources: {', '.join(source_info.keys())}")
 #### Discovery Only
 
 ```python
-from mcp_server_composer import MCPServerDiscovery
+from mcp_compose import MCPServerDiscovery
 
 # Discover MCP servers without composing
 discovery = MCPServerDiscovery()
@@ -561,10 +561,10 @@ dependencies = [
 
 ```bash
 # Discover available tools
-python -m mcp_server_composer discover
+python -m mcp_compose discover
 
 # Create unified server for data science workflow
-python -m mcp_server_composer compose \
+python -m mcp_compose compose \
   --name "data-science-server" \
   --conflict-resolution prefix \
   --output unified_server.py
@@ -581,7 +581,7 @@ This creates a server with tools like:
 Combine development tools and documentation servers:
 
 ```python
-from mcp_server_composer import MCPServerComposer, ConflictResolution
+from mcp_compose import MCPServerComposer, ConflictResolution
 
 composer = MCPServerComposer(
     composed_server_name="dev-environment",
@@ -604,7 +604,7 @@ print("Available tools:", composer.list_tools())
 ### Custom Integration
 
 ```python
-from mcp_server_composer import MCPServerComposer
+from mcp_compose import MCPServerComposer
 from my_custom_server import MyMCPServer
 
 # Create composer
@@ -623,7 +623,7 @@ print(f"Final server has {summary['total_tools']} tools from {summary['source_se
 
 ## Project Structure
 
-When using MCP Server Composer, structure your project like this:
+When using MCP Compose, structure your project like this:
 
 ```
 my-project/
@@ -650,7 +650,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
-    "mcp-server-composer>=1.0.0"
+    "mcp-compose>=1.0.0"
 ]
 ```
 
@@ -659,7 +659,7 @@ dev = [
 The library provides comprehensive error handling:
 
 ```python
-from mcp_server_composer import MCPServerComposer, MCPComposerError, MCPDiscoveryError
+from mcp_compose import MCPServerComposer, MCPComposerError, MCPDiscoveryError
 
 try:
     composer = MCPServerComposer()
@@ -685,11 +685,11 @@ except MCPComposerError as e:
 
 ```bash
 # Enable verbose logging
-python -m mcp_server_composer discover --verbose
+python -m mcp_compose discover --verbose
 
 # Check specific package
 python -c "
-from mcp_server_composer import MCPServerDiscovery
+from mcp_compose import MCPServerDiscovery
 discovery = MCPServerDiscovery()
 result = discovery._analyze_mcp_server('your-package-name')
 print(result)
@@ -768,8 +768,8 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and changes.
 ## Support
 
 - 📖 **Documentation**: Full API documentation and examples in this README
-- 🐛 **Issues**: Report bugs and request features on [GitHub Issues](https://github.com/datalayer/mcp-server-composer/issues)
-- 💬 **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/datalayer/mcp-server-composer/discussions)
+- 🐛 **Issues**: Report bugs and request features on [GitHub Issues](https://github.com/datalayer/mcp-compose/issues)
+- 💬 **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/datalayer/mcp-compose/discussions)
 
 ## Related Projects
 
@@ -789,6 +789,6 @@ See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes.
 
 ## Support
 
-- GitHub Issues: [Report bugs or request features](https://github.com/your-org/mcp-server-composer/issues)
-- Documentation: [Full documentation](https://your-org.github.io/mcp-server-composer/)
-- Community: [Join the discussion](https://github.com/your-org/mcp-server-composer/discussions)
+- GitHub Issues: [Report bugs or request features](https://github.com/your-org/mcp-compose/issues)
+- Documentation: [Full documentation](https://your-org.github.io/mcp-compose/)
+- Community: [Join the discussion](https://github.com/your-org/mcp-compose/discussions)

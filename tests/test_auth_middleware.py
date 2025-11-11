@@ -4,7 +4,7 @@ import asyncio
 import pytest
 from datetime import datetime, timedelta
 
-from mcp_server_composer.auth import (
+from mcp_compose.auth import (
     AuthContext,
     AuthType,
     APIKeyAuthenticator,
@@ -12,8 +12,8 @@ from mcp_server_composer.auth import (
     InsufficientScopesError,
     AuthenticationError,
 )
-from mcp_server_composer.auth_jwt import JWTAuthenticator
-from mcp_server_composer.auth_middleware import AuthMiddleware
+from mcp_compose.auth_jwt import JWTAuthenticator
+from mcp_compose.auth_middleware import AuthMiddleware
 
 
 class TestAuthMiddleware:
