@@ -18,8 +18,9 @@ This configuration launches two simple Python MCP servers behind an authenticate
 
 1. **Calculator Server** (`mcp1.py`) - Math operations (add, subtract, multiply, divide)
    - Transport: **STDIO** (managed by composer)
-2. **Echo Server** (`mcp2_sse.py`) - String operations (ping, echo, reverse, uppercase, lowercase, count_words)
-   - Transport: **SSE** (standalone HTTP server on port 8081)
+2. **Echo Server** (`mcp2_http.py`) - String operations (ping, echo, reverse, uppercase, lowercase, count_words)
+   - Transport: **HTTP Streaming** with JSON Lines protocol (standalone HTTP server on port 8082)
+   - Alternative: `mcp2_sse.py` for SSE transport (port 8081)
 
 Both servers:
 - Run in **proxy mode** (STDIO and SSE transports)
@@ -94,15 +95,22 @@ This will install:
 - `fastmcp` (for the demo MCP servers)
 - `anaconda-auth` (for token validation)
 
-### 2. Start the Echo SSE Server
+### 2. Start the Echo HTTP Server
 
-First, start the echo server in SSE mode (in a separate terminal):
+First, start the echo server in HTTP streaming mode (in a separate terminal):
 
 ```bash
-make start-echo-sse
+python mcp2_http.py
 ```
 
-This will start the echo MCP server on port 8081 with SSE transport.
+This will start the echo MCP server on port 8082 with HTTP streaming transport using JSON Lines protocol.
+
+**Alternative: SSE Transport**
+```bash
+python mcp2_sse.py
+```
+
+This starts the echo MCP server on port 8081 with SSE transport (uncomment the SSE config in `mcp_compose.toml` to use this).
 
 ### 3. Start the Composer
 
@@ -133,10 +141,11 @@ Starting 1 server(s)...
     Command: python mcp1.py
     Status: ✓ Started
 
-Connecting to 1 SSE server(s)...
+Connecting to 1 HTTP streaming server(s)...
 
   • echo
-    URL: http://localhost:8081/sse
+    URL: http://localhost:8082/stream
+    Protocol: lines
     Status: ✓ Connected
 ```
 
@@ -314,10 +323,18 @@ name = "calculator"
 command = ["python", "mcp1.py"]
 restart_policy = "never"
 
-[[servers.proxied.stdio]]
+# HTTP Streaming transport (new!)
+[[servers.proxied.http]]
 name = "echo"
-command = ["python", "mcp2.py"]
-restart_policy = "never"
+url = "http://localhost:8082/stream"
+protocol = "lines"  # Options: lines, chunked, poll
+timeout = 30
+keep_alive = true
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+poll_interval = 2
+health_check_enabled = false
+mode = "proxy"
 ```
 
 ### Key Configuration Points
