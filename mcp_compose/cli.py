@@ -360,70 +360,97 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     tools_result = await session.list_tools()
                                     tools = tools_result.tools
                                     
-                                    # Register tools in composer
-                                    for tool in tools:
-                                        tool_name = f"{server_config.name}_{tool.name}"
-                                        
-                                        # Extract input schema
-                                        input_schema = {}
-                                        if hasattr(tool, 'inputSchema') and tool.inputSchema:
-                                            input_schema = tool.inputSchema
-                                        
-                                        tool_def = {
-                                            'name': tool.name,  # Use original name for MCP protocol
-                                            'description': tool.description if hasattr(tool, 'description') else '',
-                                            'inputSchema': input_schema,
-                                        }
-                                        
-                                        # Create a proxy function for this SSE tool
-                                        def make_sse_proxy(sse_url: str, original_tool_name: str):
-                                            """Create a proxy function that calls the remote SSE server."""
-                                            async def sse_tool_proxy(**kwargs):
-                                                """Proxy function for SSE tool."""
-                                                from mcp import ClientSession
-                                                from mcp.client.sse import sse_client
-                                                
-                                                # Connect to SSE server and call the tool
-                                                async with sse_client(sse_url) as (read, write):
-                                                    async with ClientSession(read, write) as session:
-                                                        await session.initialize()
-                                                        result = await session.call_tool(original_tool_name, kwargs)
-                                                        # Extract text content from MCP response
-                                                        if hasattr(result, 'content') and result.content:
-                                                            for content_item in result.content:
-                                                                if hasattr(content_item, 'text'):
-                                                                    return content_item.text
-                                                        return str(result)
-                                            
-                                            sse_tool_proxy.__name__ = tool_name.replace("-", "_")
-                                            sse_tool_proxy.__doc__ = tool_def['description']
-                                            return sse_tool_proxy
-                                        
-                                        # Create the proxy function
-                                        proxy_func = make_sse_proxy(server_config.url, tool.name)
-                                        
-                                        # Register with FastMCP using the tool decorator
-                                        from mcp.server.fastmcp import Tool
-                                        tool_obj = Tool.from_function(
-                                            proxy_func,
-                                            name=tool_name,
-                                            description=tool_def['description']
-                                        )
-                                        
-                                        # Override inputSchema with the actual schema from remote tool
-                                        if input_schema:
-                                            tool_obj.parameters = input_schema
-                                        
-                                        # Add to composer
-                                        composer.composed_tools[tool_name] = tool_def
-                                        composer.composed_server._tool_manager._tools[tool_name] = tool_obj
-                                        composer.source_mapping[tool_name] = server_config.name
+                                    # Store the number of tools before registration
+                                    tools_discovered = len(tools)
+                                    logger.info(f"Discovered {tools_discovered} tools from SSE server {server_config.name}")
                                     
-                                    print(f"    Tools: {len(tools)} discovered")
-                                    print(f"    Status: ✓ Connected")
+                            # Register tools in composer (moved outside the ClientSession context)
+                            # This ensures tools are registered even if there's a cleanup issue
+                            if 'tools' in locals() and tools:
+                                logger.info(f"Registering {len(tools)} tools from SSE server {server_config.name}")
+                                
+                                for tool in tools:
+                                    tool_name = f"{server_config.name}_{tool.name}"
+                                    
+                                    # Extract input schema
+                                    input_schema = {}
+                                    if hasattr(tool, 'inputSchema') and tool.inputSchema:
+                                        input_schema = tool.inputSchema
+                                    
+                                    tool_def = {
+                                        'name': tool.name,  # Use original name for MCP protocol
+                                        'description': tool.description if hasattr(tool, 'description') else '',
+                                        'inputSchema': input_schema,
+                                    }
+                                    
+                                    # Create a proxy function for this SSE tool
+                                    def make_sse_proxy(sse_url: str, original_tool_name: str):
+                                        """Create a proxy function that calls the remote SSE server."""
+                                        async def sse_tool_proxy(**kwargs):
+                                            """Proxy function for SSE tool."""
+                                            from mcp import ClientSession
+                                            from mcp.client.sse import sse_client
+                                            
+                                            # Connect to SSE server and call the tool
+                                            async with sse_client(sse_url) as (read, write):
+                                                async with ClientSession(read, write) as session:
+                                                    await session.initialize()
+                                                    result = await session.call_tool(original_tool_name, kwargs)
+                                                    # Extract text content from MCP response
+                                                    if hasattr(result, 'content') and result.content:
+                                                        for content_item in result.content:
+                                                            if hasattr(content_item, 'text'):
+                                                                return content_item.text
+                                                    return str(result)
+                                        
+                                        sse_tool_proxy.__name__ = tool_name.replace("-", "_")
+                                        sse_tool_proxy.__doc__ = tool_def['description']
+                                        return sse_tool_proxy
+                                    
+                                    # Create the proxy function
+                                    proxy_func = make_sse_proxy(server_config.url, tool.name)
+                                    
+                                    # Register with FastMCP using the tool decorator
+                                    from mcp.server.fastmcp.tools.base import Tool
+                                    tool_obj = Tool.from_function(
+                                        proxy_func,
+                                        name=tool_name,
+                                        description=tool_def['description']
+                                    )
+                                    
+                                    # Override inputSchema with the actual schema from remote tool
+                                    if input_schema:
+                                        tool_obj.parameters = input_schema
+                                    
+                                    # Add to composer
+                                    composer.composed_tools[tool_name] = tool_def
+                                    composer.composed_server._tool_manager._tools[tool_name] = tool_obj
+                                    composer.source_mapping[tool_name] = server_config.name
+                                
+                                logger.info(f"Successfully registered {len(tools)} tools from SSE server {server_config.name}")
+                                print(f"    Tools: {len(tools)} registered")
+                                print(f"    Status: ✓ Connected")
+                            else:
+                                print(f"    Status: ❌ No tools discovered")
                         except Exception as e:
-                            logger.error(f"Failed to connect to SSE server {server_config.name}: {e}")
-                            print(f"    Status: ❌ Connection failed: {e}")
+                            # Check if it's just a cleanup error (TaskGroup exception after successful operation)
+                            error_str = str(e)
+                            if "TaskGroup" in error_str and "sub-exception" in error_str:
+                                # This is a cleanup issue that happens after tools are registered
+                                # Check if tools were actually registered by looking at composer
+                                sse_tools_count = sum(1 for name in composer.source_mapping if composer.source_mapping[name] == server_config.name)
+                                if sse_tools_count > 0:
+                                    logger.warning(f"SSE server {server_config.name} connected successfully ({sse_tools_count} tools) but had cleanup issues: {e}")
+                                    print(f"    Status: ⚠️  Connected ({sse_tools_count} tools, cleanup warning)")
+                                else:
+                                    logger.error(f"SSE server {server_config.name} failed during tool registration: {e}")
+                                    print(f"    Status: ❌ Tool registration failed")
+                            else:
+                                logger.error(f"Failed to connect to SSE server {server_config.name}: {e}")
+                                print(f"    Status: ❌ Connection failed: {e}")
+                            # Print detailed traceback for debugging
+                            import traceback
+                            logger.debug(traceback.format_exc())
                         
                         print()
         
@@ -525,7 +552,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     proxy_func = make_http_proxy(server_config, tool.name)
                                     
                                     # Register with FastMCP using the tool decorator
-                                    from mcp.server.fastmcp import Tool
+                                    from mcp.server.fastmcp.tools.base import Tool
                                     tool_obj = Tool.from_function(
                                         proxy_func,
                                         name=tool_name,
