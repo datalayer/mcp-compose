@@ -43,6 +43,7 @@ class AuthProvider(str, Enum):
     JWT = "jwt"
     OAUTH2 = "oauth2"
     MTLS = "mtls"
+    ANACONDA = "anaconda"
 
 
 class AuthzModel(str, Enum):
@@ -116,6 +117,11 @@ class MtlsAuthConfig(BaseModel):
     client_key: str = Field(..., description="Client key path")
 
 
+class AnacondaAuthConfig(BaseModel):
+    """Anaconda authentication configuration."""
+    domain: str = Field(default="anaconda.com", description="Anaconda domain")
+
+
 class AuthenticationConfig(BaseModel):
     """Authentication configuration."""
     enabled: bool = Field(default=False, description="Enable authentication")
@@ -125,6 +131,7 @@ class AuthenticationConfig(BaseModel):
     jwt: Optional[JwtAuthConfig] = Field(default=None)
     oauth2: Optional[OAuth2AuthConfig] = Field(default=None)
     mtls: Optional[MtlsAuthConfig] = Field(default=None)
+    anaconda: Optional[AnacondaAuthConfig] = Field(default=None)
 
 
 # ============================================================================
@@ -398,6 +405,8 @@ class MCPComposerConfig(BaseModel):
                     raise ValueError("OAuth2 authentication enabled but oauth2 config missing")
                 elif provider == AuthProvider.MTLS and not self.authentication.mtls:
                     raise ValueError("mTLS authentication enabled but mtls config missing")
+                elif provider == AuthProvider.ANACONDA and not self.authentication.anaconda:
+                    raise ValueError("Anaconda authentication enabled but anaconda config missing")
         
         # Validate health check configurations
         for stdio_server in self.servers.proxied.stdio:

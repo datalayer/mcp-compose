@@ -79,7 +79,7 @@ def get_anaconda_token() -> str:
         sys.exit(1)
 
 
-def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "http://localhost:8080") -> Agent:
+def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "http://localhost:8080") -> tuple[Agent, str]:
     """
     Create a pydantic-ai Agent connected to the MCP Compose
     
@@ -89,7 +89,7 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
         server_url: MCP Compose base URL
     
     Returns:
-        Configured pydantic-ai Agent
+        Tuple of (configured pydantic-ai Agent, access token)
     
     Note:
         For Azure OpenAI, requires these environment variables:
@@ -151,7 +151,7 @@ Be friendly and explain what you're doing."""
     
     print("✅ Agent created successfully!")
     
-    return agent
+    return agent, access_token
 
 
 def main():
@@ -175,18 +175,21 @@ def main():
         print("\nConnecting to server at http://localhost:8080...")
         
         # Create agent with MCP server connection
-        agent = create_agent(model=model)
+        agent, access_token = create_agent(model=model)
         
         # List all available tools from the server using MCP SDK
-        async def list_tools():
+        async def list_tools(access_token: str):
             """List all tools available from the MCP server"""
             try:
                 # Import MCP SDK client
                 from mcp import ClientSession
                 from mcp.client.sse import sse_client
                 
-                # Connect using SSE client
-                async with sse_client("http://localhost:8080/sse") as (read, write):
+                # Connect using SSE client with authentication
+                async with sse_client(
+                    "http://localhost:8080/sse",
+                    headers={"Authorization": f"Bearer {access_token}"}
+                ) as (read, write):
                     async with ClientSession(read, write) as session:
                         # Initialize the session
                         await session.initialize()
@@ -214,8 +217,10 @@ def main():
             except Exception as e:
                 print(f"\n⚠️  Could not list tools: {e}")
                 print("   The agent will still work with available tools")
+                import traceback
+                traceback.print_exc()
         
-        asyncio.run(list_tools())
+        asyncio.run(list_tools(access_token))
         
         # Launch interactive CLI
         print("\n" + "=" * 70)
@@ -240,7 +245,7 @@ def main():
         async def _run_cli() -> None:
             assert agent is not None
             async with agent:
-                await agent.to_cli(prog_name='proxy-anonymous-agent')
+                await agent.to_cli(prog_name='proxy-anaconda')
 
         asyncio.run(_run_cli())
     

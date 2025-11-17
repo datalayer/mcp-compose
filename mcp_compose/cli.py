@@ -17,6 +17,8 @@ from .discovery import MCPServerDiscovery
 from .exceptions import MCPComposerError
 from .process_manager import ProcessManager
 
+logger = logging.getLogger(__name__)
+
 
 def setup_logging(verbose: bool = False) -> None:
     """Set up logging configuration."""
@@ -221,10 +223,48 @@ def serve_command(args: argparse.Namespace) -> int:
 
 async def run_server(config, args: argparse.Namespace) -> int:
     """Run the MCP Compose."""
-    from .config import StdioProxiedServerConfig
+    from .config import StdioProxiedServerConfig, AuthProvider
     from .composer import MCPServerComposer, ConflictResolution
     from .tool_proxy import ToolProxy
+    from .auth import create_authenticator, AuthType
+    from .api.dependencies import set_authenticator
     import uvicorn
+    
+    # Initialize authenticator if authentication is enabled
+    authenticator = None
+    if config.authentication.enabled:
+        print(f"\n🔐 Authentication enabled")
+        print(f"   Provider: {config.authentication.default_provider}")
+        
+        # Create authenticator based on provider
+        provider = config.authentication.default_provider
+        
+        if provider == AuthProvider.ANACONDA:
+            if config.authentication.anaconda:
+                domain = config.authentication.anaconda.domain
+                print(f"   Domain: {domain}")
+                authenticator = create_authenticator(
+                    AuthType.ANACONDA,
+                    domain=domain
+                )
+            else:
+                print("   ⚠️  Warning: Anaconda auth config missing, using defaults")
+                authenticator = create_authenticator(AuthType.ANACONDA)
+        elif provider == AuthProvider.API_KEY:
+            if config.authentication.api_key:
+                authenticator = create_authenticator(
+                    AuthType.API_KEY,
+                    api_keys={}  # Would load from config
+                )
+            else:
+                print("   ⚠️  Warning: API Key auth config missing")
+        else:
+            print(f"   ⚠️  Warning: Provider {provider} not yet implemented")
+        
+        if authenticator:
+            set_authenticator(authenticator)
+            print(f"   ✓ Authenticator initialized")
+        print()
     
     # Create process manager
     process_manager = ProcessManager(auto_restart=False)
@@ -290,6 +330,102 @@ async def run_server(config, args: argparse.Namespace) -> int:
                     
                     print(f"    Status: ✓ Started")
                     print()
+        
+        # Handle SSE proxied servers
+        if hasattr(config, 'servers') and hasattr(config.servers, 'proxied') and hasattr(config.servers.proxied, 'sse'):
+            from .config import SseProxiedServerConfig
+            from mcp import ClientSession
+            from mcp.client.sse import sse_client
+            
+            sse_servers = config.servers.proxied.sse
+            
+            if sse_servers:
+                print(f"Connecting to {len(sse_servers)} SSE server(s)...")
+                print()
+                
+                for server_config in sse_servers:
+                    if isinstance(server_config, SseProxiedServerConfig):
+                        print(f"  • {server_config.name}")
+                        print(f"    URL: {server_config.url}")
+                        
+                        # Try to discover tools from the SSE server using MCP protocol
+                        try:
+                            # Connect to SSE server using MCP client
+                            async with sse_client(server_config.url) as (read, write):
+                                async with ClientSession(read, write) as session:
+                                    # Initialize the session
+                                    await session.initialize()
+                                    
+                                    # List tools using MCP protocol
+                                    tools_result = await session.list_tools()
+                                    tools = tools_result.tools
+                                    
+                                    # Register tools in composer
+                                    for tool in tools:
+                                        tool_name = f"{server_config.name}_{tool.name}"
+                                        
+                                        # Extract input schema
+                                        input_schema = {}
+                                        if hasattr(tool, 'inputSchema') and tool.inputSchema:
+                                            input_schema = tool.inputSchema
+                                        
+                                        tool_def = {
+                                            'name': tool.name,  # Use original name for MCP protocol
+                                            'description': tool.description if hasattr(tool, 'description') else '',
+                                            'inputSchema': input_schema,
+                                        }
+                                        
+                                        # Create a proxy function for this SSE tool
+                                        def make_sse_proxy(sse_url: str, original_tool_name: str):
+                                            """Create a proxy function that calls the remote SSE server."""
+                                            async def sse_tool_proxy(**kwargs):
+                                                """Proxy function for SSE tool."""
+                                                from mcp import ClientSession
+                                                from mcp.client.sse import sse_client
+                                                
+                                                # Connect to SSE server and call the tool
+                                                async with sse_client(sse_url) as (read, write):
+                                                    async with ClientSession(read, write) as session:
+                                                        await session.initialize()
+                                                        result = await session.call_tool(original_tool_name, kwargs)
+                                                        # Extract text content from MCP response
+                                                        if hasattr(result, 'content') and result.content:
+                                                            for content_item in result.content:
+                                                                if hasattr(content_item, 'text'):
+                                                                    return content_item.text
+                                                        return str(result)
+                                            
+                                            sse_tool_proxy.__name__ = tool_name.replace("-", "_")
+                                            sse_tool_proxy.__doc__ = tool_def['description']
+                                            return sse_tool_proxy
+                                        
+                                        # Create the proxy function
+                                        proxy_func = make_sse_proxy(server_config.url, tool.name)
+                                        
+                                        # Register with FastMCP using the tool decorator
+                                        from mcp.server.fastmcp import Tool
+                                        tool_obj = Tool.from_function(
+                                            proxy_func,
+                                            name=tool_name,
+                                            description=tool_def['description']
+                                        )
+                                        
+                                        # Override inputSchema with the actual schema from remote tool
+                                        if input_schema:
+                                            tool_obj.parameters = input_schema
+                                        
+                                        # Add to composer
+                                        composer.composed_tools[tool_name] = tool_def
+                                        composer.composed_server._tool_manager._tools[tool_name] = tool_obj
+                                        composer.source_mapping[tool_name] = server_config.name
+                                    
+                                    print(f"    Tools: {len(tools)} discovered")
+                                    print(f"    Status: ✓ Connected")
+                        except Exception as e:
+                            logger.error(f"Failed to connect to SSE server {server_config.name}: {e}")
+                            print(f"    Status: ❌ Connection failed: {e}")
+                        
+                        print()
         
         print("✓ All servers started successfully!")
         print()
