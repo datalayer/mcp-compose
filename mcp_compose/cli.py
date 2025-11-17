@@ -369,13 +369,55 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                         if hasattr(tool, 'inputSchema') and tool.inputSchema:
                                             input_schema = tool.inputSchema
                                         
-                                        composer.composed_tools[tool_name] = {
-                                            'name': tool_name,
+                                        tool_def = {
+                                            'name': tool.name,  # Use original name for MCP protocol
                                             'description': tool.description if hasattr(tool, 'description') else '',
                                             'inputSchema': input_schema,
-                                            '_sse_server': server_config.name,
-                                            '_sse_url': server_config.url,
                                         }
+                                        
+                                        # Create a proxy function for this SSE tool
+                                        def make_sse_proxy(sse_url: str, original_tool_name: str):
+                                            """Create a proxy function that calls the remote SSE server."""
+                                            async def sse_tool_proxy(**kwargs):
+                                                """Proxy function for SSE tool."""
+                                                from mcp import ClientSession
+                                                from mcp.client.sse import sse_client
+                                                
+                                                # Connect to SSE server and call the tool
+                                                async with sse_client(sse_url) as (read, write):
+                                                    async with ClientSession(read, write) as session:
+                                                        await session.initialize()
+                                                        result = await session.call_tool(original_tool_name, kwargs)
+                                                        # Extract text content from MCP response
+                                                        if hasattr(result, 'content') and result.content:
+                                                            for content_item in result.content:
+                                                                if hasattr(content_item, 'text'):
+                                                                    return content_item.text
+                                                        return str(result)
+                                            
+                                            sse_tool_proxy.__name__ = tool_name.replace("-", "_")
+                                            sse_tool_proxy.__doc__ = tool_def['description']
+                                            return sse_tool_proxy
+                                        
+                                        # Create the proxy function
+                                        proxy_func = make_sse_proxy(server_config.url, tool.name)
+                                        
+                                        # Register with FastMCP using the tool decorator
+                                        from mcp.server.fastmcp import Tool
+                                        tool_obj = Tool.from_function(
+                                            proxy_func,
+                                            name=tool_name,
+                                            description=tool_def['description']
+                                        )
+                                        
+                                        # Override inputSchema with the actual schema from remote tool
+                                        if input_schema:
+                                            tool_obj.parameters = input_schema
+                                        
+                                        # Add to composer
+                                        composer.composed_tools[tool_name] = tool_def
+                                        composer.composed_server._tool_manager._tools[tool_name] = tool_obj
+                                        composer.source_mapping[tool_name] = server_config.name
                                     
                                     print(f"    Tools: {len(tools)} discovered")
                                     print(f"    Status: ✓ Connected")
