@@ -240,7 +240,7 @@ def main():
         async def _run_cli() -> None:
             assert agent is not None
             async with agent:
-                await agent.to_cli(prog_name='proxy-anonymous-agent')
+                await agent.to_cli(prog_name='proxy-anaconda')
 
         asyncio.run(_run_cli())
     

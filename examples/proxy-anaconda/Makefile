@@ -8,6 +8,7 @@ help:
 	@echo "  install        - Install mcp-compose and dependencies"
 	@echo "  setup-auth     - Check Anaconda authentication setup"
 	@echo "  install-agent  - Install pydantic-ai for agent support"
+	@echo "  start-echo-sse - Start the echo MCP server in SSE mode (port 8081)"
 	@echo "  start          - Start the MCP Compose with authentication"
 	@echo "  agent          - Run the AI agent (requires composer running)"
 	@echo "  stop           - Stop the MCP Compose"
@@ -72,14 +73,31 @@ install-agent:
 	@echo "  1. Start composer: make start"
 	@echo "  2. In another terminal: make agent"
 
+# Start the echo MCP server in SSE mode
+start-echo-sse:
+	@echo "Starting Echo MCP Server in SSE mode..."
+	@echo ""
+	@echo "Configuration:"
+	@echo "  • Transport: SSE"
+	@echo "  • Port: 8081"
+	@echo "  • Endpoint: http://localhost:8081/sse"
+	@echo ""
+	@echo "Note: Keep this running in a separate terminal"
+	@echo "      Then run 'make start' to start the composer"
+	@echo ""
+	python mcp2_sse.py
+
 # Start the MCP Compose (no auth key required to start)
 start:
 	@echo "Starting MCP Compose..."
 	@echo ""
 	@echo "Configuration:"
-	@echo "  • Authentication: Bearer token validation (when implemented)"
-	@echo "  • Backend servers: calculator, echo"
+	@echo "  • Authentication: Anaconda bearer token validation"
+	@echo "  • Backend servers: calculator (STDIO), echo (SSE)"
 	@echo "  • Port: 8080"
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  1. Echo SSE server must be running: make start-echo-sse"
 	@echo ""
 	@echo "Note: Server starts without requiring ANACONDA_API_KEY."
 	@echo "      Clients must provide valid Anaconda bearer tokens."

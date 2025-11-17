@@ -17,6 +17,8 @@ from .discovery import MCPServerDiscovery
 from .exceptions import MCPComposerError
 from .process_manager import ProcessManager
 
+logger = logging.getLogger(__name__)
+
 
 def setup_logging(verbose: bool = False) -> None:
     """Set up logging configuration."""
@@ -328,6 +330,60 @@ async def run_server(config, args: argparse.Namespace) -> int:
                     
                     print(f"    Status: ✓ Started")
                     print()
+        
+        # Handle SSE proxied servers
+        if hasattr(config, 'servers') and hasattr(config.servers, 'proxied') and hasattr(config.servers.proxied, 'sse'):
+            from .config import SseProxiedServerConfig
+            from mcp import ClientSession
+            from mcp.client.sse import sse_client
+            
+            sse_servers = config.servers.proxied.sse
+            
+            if sse_servers:
+                print(f"Connecting to {len(sse_servers)} SSE server(s)...")
+                print()
+                
+                for server_config in sse_servers:
+                    if isinstance(server_config, SseProxiedServerConfig):
+                        print(f"  • {server_config.name}")
+                        print(f"    URL: {server_config.url}")
+                        
+                        # Try to discover tools from the SSE server using MCP protocol
+                        try:
+                            # Connect to SSE server using MCP client
+                            async with sse_client(server_config.url) as (read, write):
+                                async with ClientSession(read, write) as session:
+                                    # Initialize the session
+                                    await session.initialize()
+                                    
+                                    # List tools using MCP protocol
+                                    tools_result = await session.list_tools()
+                                    tools = tools_result.tools
+                                    
+                                    # Register tools in composer
+                                    for tool in tools:
+                                        tool_name = f"{server_config.name}_{tool.name}"
+                                        
+                                        # Extract input schema
+                                        input_schema = {}
+                                        if hasattr(tool, 'inputSchema') and tool.inputSchema:
+                                            input_schema = tool.inputSchema
+                                        
+                                        composer.composed_tools[tool_name] = {
+                                            'name': tool_name,
+                                            'description': tool.description if hasattr(tool, 'description') else '',
+                                            'inputSchema': input_schema,
+                                            '_sse_server': server_config.name,
+                                            '_sse_url': server_config.url,
+                                        }
+                                    
+                                    print(f"    Tools: {len(tools)} discovered")
+                                    print(f"    Status: ✓ Connected")
+                        except Exception as e:
+                            logger.error(f"Failed to connect to SSE server {server_config.name}: {e}")
+                            print(f"    Status: ❌ Connection failed: {e}")
+                        
+                        print()
         
         print("✓ All servers started successfully!")
         print()

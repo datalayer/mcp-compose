@@ -17,11 +17,13 @@ This example demonstrates how to use MCP Compose with **Anaconda authentication 
 This configuration launches two simple Python MCP servers behind an authenticated MCP Compose:
 
 1. **Calculator Server** (`mcp1.py`) - Math operations (add, subtract, multiply, divide)
-2. **Echo Server** (`mcp2.py`) - String operations (ping, echo, reverse, uppercase, lowercase, count_words)
+   - Transport: **STDIO** (managed by composer)
+2. **Echo Server** (`mcp2_sse.py`) - String operations (ping, echo, reverse, uppercase, lowercase, count_words)
+   - Transport: **SSE** (standalone HTTP server on port 8081)
 
 Both servers:
-- Run in **proxy mode** via STDIO transport
-- Are managed by the MCP Compose
+- Run in **proxy mode** (STDIO and SSE transports)
+- Are managed/proxied by the MCP Compose
 - Are accessed through the **composer's authentication layer**
 
 ## 🔐 Authentication Architecture
@@ -92,7 +94,19 @@ This will install:
 - `fastmcp` (for the demo MCP servers)
 - `anaconda-auth` (for token validation)
 
-### 2. Start the Composer
+### 2. Start the Echo SSE Server
+
+First, start the echo server in SSE mode (in a separate terminal):
+
+```bash
+make start-echo-sse
+```
+
+This will start the echo MCP server on port 8081 with SSE transport.
+
+### 3. Start the Composer
+
+In another terminal:
 
 ```bash
 make start
@@ -100,7 +114,8 @@ make start
 
 **No Anaconda credentials required to start the server!** The composer will:
 - Read configuration from `mcp_compose.toml`
-- Start both Calculator and Echo MCP servers as child processes
+- Start the Calculator MCP server as a child process (STDIO)
+- Connect to the Echo MCP server via SSE (http://localhost:8081/sse)
 - Listen on port 8080 for client connections
 - Validate bearer tokens from incoming client requests using `anaconda-auth`
 
@@ -110,9 +125,22 @@ You'll see output like:
    Provider: anaconda
    Domain: anaconda.com
    ✓ Authenticator initialized
+
+🚀 MCP Compose: anaconda-composer
+Starting 1 server(s)...
+
+  • calculator
+    Command: python mcp1.py
+    Status: ✓ Started
+
+Connecting to 1 SSE server(s)...
+
+  • echo
+    URL: http://localhost:8081/sse
+    Status: ✓ Connected
 ```
 
-### 3. Connect with a Client
+### 4. Connect with a Client
 
 Clients must provide an Anaconda bearer token in requests:
 
@@ -137,7 +165,7 @@ mcp_server = MCPServerSSE(
 4. If valid, request is proxied to backend servers
 5. If invalid, request is rejected with 401 Unauthorized
 
-### 4. Use the AI Agent (Coming Soon)
+### 5. Use the AI Agent (Coming Soon)
 
 > **🚧 Work in Progress**: The agent integration requires the unified SSE endpoint to be implemented in the serve command. The agent.py file is ready and demonstrates the intended usage pattern.
 
@@ -161,9 +189,11 @@ Example interactions (once SSE endpoint is available):
 - "Convert 'Hello World' to uppercase"
 - "Count the words in 'The quick brown fox jumps'"
 
-### 5. Stop the Composer
+### 6. Stop the Servers
 
-Press `Ctrl+C` in the terminal where the composer is running.
+Press `Ctrl+C` in both terminals:
+1. The terminal running the composer
+2. The terminal running the echo SSE server
 
 ## 🔧 How Authentication Works
 
