@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, status
 
-from ..auth import AuthContext, AuthType
+from ..auth import AuthContext, AuthType, create_authenticator
 from ..authz import AuthorizationMiddleware, RoleManager
 from ..composer import MCPServerComposer
 from ..tool_authz import ToolPermissionManager
@@ -20,6 +20,7 @@ _composer: Optional[MCPServerComposer] = None
 _role_manager: Optional[RoleManager] = None
 _authz_middleware: Optional[AuthorizationMiddleware] = None
 _tool_permission_manager: Optional[ToolPermissionManager] = None
+_authenticator = None  # Store authenticator instance
 
 
 def set_composer(composer: MCPServerComposer) -> None:
@@ -44,6 +45,12 @@ def set_tool_permission_manager(manager: ToolPermissionManager) -> None:
     """Set the global tool permission manager instance."""
     global _tool_permission_manager
     _tool_permission_manager = manager
+
+
+def set_authenticator(authenticator) -> None:
+    """Set the global authenticator instance."""
+    global _authenticator
+    _authenticator = authenticator
 
 
 async def get_composer() -> MCPServerComposer:
@@ -97,47 +104,64 @@ async def get_auth_context(
     Returns:
         AuthContext if authentication provided, None otherwise.
     """
+    # If no authenticator is configured, allow all requests
+    if _authenticator is None:
+        return None
+    
+    credentials = {}
+    
     # Check for API key
     if x_api_key:
-        # In production, validate the API key here
-        # For now, create a basic auth context
-        return AuthContext(
-            user_id=f"api_key_{x_api_key[:8]}",
-            auth_type=AuthType.API_KEY,
-            token=x_api_key,
-            scopes=["*"],  # Full access for API keys
-        )
+        credentials["api_key"] = x_api_key
     
     # Check for Bearer token
-    if authorization and authorization.startswith("Bearer "):
+    elif authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
-        # In production, validate the JWT token here
-        # For now, create a basic auth context
-        return AuthContext(
-            user_id="jwt_user",
-            auth_type=AuthType.JWT,
-            token=token,
-            scopes=["*"],  # Full access for valid tokens
-        )
+        credentials["token"] = token
     
-    return None
+    # If no credentials provided, return None
+    if not credentials:
+        return None
+    
+    # Authenticate using the configured authenticator
+    try:
+        context = await _authenticator.authenticate(credentials)
+        return context
+    except Exception as e:
+        # Log the error but don't expose details to client
+        import logging
+        logging.getLogger(__name__).error(f"Authentication failed: {e}")
+        return None
 
 
 async def require_auth(
     auth_context: Optional[AuthContext] = Depends(get_auth_context),
 ) -> AuthContext:
     """
-    Require authentication for endpoint.
+    Require authentication for endpoint (if authentication is enabled).
+    
+    If no authenticator is configured, allows anonymous access.
+    If authenticator is configured, requires valid credentials.
     
     Args:
         auth_context: Authentication context from headers.
     
     Returns:
-        AuthContext if authenticated.
+        AuthContext if authenticated, or anonymous context if auth is disabled.
     
     Raises:
-        HTTPException: If not authenticated.
+        HTTPException: If authentication is enabled but credentials are invalid.
     """
+    # If no authenticator is configured, allow anonymous access
+    if _authenticator is None:
+        # Create anonymous context
+        return AuthContext(
+            user_id="anonymous",
+            auth_type=AuthType.NONE,
+            scopes=["*"],
+        )
+    
+    # Authenticator is configured, require valid credentials
     if auth_context is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -214,6 +238,7 @@ __all__ = [
     "set_role_manager",
     "set_authz_middleware",
     "set_tool_permission_manager",
+    "set_authenticator",
     "get_composer",
     "get_role_manager",
     "get_authz_middleware",

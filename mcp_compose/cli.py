@@ -221,10 +221,48 @@ def serve_command(args: argparse.Namespace) -> int:
 
 async def run_server(config, args: argparse.Namespace) -> int:
     """Run the MCP Compose."""
-    from .config import StdioProxiedServerConfig
+    from .config import StdioProxiedServerConfig, AuthProvider
     from .composer import MCPServerComposer, ConflictResolution
     from .tool_proxy import ToolProxy
+    from .auth import create_authenticator, AuthType
+    from .api.dependencies import set_authenticator
     import uvicorn
+    
+    # Initialize authenticator if authentication is enabled
+    authenticator = None
+    if config.authentication.enabled:
+        print(f"\n🔐 Authentication enabled")
+        print(f"   Provider: {config.authentication.default_provider}")
+        
+        # Create authenticator based on provider
+        provider = config.authentication.default_provider
+        
+        if provider == AuthProvider.ANACONDA:
+            if config.authentication.anaconda:
+                domain = config.authentication.anaconda.domain
+                print(f"   Domain: {domain}")
+                authenticator = create_authenticator(
+                    AuthType.ANACONDA,
+                    domain=domain
+                )
+            else:
+                print("   ⚠️  Warning: Anaconda auth config missing, using defaults")
+                authenticator = create_authenticator(AuthType.ANACONDA)
+        elif provider == AuthProvider.API_KEY:
+            if config.authentication.api_key:
+                authenticator = create_authenticator(
+                    AuthType.API_KEY,
+                    api_keys={}  # Would load from config
+                )
+            else:
+                print("   ⚠️  Warning: API Key auth config missing")
+        else:
+            print(f"   ⚠️  Warning: Provider {provider} not yet implemented")
+        
+        if authenticator:
+            set_authenticator(authenticator)
+            print(f"   ✓ Authenticator initialized")
+        print()
     
     # Create process manager
     process_manager = ProcessManager(auto_restart=False)

@@ -22,6 +22,7 @@ class AuthType(str, Enum):
     JWT = "jwt"
     OAUTH2 = "oauth2"
     MTLS = "mtls"
+    ANACONDA = "anaconda"
     NONE = "none"
 
 
@@ -351,6 +352,9 @@ def create_authenticator(auth_type: AuthType, **kwargs) -> Authenticator:
     """
     if auth_type == AuthType.API_KEY:
         return APIKeyAuthenticator(api_keys=kwargs.get("api_keys"))
+    elif auth_type == AuthType.ANACONDA:
+        from .providers.auth_anaconda import AnacondaAuthenticator
+        return AnacondaAuthenticator(domain=kwargs.get("domain", "anaconda.com"))
     elif auth_type == AuthType.NONE:
         return NoAuthenticator()
     else:

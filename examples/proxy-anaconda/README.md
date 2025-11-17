@@ -98,11 +98,19 @@ This will install:
 make start
 ```
 
-**No authentication required to start!** The composer will:
+**No Anaconda credentials required to start the server!** The composer will:
 - Read configuration from `mcp_compose.toml`
 - Start both Calculator and Echo MCP servers as child processes
 - Listen on port 8080 for client connections
-- Validate bearer tokens from incoming client requests
+- Validate bearer tokens from incoming client requests using `anaconda-auth`
+
+You'll see output like:
+```
+🔐 Authentication enabled
+   Provider: anaconda
+   Domain: anaconda.com
+   ✓ Authenticator initialized
+```
 
 ### 3. Connect with a Client
 
@@ -266,8 +274,7 @@ providers = ["anaconda"]
 default_provider = "anaconda"
 
 [authentication.anaconda]
-domain = "anaconda.com"
-# API key loaded from ANACONDA_API_KEY environment variable
+domain = "anaconda.com"  # Use "your-company.anaconda.com" for enterprise
 
 # ============================================================================
 # Backend MCP Servers (No auth - accessed via composer only)
@@ -426,70 +433,39 @@ This example demonstrates Anaconda auth for the MCP servers themselves. For prod
 
 See the [mcp-auth example](../mcp-auth/) for OAuth2 authentication at the composer level.
 
-## 🚧 Implementation Status
+## ✅ Implementation Status
 
 ### What's Working
 - ✅ Backend MCP servers (calculator, echo)
 - ✅ MCP Compose configuration structure
 - ✅ Authentication framework in mcp-compose
+- ✅ **Anaconda Authenticator**: Implemented in `mcp_compose/auth_anaconda.py`
+- ✅ **Token validation**: Integration with `anaconda_auth.token.TokenInfo`
+- ✅ **Configuration loading**: Parse `[authentication.anaconda]` from TOML
+- ✅ **Middleware integration**: Applied to SSE/HTTP endpoints via FastAPI dependencies
 
-### What Needs Implementation
-- ⏳ **Anaconda Authenticator**: Need to implement `AnacondaAuthenticator` class
-- ⏳ **Token validation**: Integration with `anaconda_auth.token.TokenInfo`
-- ⏳ **Configuration loading**: Parse `[authentication.anaconda]` from TOML
-- ⏳ **Middleware integration**: Apply auth to SSE/HTTP endpoints
+### Implementation Details
 
-### Implementation Guide
+The Anaconda authentication has been fully implemented:
 
-To implement Anaconda authentication, add to `mcp_compose/auth.py`:
+1. **AnacondaAuthenticator Class** (`mcp_compose/auth_anaconda.py`):
+   - Validates bearer tokens using `anaconda_auth.token.TokenInfo`
+   - Supports custom domains for enterprise deployments
+   - Extracts user information from tokens
 
-```python
-from anaconda_auth.token import TokenInfo
+2. **Configuration Support** (`mcp_compose/config.py`):
+   - Added `AuthProvider.ANACONDA` enum value
+   - Added `AnacondaAuthConfig` model with domain configuration
+   - Validates Anaconda auth configuration when enabled
 
-class AnacondaAuthenticator(Authenticator):
-    """Anaconda authentication using anaconda-auth library."""
-    
-    def __init__(self, domain: str = "anaconda.com"):
-        super().__init__(AuthType.API_KEY)  # Or create AuthType.ANACONDA
-        self.domain = domain
-    
-    async def authenticate(self, credentials: Dict[str, Any]) -> AuthContext:
-        """Validate Anaconda token."""
-        token = credentials.get("api_key") or credentials.get("token")
-        if not token:
-            raise InvalidCredentialsError("Anaconda token not provided")
-        
-        try:
-            # Validate with anaconda-auth
-            token_info = TokenInfo(domain=self.domain, api_key=token)
-            access_token = token_info.get_access_token()
-            
-            if not access_token:
-                raise InvalidCredentialsError("Invalid Anaconda token")
-            
-            # Get user info from token
-            user_id = self._get_user_from_token(access_token)
-            
-            return AuthContext(
-                user_id=user_id,
-                auth_type=self.auth_type,
-                token=token,
-                scopes=["*"],  # Or parse from token
-            )
-        except Exception as e:
-            raise InvalidCredentialsError(f"Anaconda authentication failed: {e}")
-    
-    async def validate(self, context: AuthContext) -> bool:
-        """Validate existing Anaconda token."""
-        # Re-authenticate to check if token is still valid
-        try:
-            await self.authenticate({"token": context.token})
-            return True
-        except:
-            return False
-```
+3. **API Integration** (`mcp_compose/api/dependencies.py`):
+   - Bearer token extraction from Authorization header
+   - Automatic authentication using configured authenticator
+   - Anonymous access when authentication is disabled
 
-See the [mcp-auth example](../mcp-auth/) for a complete OAuth2 implementation.
+4. **CLI Integration** (`mcp_compose/cli.py`):
+   - Initializes authenticator from configuration
+   - Displays authentication status on startup
 
 ## 📚 Learn More
 

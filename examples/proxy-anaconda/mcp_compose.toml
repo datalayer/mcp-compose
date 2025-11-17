@@ -9,16 +9,21 @@ log_level = "INFO"
 # ============================================================================
 # Authentication Configuration
 # ============================================================================
-# TODO: Implement Anaconda bearer token validation
-# The composer will validate incoming bearer tokens using:
+# Anaconda bearer token validation
+# The composer validates incoming bearer tokens using:
 #   from anaconda_auth.token import TokenInfo
 #   TokenInfo(domain="anaconda.com", api_key=bearer_token).get_access_token()
 #
-# For now, authentication is disabled to allow the example to run.
-# See README.md for implementation details.
+# Clients must provide valid Anaconda bearer tokens in Authorization header:
+#   Authorization: Bearer <your_anaconda_token>
 
-# [authentication]
-# enabled = false
+[authentication]
+enabled = true
+providers = ["anaconda"]
+default_provider = "anaconda"
+
+[authentication.anaconda]
+domain = "anaconda.com"
 
 # ============================================================================
 # Backend MCP Servers (No auth - accessed via composer only)

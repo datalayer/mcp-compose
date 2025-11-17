@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, Optional
 
 from .auth import (
     AuthContext,
-    AuthType,
     Authenticator,
     AuthenticationError,
     InsufficientScopesError,
