@@ -36,15 +36,31 @@ command = ["python", "mcp1.py"]
 restart_policy = "never"
 # Calculator tools: add, subtract, multiply, divide
 
-# Echo MCP Server (Proxied via SSE)
-[[servers.proxied.sse]]
+# Echo MCP Server (Proxied via HTTP Streaming - JSON Lines)
+# HTTP streaming transport supporting: lines (JSON Lines), chunked, poll
+# Start the HTTP server with: python mcp2_http.py
+[[servers.proxied.http]]
 name = "echo"
-url = "http://localhost:8081/sse"
+url = "http://localhost:8082/stream"
+protocol = "lines"  # Options: lines (default), chunked, poll
 timeout = 30
 keep_alive = true
 reconnect_on_failure = true
 max_reconnect_attempts = 10
+poll_interval = 2  # Used only with poll protocol
 health_check_enabled = false
 mode = "proxy"
 # Echo tools: ping, echo, reverse, uppercase, lowercase, count_words
+
+# Alternative: Echo MCP Server via SSE (commented out)
+# Uncomment to use SSE instead of HTTP streaming
+# [[servers.proxied.sse]]
+# name = "echo"
+# url = "http://localhost:8081/sse"
+# timeout = 30
+# keep_alive = true
+# reconnect_on_failure = true
+# max_reconnect_attempts = 10
+# health_check_enabled = false
+# mode = "proxy"
 # Note: Start the SSE server with: python mcp2_sse.py

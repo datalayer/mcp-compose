@@ -57,6 +57,13 @@ class ProxyMode(str, Enum):
     TRANSLATOR = "translator"
 
 
+class HttpStreamProtocol(str, Enum):
+    """HTTP streaming protocols."""
+    CHUNKED = "chunked"      # HTTP chunked transfer encoding
+    LINES = "lines"          # Newline-delimited JSON
+    POLL = "poll"            # Long-polling
+
+
 # ============================================================================
 # Composer Configuration
 # ============================================================================
@@ -216,6 +223,25 @@ class SseProxiedServerConfig(BaseModel):
     mode: ProxyMode = Field(default=ProxyMode.PROXY, description="Proxy mode")
 
 
+class HttpProxiedServerConfig(BaseModel):
+    """Configuration for an HTTP streaming proxied MCP server."""
+    name: str = Field(..., description="Server name")
+    url: str = Field(..., description="HTTP streaming endpoint URL")
+    protocol: HttpStreamProtocol = Field(default=HttpStreamProtocol.LINES, description="Streaming protocol")
+    auth_token: Optional[str] = Field(default=None, description="Authentication token")
+    auth_type: str = Field(default="bearer", description="Authentication type")
+    timeout: int = Field(default=30, description="Request timeout in seconds")
+    retry_interval: int = Field(default=5, description="Retry interval in seconds")
+    keep_alive: bool = Field(default=True, description="Keep connection alive")
+    reconnect_on_failure: bool = Field(default=True, description="Reconnect on failure")
+    max_reconnect_attempts: int = Field(default=10, description="Maximum reconnection attempts")
+    poll_interval: int = Field(default=2, description="Polling interval in seconds (for poll protocol)")
+    health_check_enabled: bool = Field(default=False, description="Enable health checks")
+    health_check_interval: int = Field(default=60, description="Health check interval in seconds")
+    health_check_endpoint: Optional[str] = Field(default=None, description="Health check endpoint")
+    mode: ProxyMode = Field(default=ProxyMode.PROXY, description="Proxy mode")
+
+
 class EmbeddedServersConfig(BaseModel):
     """Configuration for embedded servers."""
     servers: List[EmbeddedServerConfig] = Field(default_factory=list, description="List of embedded servers")
@@ -225,6 +251,7 @@ class ProxiedServersConfig(BaseModel):
     """Configuration for proxied servers."""
     stdio: List[StdioProxiedServerConfig] = Field(default_factory=list, description="STDIO proxied servers")
     sse: List[SseProxiedServerConfig] = Field(default_factory=list, description="SSE proxied servers")
+    http: List[HttpProxiedServerConfig] = Field(default_factory=list, description="HTTP streaming proxied servers")
 
 
 class ServersConfig(BaseModel):

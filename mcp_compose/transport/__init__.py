@@ -7,6 +7,7 @@ This package provides transport implementations for communicating with MCP serve
 from .base import Transport, TransportType
 from .sse_server import SSETransport, create_sse_server
 from .stdio import STDIOTransport, create_stdio_transport
+from .http_stream import HttpStreamTransport, create_http_stream_transport
 
 __all__ = [
     "Transport",
@@ -15,4 +16,6 @@ __all__ = [
     "create_sse_server",
     "STDIOTransport",
     "create_stdio_transport",
+    "HttpStreamTransport",
+    "create_http_stream_transport",
 ]

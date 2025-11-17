@@ -7,9 +7,10 @@ help:
 	@echo "Available targets:"
 	@echo "  install        - Install mcp-compose and dependencies"
 	@echo "  setup-auth     - Check Anaconda authentication setup"
-	@echo "  install-agent  - Install pydantic-ai for agent support"
-	@echo "  start-echo-sse - Start the echo MCP server in SSE mode (port 8081)"
-	@echo "  start          - Start the MCP Compose with authentication"
+	@echo "  install-agent              - Install pydantic-ai for agent support"
+	@echo "  start-echo-streamable-http - Start the echo MCP server in HTTP streaming mode (port 8082)"
+	@echo "  start-echo-sse             - Start the echo MCP server in SSE mode (port 8081)"
+	@echo "  start                      - Start the MCP Compose with authentication"
 	@echo "  agent          - Run the AI agent (requires composer running)"
 	@echo "  stop           - Stop the MCP Compose"
 	@echo "  clean          - Clean up temporary files"
@@ -31,12 +32,13 @@ install:
 	@echo "This example demonstrates Anaconda authentication at the composer level."
 	@echo ""
 	@echo "Backend servers:"
-	@echo "  • mcp1.py - Calculator tools (add, subtract, multiply, divide)"
-	@echo "  • mcp2.py - Echo tools (ping, echo, reverse, uppercase, etc.)"
+	@echo "  • mcp1.py      - Calculator tools (add, subtract, multiply, divide)"
+	@echo "  • mcp2_http.py - Echo tools with HTTP streaming (JSON Lines)"
+	@echo "  • mcp2_sse.py  - Echo tools with SSE (alternative)"
 	@echo ""
 	@echo "Next steps:"
-	@echo "  1. Set up authentication: make setup-auth"
-	@echo "  2. Start the composer:    make start"
+	@echo "  1. Start echo server:     make start-echo-streamable-http"
+	@echo "  2. Start the composer:    make start (in another terminal)"
 	@echo "  3. Use the AI agent:      make install-agent && make agent"
 
 # Check authentication setup
@@ -73,6 +75,26 @@ install-agent:
 	@echo "  1. Start composer: make start"
 	@echo "  2. In another terminal: make agent"
 
+# Start the echo MCP server in HTTP streaming mode
+start-echo-streamable-http:
+	@echo "Starting Echo MCP Server in HTTP Streaming mode..."
+	@echo ""
+	@echo "Configuration:"
+	@echo "  • Transport: HTTP Streaming (JSON Lines)"
+	@echo "  • Port: 8082"
+	@echo "  • Endpoint: http://localhost:8082/stream"
+	@echo "  • Protocol: JSON Lines (newline-delimited JSON)"
+	@echo ""
+	@echo "Available endpoints:"
+	@echo "  • GET  /stream - Stream MCP messages"
+	@echo "  • POST /stream - Send MCP messages"
+	@echo "  • GET  /health - Health check"
+	@echo ""
+	@echo "Note: Keep this running in a separate terminal"
+	@echo "      Then run 'make start' to start the composer"
+	@echo ""
+	python mcp2_http.py
+
 # Start the echo MCP server in SSE mode
 start-echo-sse:
 	@echo "Starting Echo MCP Server in SSE mode..."
@@ -97,7 +119,8 @@ start:
 	@echo "  • Port: 8080"
 	@echo ""
 	@echo "Prerequisites:"
-	@echo "  1. Echo SSE server must be running: make start-echo-sse"
+	@echo "  1. Echo HTTP server must be running: make start-echo-streamable-http"
+	@echo "     (or use SSE: make start-echo-sse - requires config change)"
 	@echo ""
 	@echo "Note: Server starts without requiring ANACONDA_API_KEY."
 	@echo "      Clients must provide valid Anaconda bearer tokens."

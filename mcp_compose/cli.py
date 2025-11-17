@@ -427,6 +427,131 @@ async def run_server(config, args: argparse.Namespace) -> int:
                         
                         print()
         
+        # Handle HTTP streaming proxied servers
+        if hasattr(config, 'servers') and hasattr(config.servers, 'proxied') and hasattr(config.servers.proxied, 'http'):
+            from .config import HttpProxiedServerConfig
+            from mcp import ClientSession
+            from .transport.http_stream import create_http_stream_transport
+            
+            http_servers = config.servers.proxied.http
+            
+            if http_servers:
+                print(f"Connecting to {len(http_servers)} HTTP streaming server(s)...")
+                print()
+                
+                for server_config in http_servers:
+                    if isinstance(server_config, HttpProxiedServerConfig):
+                        print(f"  • {server_config.name}")
+                        print(f"    URL: {server_config.url}")
+                        print(f"    Protocol: {server_config.protocol}")
+                        
+                        # Try to discover tools from the HTTP server using MCP protocol
+                        try:
+                            # Connect to HTTP server using custom transport
+                            transport = await create_http_stream_transport(
+                                name=server_config.name,
+                                url=server_config.url,
+                                protocol=server_config.protocol,
+                                auth_token=server_config.auth_token,
+                                auth_type=server_config.auth_type,
+                                timeout=server_config.timeout,
+                                retry_interval=server_config.retry_interval,
+                                keep_alive=server_config.keep_alive,
+                                reconnect_on_failure=server_config.reconnect_on_failure,
+                                max_reconnect_attempts=server_config.max_reconnect_attempts,
+                                poll_interval=server_config.poll_interval,
+                            )
+                            
+                            # Create MCP session with HTTP transport
+                            async with ClientSession(transport.messages(), transport.send) as session:
+                                # Initialize the session
+                                await session.initialize()
+                                
+                                # List tools using MCP protocol
+                                tools_result = await session.list_tools()
+                                tools = tools_result.tools
+                                
+                                # Register tools in composer
+                                for tool in tools:
+                                    tool_name = f"{server_config.name}_{tool.name}"
+                                    
+                                    # Extract input schema
+                                    input_schema = {}
+                                    if hasattr(tool, 'inputSchema') and tool.inputSchema:
+                                        input_schema = tool.inputSchema
+                                    
+                                    tool_def = {
+                                        'name': tool.name,
+                                        'description': tool.description if hasattr(tool, 'description') else '',
+                                        'inputSchema': input_schema,
+                                    }
+                                    
+                                    # Create a proxy function for this HTTP tool
+                                    def make_http_proxy(http_config, original_tool_name: str):
+                                        """Create a proxy function that calls the remote HTTP server."""
+                                        async def http_tool_proxy(**kwargs):
+                                            """Proxy function for HTTP tool."""
+                                            from mcp import ClientSession
+                                            from .transport.http_stream import create_http_stream_transport
+                                            
+                                            # Connect to HTTP server and call the tool
+                                            transport = await create_http_stream_transport(
+                                                name=http_config.name,
+                                                url=http_config.url,
+                                                protocol=http_config.protocol,
+                                                auth_token=http_config.auth_token,
+                                                auth_type=http_config.auth_type,
+                                                timeout=http_config.timeout,
+                                            )
+                                            
+                                            try:
+                                                async with ClientSession(transport.messages(), transport.send) as session:
+                                                    await session.initialize()
+                                                    result = await session.call_tool(original_tool_name, kwargs)
+                                                    # Extract text content from MCP response
+                                                    if hasattr(result, 'content') and result.content:
+                                                        for content_item in result.content:
+                                                            if hasattr(content_item, 'text'):
+                                                                return content_item.text
+                                                    return str(result)
+                                            finally:
+                                                await transport.disconnect()
+                                        
+                                        http_tool_proxy.__name__ = tool_name.replace("-", "_")
+                                        http_tool_proxy.__doc__ = tool_def['description']
+                                        return http_tool_proxy
+                                    
+                                    # Create the proxy function
+                                    proxy_func = make_http_proxy(server_config, tool.name)
+                                    
+                                    # Register with FastMCP using the tool decorator
+                                    from mcp.server.fastmcp import Tool
+                                    tool_obj = Tool.from_function(
+                                        proxy_func,
+                                        name=tool_name,
+                                        description=tool_def['description']
+                                    )
+                                    
+                                    # Override inputSchema with the actual schema from remote tool
+                                    if input_schema:
+                                        tool_obj.parameters = input_schema
+                                    
+                                    # Add to composer
+                                    composer.composed_tools[tool_name] = tool_def
+                                    composer.composed_server._tool_manager._tools[tool_name] = tool_obj
+                                    composer.source_mapping[tool_name] = server_config.name
+                                
+                                print(f"    Tools: {len(tools)} discovered")
+                                print(f"    Status: ✓ Connected")
+                                
+                            await transport.disconnect()
+                            
+                        except Exception as e:
+                            logger.error(f"Failed to connect to HTTP server {server_config.name}: {e}")
+                            print(f"    Status: ❌ Connection failed: {e}")
+                        
+                        print()
+        
         print("✓ All servers started successfully!")
         print()
         
