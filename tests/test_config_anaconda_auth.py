@@ -64,6 +64,8 @@ def test_anaconda_auth_config_custom_domain():
 
 def test_anaconda_auth_config_validation_missing():
     """Test validation fails when Anaconda config is missing."""
+    from mcp_compose.exceptions import MCPConfigurationError
+    
     config_dict = {
         "composer": {"name": "test"},
         "authentication": {
@@ -75,7 +77,7 @@ def test_anaconda_auth_config_validation_missing():
         "servers": {"proxied": {"stdio": []}}
     }
     
-    with pytest.raises(ValueError, match="Anaconda authentication enabled but anaconda config missing"):
+    with pytest.raises(MCPConfigurationError, match="Anaconda authentication enabled but anaconda config missing"):
         load_config_from_dict(config_dict)
 
 
@@ -97,7 +99,7 @@ def test_create_anaconda_authenticator_from_config():
     config = load_config_from_dict(config_dict)
     
     # Create authenticator from config
-    with patch('mcp_compose.auth_anaconda.TokenInfo'):
+    with patch('anaconda_auth.token.TokenInfo'):
         auth = create_authenticator(
             AuthType.ANACONDA,
             domain=config.authentication.anaconda.domain
