@@ -409,7 +409,7 @@ def print_startup_message():
 # OAUTH2 METADATA ENDPOINTS (RFC 9728, RFC 8414) - Using custom_route
 # ============================================================================
 
-@mcp.custom_route("/.well-known/oauth-protected-resource", ["GET"])
+@mcp.custom_route("/.well-known/oauth-protected-resource", ["GET", "OPTIONS"])
 async def protected_resource_metadata(request: Request):
     """
     Protected Resource Metadata (RFC 9728)
@@ -422,18 +422,32 @@ async def protected_resource_metadata(request: Request):
     
     Claude will use this to initiate OAuth flow.
     """
-    return JSONResponse({
-        "issuer": config.server_url,
-        "authorization_endpoint": f"{config.server_url}/authorize",
-        "token_endpoint": f"{config.server_url}/token",
-        "scopes_supported": ["openid", "read:mcp", "write:mcp"],
-        "response_types_supported": ["code"],
-        "grant_types_supported": ["authorization_code"],
-        "code_challenge_methods_supported": ["S256"],
-    })
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        return JSONResponse(
+            {},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+            }
+        )
+    
+    return JSONResponse(
+        {
+            "issuer": config.server_url,
+            "authorization_endpoint": f"{config.server_url}/authorize",
+            "token_endpoint": f"{config.server_url}/token",
+            "scopes_supported": ["openid", "read:mcp", "write:mcp"],
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code"],
+            "code_challenge_methods_supported": ["S256"],
+        },
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 
-@mcp.custom_route("/.well-known/oauth-authorization-server", ["GET"])
+@mcp.custom_route("/.well-known/oauth-authorization-server", ["GET", "OPTIONS"])
 async def authorization_server_metadata(request: Request):
     """
     Authorization Server Metadata (RFC 8414)
@@ -442,17 +456,31 @@ async def authorization_server_metadata(request: Request):
     It delegates user authentication to GitHub, but issues its own JWT tokens.
     Claude Desktop will use these endpoints for the OAuth flow.
     """
-    return JSONResponse({
-        "issuer": config.server_url,
-        "authorization_endpoint": f"{config.server_url}/authorize",
-        "token_endpoint": f"{config.server_url}/token",
-        "response_types_supported": ["code"],
-        "grant_types_supported": ["authorization_code"],
-        "code_challenge_methods_supported": ["S256"],
-        "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
-        "scopes_supported": ["openid", "read:mcp", "write:mcp"],
-        "service_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
-    })
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        return JSONResponse(
+            {},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+            }
+        )
+    
+    return JSONResponse(
+        {
+            "issuer": config.server_url,
+            "authorization_endpoint": f"{config.server_url}/authorize",
+            "token_endpoint": f"{config.server_url}/token",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code"],
+            "code_challenge_methods_supported": ["S256"],
+            "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
+            "scopes_supported": ["openid", "read:mcp", "write:mcp"],
+            "service_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
+        },
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 
 # ============================================================================
@@ -523,6 +551,9 @@ async def oauth_callback_github(request: Request):
     We exchange the GitHub code for a token, verify the user,
     then issue our own authorization code to Claude.
     """
+    # Log all query parameters for debugging
+    logger.info(f"OAuth callback received with params: {dict(request.query_params)}")
+    
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     error = request.query_params.get("error")
@@ -536,15 +567,19 @@ async def oauth_callback_github(request: Request):
     
     # Validate state
     if not code or not state or state not in state_store:
+        logger.error(f"Invalid callback: code={code}, state={state}, state_in_store={state in state_store if state else False}")
         return HTMLResponse(
             "<h1>Invalid Request</h1><p>Invalid state or missing authorization code</p>",
             status_code=400
         )
     
     session = state_store[state]
+    logger.info(f"GitHub callback received: code={code[:10]}..., state={state[:20]}...")
+    logger.info(f"Session data: redirect_uri={session['redirect_uri']}")
     
     # Exchange GitHub code for access token
     try:
+        logger.info(f"Exchanging GitHub code for access token...")
         token_resp = requests.post(
             "https://github.com/login/oauth/access_token",
             headers={"Accept": "application/json"},
@@ -557,12 +592,15 @@ async def oauth_callback_github(request: Request):
             timeout=10
         )
         token_json = token_resp.json()
+        logger.info(f"GitHub token response: {token_json}")
         gh_token = token_json.get("access_token")
         
         if not gh_token:
+            logger.error(f"No access_token in GitHub response: {token_json}")
             raise Exception(f"No access_token in response: {token_json}")
         
         # Fetch user info from GitHub
+        logger.info(f"Fetching user info from GitHub...")
         user_resp = requests.get(
             "https://api.github.com/user",
             headers={
@@ -572,21 +610,26 @@ async def oauth_callback_github(request: Request):
             timeout=5
         )
         gh_user = user_resp.json()
+        logger.info(f"GitHub user response status: {user_resp.status_code}")
         username = gh_user.get("login")
         
         if not username:
+            logger.error(f"Unable to fetch GitHub username. Response: {gh_user}")
             raise Exception("Unable to fetch GitHub username")
+        
+        logger.info(f"GitHub user authenticated: {username}")
         
         # Check if this is a legacy flow (redirect_uri is our /callback endpoint)
         redirect_uri = session["redirect_uri"]
+        legacy_callback_url = f"{config.server_url}/callback"
         
-        if redirect_uri.endswith("/callback"):
+        if redirect_uri == legacy_callback_url:
             # Legacy flow: agent.py or client.py
             # Redirect to /callback with the GitHub access token in URL
             callback_url = f"{redirect_uri}?token={gh_token}&state={state}&username={username}"
             return RedirectResponse(url=callback_url)
         else:
-            # Claude Desktop flow: issue authorization code for token exchange
+            # Inspector and Claude Desktop flow: issue authorization code for token exchange
             auth_code = gen_random()
             auth_code_store[auth_code] = {
                 "sub": username,
@@ -597,6 +640,8 @@ async def oauth_callback_github(request: Request):
             }
             
             callback_url = f"{redirect_uri}?code={auth_code}&state={state}"
+            logger.info(f"Redirecting to Inspector or Claude Desktop callback: {callback_url}")
+            logger.info(f"Authorization code: {auth_code}, expires in 120s")
             return RedirectResponse(url=callback_url)
         
     except Exception as e:
@@ -935,6 +980,17 @@ def main():
     # Get FastMCP's streamable HTTP app
     # This includes our custom HTTP streaming endpoints and built-in MCP support
     app = mcp.streamable_http_app()
+    
+    # Add CORS middleware for browser-based clients (like MCP Inspector)
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins for development
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
     
     # Wrap with authentication middleware (pure ASGI, supports streaming)
     app = AuthMiddleware(app)
