@@ -59,6 +59,19 @@ agent:
 	@echo ""
 	mcp-auth-agent azure-openai:gpt-4o-mini
 
+
+# Run MCP Inspector
+inspector:
+	@echo "🔍 Starting Model Context Protocol Inspector..."
+	npx @modelcontextprotocol/inspector
+
+# Test Dynamic Client Registration
+test-dcr:
+	@echo "🧪 Testing Dynamic Client Registration (DCR)..."
+	@echo "Make sure the server is running in another terminal: make server"
+	@echo ""
+	python test_dcr.py
+
 # Run tests
 test:
 	@echo "🧪 Running tests..."

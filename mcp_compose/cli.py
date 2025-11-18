@@ -582,16 +582,44 @@ async def run_server(config, args: argparse.Namespace) -> int:
         print("✓ All servers started successfully!")
         print()
         
-        # Get the FastMCP app with SSE endpoint
-        base_app = composer.composed_server.sse_app()
+        # Create the FastAPI REST API app
+        from .api import create_app
+        from .api.dependencies import set_composer
+        
+        # Set the composer instance for dependency injection
+        set_composer(composer)
+        
+        # Create the main FastAPI app with REST API routes
+        app = create_app()
+        
+        # Get the FastMCP SSE app and include its routes directly
+        try:
+            sse_app = composer.composed_server.sse_app()
+            
+            # Debug: Check if sse_app has routes
+            if hasattr(sse_app, 'routes'):
+                logger.info(f"SSE app has {len(sse_app.routes)} routes")
+                for route in sse_app.routes:
+                    logger.info(f"  Route: {route}")
+                
+                # Add SSE app routes directly to the main app instead of mounting
+                # This way /sse goes to /sse instead of /sse/sse
+                for route in sse_app.routes:
+                    app.routes.append(route)
+                
+                logger.info("SSE routes added successfully to main app")
+        except Exception as e:
+            logger.error(f"Failed to add SSE routes: {e}")
+            print(f"⚠️  Warning: SSE endpoint not available: {e}")
         
         # Add a /tools endpoint to list all available tools
-        # sse_app() returns a Starlette app, so we need to use Starlette routing
-        from starlette.applications import Starlette
+        from fastapi import APIRouter
         from starlette.responses import JSONResponse
-        from starlette.routing import Route
         
-        async def list_tools(request):
+        tools_router = APIRouter()
+        
+        @tools_router.get("/tools")
+        async def list_tools():
             """List all available tools with their schemas."""
             tools = []
             for tool_name, tool_def in composer.composed_tools.items():
@@ -605,9 +633,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                 "total": len(tools)
             })
         
-        # Add the tools route to the existing app
-        base_app.routes.append(Route("/tools", list_tools))
-        app = base_app
+        # Include the tools router
+        app.include_router(tools_router)
         
         print("=" * 70)
         print("📡 MCP Server Endpoints")
