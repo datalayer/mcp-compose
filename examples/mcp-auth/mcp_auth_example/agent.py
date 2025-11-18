@@ -110,10 +110,15 @@ def create_agent(access_token: str, server_url: str, model: str = "anthropic:cla
     print("   Using HTTP Streaming (Streamable HTTP) transport")
     print("   Using Bearer token authentication")
     
+    # Disable SSL verification for localhost (development with mkcert)
+    # In production with proper certificates, set verify=True
+    verify_ssl = not server_url.startswith("https://localhost")
+    
     # Create HTTP client with authentication headers
     http_client = httpx.AsyncClient(
         headers={"Authorization": f"Bearer {access_token}"},
-        timeout=30.0
+        timeout=30.0,
+        verify=verify_ssl
     )
     
     # Create MCP server connection using pydantic-ai's MCPServerStreamableHTTP

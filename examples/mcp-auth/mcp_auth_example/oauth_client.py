@@ -28,11 +28,9 @@ import secrets
 import base64
 import webbrowser
 from typing import Dict, Optional
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import parse_qs, urlparse, urlencode
+from urllib.parse import urlencode
 import requests
-import threading
-import time
+import os
 
 
 class Config:
@@ -52,15 +50,31 @@ class Config:
     
     @property
     def server_url(self) -> str:
+        """
+        Get server URL with HTTPS if certificates are available.
+        Matches the logic in server.py for consistency.
+        """
+        import os
         host = self.config["server"]["host"]
         port = self.config["server"]["port"]
-        return f"http://{host}:{port}"
+        
+        # Check for SSL certificates (same logic as server.py)
+        cert_file = os.path.join(os.path.dirname(__file__), "..", "localhost+2.pem")
+        key_file = os.path.join(os.path.dirname(__file__), "..", "localhost+2-key.pem")
+        ssl_enabled = os.path.exists(cert_file) and os.path.exists(key_file)
+        
+        protocol = "https" if ssl_enabled else "http"
+        return f"{protocol}://{host}:{port}"
     
     @property
     def callback_url(self) -> str:
-        """Callback URL for OAuth - uses port 8081 to avoid conflict with server on 8080"""
-        host = self.config["server"]["host"]
-        return f"http://{host}:8081/callback"
+        """
+        Callback URL for OAuth
+        
+        Uses the MCP server's legacy callback endpoint for direct auth flows.
+        This endpoint returns the GitHub token directly in the browser.
+        """
+        return f"{self.server_url}/callback"
     
     @property
     def server_host(self) -> str:
@@ -90,116 +104,6 @@ class PKCEHelper:
         return base64.urlsafe_b64encode(digest).decode('utf-8').rstrip('=')
 
 
-class OAuthCallbackHandler(BaseHTTPRequestHandler):
-    """Handles OAuth callback from GitHub"""
-    
-    authorization_code: Optional[str] = None
-    state: Optional[str] = None
-    error: Optional[str] = None
-    
-    def do_GET(self):
-        """Handle callback from OAuth provider"""
-        query_components = parse_qs(urlparse(self.path).query)
-        
-        # Extract authorization code, state, and error
-        if "code" in query_components:
-            OAuthCallbackHandler.authorization_code = query_components["code"][0]
-        
-        if "state" in query_components:
-            OAuthCallbackHandler.state = query_components["state"][0]
-        
-        if "error" in query_components:
-            OAuthCallbackHandler.error = query_components["error"][0]
-        
-        # Send success response
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.end_headers()
-        
-        if OAuthCallbackHandler.error:
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Authentication Error</title>
-                <style>
-                    body {{
-                        font-family: Arial, sans-serif;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        height: 100vh;
-                        margin: 0;
-                        background: linear-gradient(135deg, #f06292 0%, #ba68c8 100%);
-                    }}
-                    .container {{
-                        background: white;
-                        padding: 40px;
-                        border-radius: 10px;
-                        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                        text-align: center;
-                    }}
-                    h1 {{ color: #f06292; margin-bottom: 20px; }}
-                    p {{ color: #666; }}
-                    .error-icon {{ font-size: 60px; margin-bottom: 20px; }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="error-icon">❌</div>
-                    <h1>Authentication Error</h1>
-                    <p>Error: {OAuthCallbackHandler.error}</p>
-                    <p>You can close this window and return to your terminal.</p>
-                </div>
-            </body>
-            </html>
-            """
-        else:
-            html = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Authentication Complete</title>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        height: 100vh;
-                        margin: 0;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    }
-                    .container {
-                        background: white;
-                        padding: 40px;
-                        border-radius: 10px;
-                        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                        text-align: center;
-                    }
-                    h1 { color: #667eea; margin-bottom: 20px; }
-                    p { color: #666; }
-                    .success-icon { font-size: 60px; margin-bottom: 20px; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <!--
-                    <div class="success-icon">✅</div>
-                    -->
-                    <h1>Authorization Complete!</h1>
-                    <p>You can close this window and return to your terminal.</p>
-                </div>
-            </body>
-            </html>
-            """
-        self.wfile.write(html.encode())
-    
-    def log_message(self, format, *args):
-        """Suppress log messages"""
-        pass
-
-
 class OAuthClient:
     """
     Reusable OAuth2 client for MCP server authentication
@@ -224,6 +128,18 @@ class OAuthClient:
         self.access_token: Optional[str] = None
         self.server_metadata: Optional[Dict] = None
         self.auth_server_metadata: Optional[Dict] = None
+    
+    def _should_verify_ssl(self, url: str) -> bool:
+        """
+        Determine if SSL verification should be enabled for a URL.
+        
+        For local development with mkcert (https://localhost), we disable verification
+        since mkcert creates trusted certificates in the system store, but Python's
+        requests library may not find them depending on the environment.
+        
+        In production with proper CA-signed certificates, this should return True.
+        """
+        return not url.startswith("https://localhost")
     
     def _print(self, message: str):
         """Print message if verbose mode is enabled"""
@@ -251,7 +167,10 @@ class OAuthClient:
         try:
             # Make unauthenticated request to MCP endpoint
             self._print(f"\n📡 Requesting: {self.config.server_url}/mcp")
-            response = requests.get(f"{self.config.server_url}/mcp", timeout=5)
+            # For local HTTPS (mkcert), disable SSL verification or it will fail
+            # In production, this should be True with proper certificates
+            verify_ssl = not self.config.server_url.startswith("https://localhost")
+            response = requests.get(f"{self.config.server_url}/mcp", timeout=5, verify=verify_ssl)
             
             if response.status_code == 401:
                 self._print("✅ Received 401 Unauthorized (expected)")
@@ -264,15 +183,26 @@ class OAuthClient:
                 
                 self._print(f"   WWW-Authenticate: {www_auth}")
                 
-                # Extract realm (protected resource metadata URL)
-                if 'realm=' in www_auth:
+                # Extract resource_metadata URL from WWW-Authenticate header
+                # New format: Bearer realm="mcp", resource_metadata="https://...", scope="..."
+                # Old format: Bearer realm="https://..."
+                metadata_url = None
+                if 'resource_metadata="' in www_auth:
+                    # New format - extract resource_metadata parameter
+                    metadata_url = www_auth.split('resource_metadata="')[1].split('"')[0]
+                elif 'realm="' in www_auth:
+                    # Old format - use realm if it's a full URL
                     realm = www_auth.split('realm="')[1].split('"')[0]
-                else:
-                    realm = f"{self.config.server_url}/.well-known/oauth-protected-resource"
+                    if realm.startswith('http'):
+                        metadata_url = realm
+                
+                # Fallback to default well-known URL
+                if not metadata_url:
+                    metadata_url = f"{self.config.server_url}/.well-known/oauth-protected-resource"
                 
                 # Fetch Protected Resource Metadata
-                self._print(f"\n📡 Fetching metadata from: {realm}")
-                pr_response = requests.get(realm, timeout=5)
+                self._print(f"\n📡 Fetching metadata from: {metadata_url}")
+                pr_response = requests.get(metadata_url, timeout=5, verify=self._should_verify_ssl(metadata_url))
                 
                 if pr_response.status_code != 200:
                     self._print(f"❌ Error: Failed to fetch metadata (status: {pr_response.status_code})")
@@ -283,27 +213,37 @@ class OAuthClient:
                     self._print("✅ Protected Resource Metadata received:")
                     self._print(f"   {json.dumps(self.server_metadata, indent=3)}")
                 
-                # Extract authorization server URL
-                auth_servers = self.server_metadata.get("authorization_servers", [])
-                if not auth_servers:
-                    self._print("❌ Error: No authorization servers found")
-                    return False
+                # Handle two possible formats:
+                # 1. New format: metadata includes authorization_endpoint directly (server is its own auth server)
+                # 2. Old format: metadata includes authorization_servers array pointing to separate auth server
                 
-                auth_server_url = auth_servers[0]
-                
-                # Fetch Authorization Server Metadata
-                as_metadata_url = f"{auth_server_url}/.well-known/oauth-authorization-server"
-                self._print(f"📡 Fetching auth server metadata from: {as_metadata_url}")
-                
-                as_response = requests.get(as_metadata_url, timeout=5)
-                
-                if as_response.status_code != 200:
-                    self._print(f"❌ Error: Failed to fetch auth server metadata (status: {as_response.status_code})")
-                    return False
-                
-                self.auth_server_metadata = as_response.json()
-                if self.verbose:
-                    self._print("✅ Authorization Server Metadata received")
+                if "authorization_endpoint" in self.server_metadata:
+                    # New format: server metadata IS the authorization server metadata
+                    self.auth_server_metadata = self.server_metadata
+                    if self.verbose:
+                        self._print("✅ Server acts as its own authorization server")
+                else:
+                    # Old format: need to fetch separate authorization server metadata
+                    auth_servers = self.server_metadata.get("authorization_servers", [])
+                    if not auth_servers:
+                        self._print("❌ Error: No authorization servers found")
+                        return False
+                    
+                    auth_server_url = auth_servers[0]
+                    
+                    # Fetch Authorization Server Metadata
+                    as_metadata_url = f"{auth_server_url}/.well-known/oauth-authorization-server"
+                    self._print(f"📡 Fetching auth server metadata from: {as_metadata_url}")
+                    
+                    as_response = requests.get(as_metadata_url, timeout=5, verify=self._should_verify_ssl(as_metadata_url))
+                    
+                    if as_response.status_code != 200:
+                        self._print(f"❌ Error: Failed to fetch auth server metadata (status: {as_response.status_code})")
+                        return False
+                    
+                    self.auth_server_metadata = as_response.json()
+                    if self.verbose:
+                        self._print("✅ Authorization Server Metadata received")
                 
                 return True
             
@@ -367,99 +307,47 @@ class OAuthClient:
         auth_url = f"{auth_endpoint}?{urlencode(params)}"
         
         self._print(f"\n🌐 Opening browser for GitHub authentication...")
+        self._print(f"   URL: {auth_url}")
         
-        # Start local callback server on port 8081
-        try:
-            callback_server = HTTPServer(
-                (self.config.server_host, 8081),
-                OAuthCallbackHandler
-            )
-        except OSError as e:
-            self._print(f"❌ Error: Failed to start callback server: {e}")
-            self._print("   Make sure port 8081 is available")
-            return False
-        
-        # Reset class variables
-        OAuthCallbackHandler.authorization_code = None
-        OAuthCallbackHandler.state = None
-        OAuthCallbackHandler.error = None
-        
-        # Run callback server in background thread
-        server_thread = threading.Thread(target=callback_server.handle_request)
-        server_thread.daemon = True
-        server_thread.start()
-        
-        # Open browser
+        # Open browser - server will display the token after callback
         webbrowser.open(auth_url)
         
-        self._print("⏳ Waiting for authorization...")
-        self._print("   (Callback server listening on port 8081)")
+        self._print("\n⏳ Waiting for you to complete authentication in the browser...")
+        self._print("   After authorizing with GitHub, the server will display your access token.")
+        self._print("   Copy the token and paste it here.")
         
-        # Wait for callback
-        timeout = 300  # 5 minutes
-        start_time = time.time()
-        
-        while OAuthCallbackHandler.authorization_code is None and OAuthCallbackHandler.error is None:
-            if time.time() - start_time > timeout:
-                self._print("❌ Timeout waiting for authorization")
-                return False
-            time.sleep(0.5)
-        
-        # Give the server thread a moment to finish
-        time.sleep(0.5)
-        
-        # Check for errors
-        if OAuthCallbackHandler.error:
-            self._print(f"❌ OAuth error: {OAuthCallbackHandler.error}")
-            return False
-        
-        self._print("✅ Authorization code received")
-        
-        # Verify state
-        if OAuthCallbackHandler.state != state:
-            self._print("❌ Error: State mismatch (possible CSRF attack)")
-            return False
-        
-        # Exchange authorization code for access token
-        self._print("\n🔄 Exchanging code for access token...")
-        
-        token_endpoint = self.auth_server_metadata["token_endpoint"]
-        
-        token_data = {
-            "client_id": self.config.github_client_id,
-            "client_secret": self.config.github_client_secret,
-            "code": OAuthCallbackHandler.authorization_code,
-            "redirect_uri": self.config.callback_url,
-            "code_verifier": code_verifier,
-            "grant_type": "authorization_code"
-        }
-        
+        # Prompt user for the token
         try:
-            token_response = requests.post(
-                token_endpoint,
-                data=token_data,
-                headers={"Accept": "application/json"},
-                timeout=10
+            token_input = input("\n🔑 Paste your access token: ").strip()
+            
+            if not token_input:
+                self._print("❌ Error: No token provided")
+                return False
+            
+            # Store the token
+            self.access_token = token_input
+            
+            # Verify the token works by making a test request
+            self._print("\n🔍 Verifying token...")
+            test_response = requests.get(
+                f"{self.config.server_url}/health",
+                headers={"Authorization": f"Bearer {self.access_token}"},
+                verify=self._should_verify_ssl(self.config.server_url)
             )
             
-            if token_response.status_code != 200:
-                self._print(f"❌ Error: Token exchange failed (status: {token_response.status_code})")
-                self._print(f"   Response: {token_response.text}")
+            if test_response.status_code == 200:
+                self._print("✅ Token verified successfully")
+                return True
+            else:
+                self._print(f"❌ Token verification failed (status: {test_response.status_code})")
+                self._print(f"   Response: {test_response.text}")
                 return False
-            
-            token_json = token_response.json()
-            self.access_token = token_json.get("access_token")
-            
-            if not self.access_token:
-                self._print("❌ Error: No access token in response")
-                return False
-            
-            self._print("✅ Access token received")
-            
-            return True
-        
+                
+        except KeyboardInterrupt:
+            self._print("\n❌ Authentication cancelled")
+            return False
         except Exception as e:
-            self._print(f"❌ Error during token exchange: {e}")
+            self._print(f"❌ Error during authentication: {e}")
             return False
     
     def get_token(self) -> Optional[str]:

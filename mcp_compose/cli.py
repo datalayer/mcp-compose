@@ -592,12 +592,25 @@ async def run_server(config, args: argparse.Namespace) -> int:
         # Create the main FastAPI app with REST API routes
         app = create_app()
         
-        # Get the FastMCP SSE endpoint and mount it
-        sse_app = composer.composed_server.sse_app()
-        
-        # Mount the SSE app at /sse
-        from starlette.routing import Mount
-        app.mount("/sse", sse_app)
+        # Get the FastMCP SSE app and include its routes directly
+        try:
+            sse_app = composer.composed_server.sse_app()
+            
+            # Debug: Check if sse_app has routes
+            if hasattr(sse_app, 'routes'):
+                logger.info(f"SSE app has {len(sse_app.routes)} routes")
+                for route in sse_app.routes:
+                    logger.info(f"  Route: {route}")
+                
+                # Add SSE app routes directly to the main app instead of mounting
+                # This way /sse goes to /sse instead of /sse/sse
+                for route in sse_app.routes:
+                    app.routes.append(route)
+                
+                logger.info("SSE routes added successfully to main app")
+        except Exception as e:
+            logger.error(f"Failed to add SSE routes: {e}")
+            print(f"⚠️  Warning: SSE endpoint not available: {e}")
         
         # Add a /tools endpoint to list all available tools
         from fastapi import APIRouter
