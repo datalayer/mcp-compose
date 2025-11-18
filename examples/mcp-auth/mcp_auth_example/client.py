@@ -85,10 +85,15 @@ class MCPClient:
         try:
             # Use MCP protocol to list tools with HTTP streaming
             async def _list_tools():
+                # Disable SSL verification for localhost (development with mkcert)
+                server_url = self.oauth.get_server_url()
+                verify_ssl = not server_url.startswith("https://localhost")
+                
                 # Create HTTP client with auth headers
                 async with httpx.AsyncClient(
                     headers={"Authorization": f"Bearer {self.access_token}"},
-                    timeout=30.0
+                    timeout=30.0,
+                    verify=verify_ssl
                 ) as http_client:
                     # Connect using MCP SDK's streamable HTTP client
                     async with streamablehttp_client(
@@ -142,10 +147,15 @@ class MCPClient:
         print(f"   Arguments: {arguments}")
         
         try:
+            # Disable SSL verification for localhost (development with mkcert)
+            server_url = self.oauth.get_server_url()
+            verify_ssl = not server_url.startswith("https://localhost")
+            
             # Create HTTP client with auth headers
             async with httpx.AsyncClient(
                 headers={"Authorization": f"Bearer {self.access_token}"},
-                timeout=30.0
+                timeout=30.0,
+                verify=verify_ssl
             ) as http_client:
                 # Connect to MCP server via HTTP streaming
                 async with streamablehttp_client(

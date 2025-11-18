@@ -18,15 +18,24 @@ OAuth2 authentication for all tool invocations.
 """
 
 import json
-import uuid
-import asyncio
 import logging
+import time
+import secrets
+import hashlib
+import base64
 from typing import Dict, Optional, Any
+from urllib.parse import urlencode
 import requests
 
-from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
+from fastapi import Request, HTTPException, Form
+from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse, RedirectResponse
 from mcp.server.fastmcp import FastMCP
+
+try:
+    import jwt
+except ImportError:
+    print("⚠️  PyJWT not installed. Run: pip install PyJWT")
+    jwt = None
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +65,13 @@ class Config:
     
     @property
     def server_url(self) -> str:
-        return f"http://{self.server_host}:{self.server_port}"
+        """Get server URL with HTTPS if certificates are available"""
+        import os
+        cert_file = os.path.join(os.path.dirname(__file__), "..", "localhost+2.pem")
+        key_file = os.path.join(os.path.dirname(__file__), "..", "localhost+2-key.pem")
+        ssl_enabled = os.path.exists(cert_file) and os.path.exists(key_file)
+        protocol = "https" if ssl_enabled else "http"
+        return f"{protocol}://{self.server_host}:{self.server_port}"
 
 
 class TokenValidator:
@@ -104,6 +119,74 @@ class TokenValidator:
 # Global instances
 config = Config()
 token_validator = TokenValidator()
+
+# ============================================================================
+# JWT TOKEN MANAGEMENT
+# ============================================================================
+
+JWT_SIGN_KEY = "dev_sign_key_change_in_production"  # TODO: Use env var
+ACCESS_TOKEN_EXPIRES = 3600  # 1 hour
+
+# In-memory stores (replace with database in production)
+state_store: Dict[str, Dict[str, Any]] = {}  # OAuth state -> session data
+auth_code_store: Dict[str, Dict[str, Any]] = {}  # auth_code -> user data
+
+
+def gen_random() -> str:
+    """Generate random token"""
+    return secrets.token_urlsafe(32)
+
+
+def mint_jwt(sub: str) -> str:
+    """
+    Mint a JWT access token for MCP access
+    
+    Args:
+        sub: Subject (username/user ID)
+    
+    Returns:
+        JWT token string
+    """
+    if not jwt:
+        raise RuntimeError("PyJWT not installed")
+    
+    now = int(time.time())
+    payload = {
+        "sub": sub,
+        "iss": config.server_url,
+        "iat": now,
+        "exp": now + ACCESS_TOKEN_EXPIRES,
+        "scope": "read:mcp write:mcp"
+    }
+    token = jwt.encode(payload, JWT_SIGN_KEY, algorithm="HS256")
+    return token
+
+
+def verify_jwt(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Verify JWT token
+    
+    Args:
+        token: JWT token string
+    
+    Returns:
+        Decoded payload if valid, None otherwise
+    """
+    if not jwt:
+        return None
+    
+    try:
+        payload = jwt.decode(
+            token,
+            JWT_SIGN_KEY,
+            algorithms=["HS256"],
+            issuer=config.server_url
+        )
+        return payload
+    except Exception as e:
+        logger.debug(f"JWT verification failed: {e}")
+        return None
+
 
 # Create FastMCP server for tools
 mcp = FastMCP("github-auth-mcp-server")
@@ -235,6 +318,10 @@ async def verify_token(authorization: Optional[str]) -> Dict[str, Any]:
     """
     Verify OAuth token from Authorization header
     
+    Supports two token types:
+    1. JWT tokens issued by this server (for Claude Desktop)
+    2. GitHub tokens (for backward compatibility with client.py and agent.py)
+    
     Args:
         authorization: Authorization header value
     
@@ -244,11 +331,13 @@ async def verify_token(authorization: Optional[str]) -> Dict[str, Any]:
     Raises:
         HTTPException: If token is missing or invalid
     """
+    www_auth_header = f'Bearer realm="mcp", resource_metadata="{config.server_url}/.well-known/oauth-protected-resource", scope="openid read:mcp write:mcp"'
+    
     if not authorization:
         raise HTTPException(
             status_code=401,
             detail="Authentication required",
-            headers={"WWW-Authenticate": f'Bearer realm="{config.server_url}/.well-known/oauth-protected-resource"'}
+            headers={"WWW-Authenticate": www_auth_header}
         )
     
     # Extract Bearer token
@@ -256,22 +345,30 @@ async def verify_token(authorization: Optional[str]) -> Dict[str, Any]:
         raise HTTPException(
             status_code=401,
             detail="Invalid authorization header format",
-            headers={"WWW-Authenticate": f'Bearer realm="{config.server_url}/.well-known/oauth-protected-resource"'}
+            headers={"WWW-Authenticate": www_auth_header}
         )
     
     token = authorization[7:]  # Remove "Bearer " prefix
     
-    # Validate token
+    # Try JWT first (for Claude Desktop)
+    jwt_payload = verify_jwt(token)
+    if jwt_payload:
+        return {
+            "login": jwt_payload["sub"],
+            "type": "jwt",
+            "scope": jwt_payload.get("scope", "")
+        }
+    
+    # Fall back to GitHub token validation (for backward compatibility)
     user_info = token_validator.validate_token(token)
+    if user_info:
+        return {**user_info, "type": "github"}
     
-    if not user_info:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": f'Bearer realm="{config.server_url}/.well-known/oauth-protected-resource"'}
-        )
-    
-    return user_info
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid or expired token",
+        headers={"WWW-Authenticate": www_auth_header}
+    )
 
 
 # ============================================================================
@@ -317,13 +414,22 @@ async def protected_resource_metadata(request: Request):
     """
     Protected Resource Metadata (RFC 9728)
     
-    Indicates which authorization server(s) protect this resource
+    This tells Claude Desktop:
+    - The issuer (this MCP server itself)
+    - Where to get authorization (our /authorize endpoint)
+    - Where to exchange tokens (our /token endpoint)
+    - Supported scopes
+    
+    Claude will use this to initiate OAuth flow.
     """
     return JSONResponse({
-        "resource": config.server_url,
-        "authorization_servers": [config.server_url],
-        "bearer_methods_supported": ["header"],
-        "resource_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
+        "issuer": config.server_url,
+        "authorization_endpoint": f"{config.server_url}/authorize",
+        "token_endpoint": f"{config.server_url}/token",
+        "scopes_supported": ["openid", "read:mcp", "write:mcp"],
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code"],
+        "code_challenge_methods_supported": ["S256"],
     })
 
 
@@ -332,73 +438,386 @@ async def authorization_server_metadata(request: Request):
     """
     Authorization Server Metadata (RFC 8414)
     
-    Describes OAuth endpoints and capabilities
-    This server proxies to GitHub OAuth
+    THIS MCP SERVER acts as the OAuth authorization server.
+    It delegates user authentication to GitHub, but issues its own JWT tokens.
+    Claude Desktop will use these endpoints for the OAuth flow.
     """
     return JSONResponse({
         "issuer": config.server_url,
-        "authorization_endpoint": "https://github.com/login/oauth/authorize",
-        "token_endpoint": "https://github.com/login/oauth/access_token",
+        "authorization_endpoint": f"{config.server_url}/authorize",
+        "token_endpoint": f"{config.server_url}/token",
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code"],
         "code_challenge_methods_supported": ["S256"],
-        "token_endpoint_auth_methods_supported": ["client_secret_post"],
-        "service_documentation": "https://docs.github.com/en/developers/apps/building-oauth-apps"
+        "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
+        "scopes_supported": ["openid", "read:mcp", "write:mcp"],
+        "service_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
     })
 
 
 # ============================================================================
-# OAUTH2 CALLBACK ENDPOINT - Using custom_route
+# OAUTH2 AUTHORIZATION FLOW ENDPOINTS
+# ============================================================================
+
+@mcp.custom_route("/authorize", ["GET"])
+async def authorize(request: Request):
+    """
+    OAuth2 Authorization Endpoint
+    
+    Claude Desktop will redirect user here to start OAuth flow.
+    We redirect to GitHub for authentication, then issue our own tokens.
+    
+    Query params (from Claude):
+    - response_type: Should be "code"
+    - client_id: Claude's client ID (optional for public clients)
+    - redirect_uri: Where to send auth code (Claude's callback)
+    - scope: Requested scopes
+    - state: CSRF protection token
+    - code_challenge: PKCE challenge (S256)
+    - code_challenge_method: Should be "S256"
+    """
+    # Extract OAuth params
+    client_id = request.query_params.get("client_id", "claude-desktop")
+    redirect_uri = request.query_params.get("redirect_uri")
+    state = request.query_params.get("state", gen_random())
+    scope = request.query_params.get("scope", "openid read:mcp")
+    code_challenge = request.query_params.get("code_challenge")
+    code_challenge_method = request.query_params.get("code_challenge_method", "S256")
+    
+    # Validate redirect_uri
+    if not redirect_uri:
+        return JSONResponse(
+            {"error": "invalid_request", "error_description": "Missing redirect_uri"},
+            status_code=400
+        )
+    
+    # Store OAuth session state
+    state_store[state] = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "scope": scope,
+        "code_challenge": code_challenge,
+        "code_challenge_method": code_challenge_method,
+        "created_at": time.time()
+    }
+    
+    # Redirect user to GitHub for authentication
+    github_params = {
+        "client_id": config.github_client_id,
+        "redirect_uri": f"{config.server_url}/oauth/callback",
+        "scope": "read:user user:email",
+        "state": state,
+        "allow_signup": "false"
+    }
+    
+    github_auth_url = "https://github.com/login/oauth/authorize?" + urlencode(github_params)
+    return RedirectResponse(url=github_auth_url)
+
+
+@mcp.custom_route("/oauth/callback", ["GET"])
+async def oauth_callback_github(request: Request):
+    """
+    GitHub OAuth Callback
+    
+    After user authenticates with GitHub, GitHub redirects here.
+    We exchange the GitHub code for a token, verify the user,
+    then issue our own authorization code to Claude.
+    """
+    code = request.query_params.get("code")
+    state = request.query_params.get("state")
+    error = request.query_params.get("error")
+    
+    # Handle OAuth errors from GitHub
+    if error:
+        return HTMLResponse(
+            f"<h1>Authentication Error</h1><p>GitHub returned error: {error}</p>",
+            status_code=400
+        )
+    
+    # Validate state
+    if not code or not state or state not in state_store:
+        return HTMLResponse(
+            "<h1>Invalid Request</h1><p>Invalid state or missing authorization code</p>",
+            status_code=400
+        )
+    
+    session = state_store[state]
+    
+    # Exchange GitHub code for access token
+    try:
+        token_resp = requests.post(
+            "https://github.com/login/oauth/access_token",
+            headers={"Accept": "application/json"},
+            json={
+                "client_id": config.github_client_id,
+                "client_secret": config.github_client_secret,
+                "code": code,
+                "redirect_uri": f"{config.server_url}/oauth/callback"
+            },
+            timeout=10
+        )
+        token_json = token_resp.json()
+        gh_token = token_json.get("access_token")
+        
+        if not gh_token:
+            raise Exception(f"No access_token in response: {token_json}")
+        
+        # Fetch user info from GitHub
+        user_resp = requests.get(
+            "https://api.github.com/user",
+            headers={
+                "Authorization": f"Bearer {gh_token}",
+                "Accept": "application/json"
+            },
+            timeout=5
+        )
+        gh_user = user_resp.json()
+        username = gh_user.get("login")
+        
+        if not username:
+            raise Exception("Unable to fetch GitHub username")
+        
+        # Check if this is a legacy flow (redirect_uri is our /callback endpoint)
+        redirect_uri = session["redirect_uri"]
+        
+        if redirect_uri.endswith("/callback"):
+            # Legacy flow: agent.py or client.py
+            # Redirect to /callback with the GitHub access token in URL
+            callback_url = f"{redirect_uri}?token={gh_token}&state={state}&username={username}"
+            return RedirectResponse(url=callback_url)
+        else:
+            # Claude Desktop flow: issue authorization code for token exchange
+            auth_code = gen_random()
+            auth_code_store[auth_code] = {
+                "sub": username,
+                "client_id": session.get("client_id"),
+                "scope": session.get("scope"),
+                "code_challenge": session.get("code_challenge"),
+                "expires_at": time.time() + 120  # 2 minutes
+            }
+            
+            callback_url = f"{redirect_uri}?code={auth_code}&state={state}"
+            return RedirectResponse(url=callback_url)
+        
+    except Exception as e:
+        logger.error(f"OAuth callback error: {e}")
+        return HTMLResponse(
+            f"<h1>Authentication Failed</h1><p>Error: {str(e)}</p>",
+            status_code=500
+        )
+
+
+@mcp.custom_route("/token", ["POST"])
+async def token_endpoint(request: Request):
+    """
+    OAuth2 Token Endpoint
+    
+    Claude Desktop exchanges the authorization code for an access token here.
+    We validate the code and issue a JWT token.
+    
+    Form params (from Claude):
+    - grant_type: Should be "authorization_code"
+    - code: Authorization code from /authorize flow
+    - redirect_uri: Must match original redirect_uri
+    - code_verifier: PKCE verifier (if code_challenge was provided)
+    - client_id: Optional client identifier
+    """
+    form = await request.form()
+    grant_type = form.get("grant_type")
+    code = form.get("code")
+    code_verifier = form.get("code_verifier")
+    redirect_uri = form.get("redirect_uri")
+    
+    # Validate grant type
+    if grant_type != "authorization_code":
+        return JSONResponse(
+            {"error": "unsupported_grant_type"},
+            status_code=400
+        )
+    
+    # Validate authorization code
+    if not code or code not in auth_code_store:
+        return JSONResponse(
+            {"error": "invalid_grant", "error_description": "Invalid authorization code"},
+            status_code=400
+        )
+    
+    entry = auth_code_store.pop(code)  # One-time use
+    
+    # Check expiration
+    if time.time() > entry["expires_at"]:
+        return JSONResponse(
+            {"error": "invalid_grant", "error_description": "Authorization code expired"},
+            status_code=400
+        )
+    
+    # Verify PKCE if code_challenge was provided
+    if entry.get("code_challenge"):
+        if not code_verifier:
+            return JSONResponse(
+                {"error": "invalid_request", "error_description": "Missing code_verifier"},
+                status_code=400
+            )
+        
+        # Compute challenge from verifier
+        import hashlib
+        import base64
+        verifier_hash = hashlib.sha256(code_verifier.encode()).digest()
+        computed_challenge = base64.urlsafe_b64encode(verifier_hash).rstrip(b'=').decode('ascii')
+        
+        if computed_challenge != entry["code_challenge"]:
+            return JSONResponse(
+                {"error": "invalid_grant", "error_description": "PKCE verification failed"},
+                status_code=400
+            )
+    
+    # Issue JWT access token
+    sub = entry["sub"]
+    access_token = mint_jwt(sub)
+    
+    return JSONResponse({
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRES,
+        "scope": entry.get("scope", "openid read:mcp write:mcp")
+    })
+
+
+# ============================================================================
+# OAUTH2 CALLBACK ENDPOINT (Legacy - for client.py and agent.py)
 # ============================================================================
 
 @mcp.custom_route("/callback", ["GET"])
-async def oauth_callback(request: Request):
+async def oauth_callback_legacy(request: Request):
     """
-    OAuth callback endpoint
+    Legacy OAuth callback endpoint for agent.py and client.py
     
-    Users are redirected here after authorizing with GitHub
+    This endpoint receives the GitHub access token from /oauth/callback
+    and displays it to the user for copy/paste into their terminal.
+    
+    For Claude Desktop, /oauth/callback handles the full OAuth flow with JWT tokens.
     """
-    html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Authentication Successful</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            }
-            .container {
-                background: white;
-                padding: 40px;
-                border-radius: 10px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                text-align: center;
-                max-width: 500px;
-            }
-            h1 { color: #667eea; margin-bottom: 20px; }
-            p { color: #666; margin-bottom: 15px; }
-            .success-icon { font-size: 60px; margin-bottom: 20px; }
-            .code { background: #f4f4f4; padding: 10px; border-radius: 5px; 
-                    font-family: monospace; word-break: break-all; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="success-icon">✅</div>
-            <h1>Authentication Successful!</h1>
-            <p>You have successfully authenticated with GitHub.</p>
-            <p>You can now close this window and return to your application.</p>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html)
+    token = request.query_params.get("token")
+    username = request.query_params.get("username")
+    state = request.query_params.get("state")
+    error = request.query_params.get("error")
+    
+    if error:
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Error</title></head>
+        <body style="font-family: Arial; padding: 40px; text-align: center;">
+            <h1 style="color: #d32f2f;">❌ Authentication Error</h1>
+            <p>Error: {error}</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html, status_code=400)
+    
+    if not token:
+        html = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Missing Token</title></head>
+        <body style="font-family: Arial; padding: 40px; text-align: center;">
+            <h1>❌ Missing Access Token</h1>
+            <p>No access token received.</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html, status_code=400)
+    
+    # Display the token to the user
+    try:
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authentication Successful</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                }}
+                .container {{
+                    background: white;
+                    padding: 40px;
+                    border-radius: 10px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    text-align: center;
+                    max-width: 600px;
+                }}
+                h1 {{ color: #667eea; margin-bottom: 20px; }}
+                p {{ color: #666; margin-bottom: 15px; }}
+                .success-icon {{ font-size: 60px; margin-bottom: 20px; }}
+                .token-box {{
+                    background: #f4f4f4;
+                    padding: 15px;
+                    border-radius: 5px;
+                    font-family: monospace;
+                    word-break: break-all;
+                    font-size: 12px;
+                    margin: 20px 0;
+                    max-height: 150px;
+                    overflow-y: auto;
+                }}
+                .user-info {{
+                    color: #667eea;
+                    font-weight: bold;
+                    margin-bottom: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="success-icon">✅</div>
+                <h1>Authentication Successful!</h1>
+                <div class="user-info">Authenticated as: {username}</div>
+                <p>Copy this token and paste it in your terminal:</p>
+                <div class="token-box" id="token">{token}</div>
+                <p style="font-size: 12px; color: #999;">
+                    Token automatically copied to clipboard.<br/>
+                    You can close this window and return to your terminal.
+                </p>
+                <script>
+                    // Copy token to clipboard
+                    navigator.clipboard.writeText('{token}').then(function() {{
+                        console.log('Token copied to clipboard');
+                    }}, function(err) {{
+                        console.error('Could not copy token: ', err);
+                    }});
+                    
+                    // Auto-close after 30 seconds
+                    setTimeout(function() {{
+                        window.close();
+                    }}, 30000);
+                </script>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html)
+        
+    except Exception as e:
+        logger.error(f"Legacy callback error: {e}")
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Failed</title></head>
+        <body style="font-family: Arial; padding: 40px; text-align: center;">
+            <h1 style="color: #d32f2f;">❌ Authentication Failed</h1>
+            <p>Error: {str(e)}</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html, status_code=500)
 
 
 # ============================================================================
@@ -503,6 +922,7 @@ def main():
     """Main entry point for running the server"""
     import sys
     import io
+    import os
     import uvicorn
     
     # Ensure stdout uses UTF-8 encoding for emoji support
@@ -519,13 +939,34 @@ def main():
     # Wrap with authentication middleware (pure ASGI, supports streaming)
     app = AuthMiddleware(app)
     
+    # Check for SSL certificates (mkcert generated)
+    cert_file = os.path.join(os.path.dirname(__file__), "..", "localhost+2.pem")
+    key_file = os.path.join(os.path.dirname(__file__), "..", "localhost+2-key.pem")
+    
+    ssl_enabled = os.path.exists(cert_file) and os.path.exists(key_file)
+    
     # Run with uvicorn
-    uvicorn.run(
-        app,
-        host=config.server_host,
-        port=config.server_port,
-        log_level="info"
-    )
+    if ssl_enabled:
+        print(f"\n🔒 HTTPS enabled with certificates:")
+        print(f"   Certificate: {cert_file}")
+        print(f"   Key: {key_file}")
+        uvicorn.run(
+            app,
+            host=config.server_host,
+            port=config.server_port,
+            log_level="info",
+            ssl_certfile=cert_file,
+            ssl_keyfile=key_file
+        )
+    else:
+        print(f"\n⚠️  Running in HTTP mode (no SSL certificates found)")
+        print(f"   To enable HTTPS, generate certificates with: mkcert localhost 127.0.0.1 ::1")
+        uvicorn.run(
+            app,
+            host=config.server_host,
+            port=config.server_port,
+            log_level="info"
+        )
 
 
 if __name__ == "__main__":
