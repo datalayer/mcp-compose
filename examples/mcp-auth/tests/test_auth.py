@@ -46,10 +46,10 @@ def test_mcp_endpoints():
     """Test that MCP endpoints exist"""
     print("\nTesting MCP endpoints...")
     
-    # Test SSE endpoint (should return 401 without auth)
-    response = requests.get("http://localhost:8080/sse")
+    # Test MCP endpoint (should return 401 without auth)
+    response = requests.get("http://localhost:8080/mcp")
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
-    print("✅ SSE endpoint requires authentication")
+    print("✅ MCP endpoint requires authentication")
     
     # Test root endpoint
     response = requests.get("http://localhost:8080/")

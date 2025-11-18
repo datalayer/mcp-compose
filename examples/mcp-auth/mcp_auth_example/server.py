@@ -13,17 +13,22 @@ Implements MCP Authorization specification (2025-06-18):
 - Resource Indicators (RFC 8707)
 - Bearer token authentication
 
-The server exposes MCP tools via HTTP transport while requiring
+The server exposes MCP tools via HTTP Streaming (NDJSON) transport while requiring
 OAuth2 authentication for all tool invocations.
 """
 
 import json
+import uuid
+import asyncio
+import logging
 from typing import Dict, Optional, Any
 import requests
 
 from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from mcp.server.fastmcp import FastMCP
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -216,7 +221,7 @@ def get_server_info() -> Dict[str, Any]:
         "name": "github-auth-mcp-server",
         "version": "1.0.0",
         "authentication": "GitHub OAuth2",
-        "transport": "HTTP with SSE",
+        "transport": "HTTP Streaming (NDJSON)",
         "tools": ["calculator_add", "calculator_multiply", "greeter_hello", "greeter_goodbye", "get_server_info"],
         "specification": "MCP Authorization 2025-06-18"
     }
@@ -281,7 +286,7 @@ def print_startup_message():
     print()
     print("📋 Server Information:")
     print(f"   Server URL: {config.server_url}")
-    print(f"   MCP Transport: HTTP with SSE")
+    print(f"   MCP Transport: HTTP Streaming (NDJSON)")
     print(f"   Authentication: GitHub OAuth2")
     print()
     print("🔗 OAuth Metadata Endpoints:")
@@ -289,7 +294,7 @@ def print_startup_message():
     print(f"   Authorization Server: {config.server_url}/.well-known/oauth-authorization-server")
     print()
     print("🔗 MCP Endpoints:")
-    print(f"   SSE Endpoint: {config.server_url}/sse")
+    print(f"   HTTP Streaming:    {config.server_url}/mcp")
     print()
     print("🛠️  Available Tools:")
     print("   - calculator_add - Add two numbers")
@@ -407,9 +412,9 @@ async def root(request: Request):
         "name": "MCP Server with GitHub OAuth2",
         "version": "1.0.0",
         "authentication": "GitHub OAuth2",
-        "transport": "HTTP with SSE",
+        "transport": "HTTP Streaming (NDJSON)",
         "mcp_endpoints": {
-            "sse": f"{config.server_url}/sse",
+            "http_streaming": f"{config.server_url}/mcp",
         },
         "oauth_metadata": {
             "protected_resource": f"{config.server_url}/.well-known/oauth-protected-resource",
@@ -430,14 +435,14 @@ async def health_check(request: Request):
 
 
 # ============================================================================
-# AUTHENTICATION MIDDLEWARE FOR MCP SSE ENDPOINT
+# AUTHENTICATION MIDDLEWARE FOR MCP HTTP STREAMING ENDPOINTS
 # ============================================================================
 
 class AuthMiddleware:
     """
     Pure ASGI middleware that validates OAuth2 token for MCP requests
     
-    This works properly with streaming responses (SSE)
+    This works properly with streaming responses (HTTP streaming)
     """
     def __init__(self, app):
         self.app = app
@@ -459,8 +464,8 @@ class AuthMiddleware:
             await self.app(scope, receive, send)
             return
         
-        # Require auth for MCP endpoints (/sse, /messages)
-        if path in ["/sse", "/messages"] or path.startswith("/mcp/"):
+        # Require auth for MCP endpoint (/mcp)
+        if path == "/mcp" or path.startswith("/mcp/"):
             # Extract Authorization header
             headers = dict(scope.get("headers", []))
             auth_header = headers.get(b"authorization", b"").decode("utf-8")
@@ -507,9 +512,9 @@ def main():
     # Print startup message
     print_startup_message()
     
-    # Get FastMCP's SSE ASGI app
-    # FastMCP creates an app with /sse endpoint and custom routes
-    app = mcp.sse_app()
+    # Get FastMCP's streamable HTTP app
+    # This includes our custom HTTP streaming endpoints and built-in MCP support
+    app = mcp.streamable_http_app()
     
     # Wrap with authentication middleware (pure ASGI, supports streaming)
     app = AuthMiddleware(app)
@@ -521,10 +526,6 @@ def main():
         port=config.server_port,
         log_level="info"
     )
-
-
-if __name__ == "__main__":
-    main()
 
 
 if __name__ == "__main__":

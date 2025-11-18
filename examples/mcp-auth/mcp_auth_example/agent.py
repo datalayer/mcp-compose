@@ -7,7 +7,7 @@ This agent demonstrates how to use pydantic-ai with an authenticated MCP server.
 
 Features:
 - OAuth2 authentication with GitHub (via shared oauth_client)
-- Connection to MCP server with Bearer token authentication
+- Connection to MCP server with Bearer token authentication via HTTP Streaming
 - Interactive CLI interface powered by pydantic-ai
 - Access to all MCP server tools (calculator, greeter, server_info)
 - Uses Anthropic Claude Sonnet 4.5 model
@@ -20,8 +20,8 @@ Usage:
 
 Learning Objectives:
 1. Integrate pydantic-ai Agent with MCP servers
-2. Handle OAuth2 authentication for AI agents
-3. Use MCPServerSSE with authentication headers
+2. Handle OAuth2 authentication for AI agents  
+3. Use HTTP Streaming transport with authentication headers
 4. Build interactive CLI agents with pydantic-ai
 """
 
@@ -35,7 +35,8 @@ from .oauth_client import OAuthClient
 # Pydantic AI imports
 try:
     from pydantic_ai import Agent
-    from pydantic_ai.mcp import MCPServerSSE
+    from pydantic_ai.mcp import MCPServerStreamableHTTP
+    import httpx
     HAS_PYDANTIC_AI = True
 except ImportError:
     HAS_PYDANTIC_AI = False
@@ -105,18 +106,20 @@ def create_agent(access_token: str, server_url: str, model: str = "anthropic:cla
     print("🏗️  Creating AI Agent with MCP Tools")
     print("=" * 70)
     
-    print(f"\n📡 Connecting to MCP server: {server_url}/sse")
+    print(f"\n📡 Connecting to MCP server: {server_url}/mcp")
+    print("   Using HTTP Streaming (Streamable HTTP) transport")
     print("   Using Bearer token authentication")
     
-    # Create MCP server connection with SSE transport and authentication headers
-    # pydantic-ai will manage the http client internally
-    mcp_server = MCPServerSSE(
-        url=f"{server_url}/sse",
+    # Create HTTP client with authentication headers
+    http_client = httpx.AsyncClient(
         headers={"Authorization": f"Bearer {access_token}"},
-        # Increase read timeout for long-running tool calls
-        read_timeout=300.0,  # 5 minutes
-        # Allow retries for transient failures
-        max_retries=2
+        timeout=30.0
+    )
+    
+    # Create MCP server connection using pydantic-ai's MCPServerStreamableHTTP
+    mcp_server = MCPServerStreamableHTTP(
+        f"{server_url}/mcp",
+        http_client=http_client
     )
     
     print(f"\n🤖 Initializing Agent with {model}")
@@ -129,8 +132,7 @@ def create_agent(access_token: str, server_url: str, model: str = "anthropic:cla
         model_obj = OpenAIChatModel(deployment_name, provider='azure')
         print(f"   Using Azure OpenAI deployment: {deployment_name}")
     
-    # Create Agent with the specified model
-    # The agent will have access to all tools from the MCP server
+    # Create Agent with the specified model and MCP server toolset
     agent = Agent(
         model=model_obj,
         toolsets=[mcp_server],
