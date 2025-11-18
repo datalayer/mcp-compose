@@ -15,6 +15,7 @@ A clear, educational example demonstrating OAuth2 authentication for MCP (Model 
 ## 📚 What You'll Learn
 
 - **OAuth2** - Authorization Code flow with PKCE
+- **Dynamic Client Registration (DCR)** - RFC 7591 implementation for automatic client registration
 - **MCP Authorization** - Official specification (2025-06-18)
 - **Security** - Token validation, CSRF protection, resource indicators
 - **MCP SDK** - Building servers with FastMCP and clients with MCP SDK
@@ -39,9 +40,11 @@ make install
 |------|---------|------------------|
 | **[docs/QUICKSTART.md](docs/QUICKSTART.md)** | Get running in 5 minutes | You want to try it immediately |
 | **[docs/GITHUB.md](docs/GITHUB.md)** | GitHub OAuth app setup | Setting up for the first time |
+| **[docs/INSPECTOR.md](docs/INSPECTOR.md)** | MCP Inspector setup and testing | You want to test with MCP Inspector |
 | **[docs/FLOW_EXPLAINED.md](docs/FLOW_EXPLAINED.md)** | Detailed OAuth flow | You want to understand how it works |
 | **[docs/DIAGRAMS.md](docs/DIAGRAMS.md)** | Visual explanations | You prefer diagrams |
 | **[docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)** | Technical details | You're implementing your own |
+| **[docs/DYNAMIC_CLIENT_REGISTRATION.md](docs/DYNAMIC_CLIENT_REGISTRATION.md)** | Dynamic Client Registration (DCR) | You want to understand automatic client registration |
 
 ## 📁 Project Structure
 

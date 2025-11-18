@@ -130,6 +130,7 @@ ACCESS_TOKEN_EXPIRES = 3600  # 1 hour
 # In-memory stores (replace with database in production)
 state_store: Dict[str, Dict[str, Any]] = {}  # OAuth state -> session data
 auth_code_store: Dict[str, Dict[str, Any]] = {}  # auth_code -> user data
+client_registry: Dict[str, Dict[str, Any]] = {}  # client_id -> client metadata (DCR)
 
 
 def gen_random() -> str:
@@ -390,6 +391,11 @@ def print_startup_message():
     print(f"   Protected Resource: {config.server_url}/.well-known/oauth-protected-resource")
     print(f"   Authorization Server: {config.server_url}/.well-known/oauth-authorization-server")
     print()
+    print("🔗 OAuth Endpoints:")
+    print(f"   Dynamic Client Registration: {config.server_url}/register")
+    print(f"   Authorization: {config.server_url}/authorize")
+    print(f"   Token Exchange: {config.server_url}/token")
+    print()
     print("🔗 MCP Endpoints:")
     print(f"   HTTP Streaming:    {config.server_url}/mcp")
     print()
@@ -477,10 +483,157 @@ async def authorization_server_metadata(request: Request):
             "code_challenge_methods_supported": ["S256"],
             "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
             "scopes_supported": ["openid", "read:mcp", "write:mcp"],
+            "registration_endpoint": f"{config.server_url}/register",
             "service_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
         },
         headers={"Access-Control-Allow-Origin": "*"}
     )
+
+
+# ============================================================================
+# DYNAMIC CLIENT REGISTRATION (RFC 7591)
+# ============================================================================
+
+@mcp.custom_route("/register", ["POST", "OPTIONS"])
+async def register_client(request: Request):
+    """
+    Dynamic Client Registration Endpoint (RFC 7591)
+    
+    Allows clients to register themselves dynamically without pre-configuration.
+    This is useful for clients like MCP Inspector that don't have pre-shared credentials.
+    
+    Request body (JSON):
+    - redirect_uris: Array of redirect URIs (required)
+    - client_name: Human-readable client name (optional)
+    - client_uri: URL of client's homepage (optional)
+    - logo_uri: URL of client's logo (optional)
+    - scope: Space-separated list of scopes (optional)
+    - grant_types: Array of OAuth grant types (optional, default: ["authorization_code"])
+    - response_types: Array of OAuth response types (optional, default: ["code"])
+    - token_endpoint_auth_method: Authentication method (optional, default: "none")
+    
+    Response (JSON):
+    - client_id: Generated client identifier
+    - client_secret: Generated client secret (if applicable)
+    - client_id_issued_at: Unix timestamp
+    - redirect_uris: Registered redirect URIs
+    - grant_types: Supported grant types
+    - response_types: Supported response types
+    - token_endpoint_auth_method: Authentication method
+    """
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        return JSONResponse(
+            {},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+            }
+        )
+    
+    try:
+        # Parse request body
+        body = await request.json()
+        
+        # Validate required fields
+        redirect_uris = body.get("redirect_uris")
+        if not redirect_uris or not isinstance(redirect_uris, list) or len(redirect_uris) == 0:
+            return JSONResponse(
+                {
+                    "error": "invalid_redirect_uri",
+                    "error_description": "redirect_uris is required and must be a non-empty array"
+                },
+                status_code=400,
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+        
+        # Extract optional fields
+        client_name = body.get("client_name", "Unnamed Client")
+        client_uri = body.get("client_uri")
+        logo_uri = body.get("logo_uri")
+        scope = body.get("scope", "openid read:mcp write:mcp")
+        grant_types = body.get("grant_types", ["authorization_code"])
+        response_types = body.get("response_types", ["code"])
+        token_endpoint_auth_method = body.get("token_endpoint_auth_method", "none")
+        
+        # Generate client credentials
+        client_id = f"dcr_{gen_random()}"
+        client_secret = None
+        
+        # Only issue client_secret if not using "none" auth method
+        if token_endpoint_auth_method != "none":
+            client_secret = gen_random()
+        
+        # Store client metadata
+        client_metadata = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "client_name": client_name,
+            "client_uri": client_uri,
+            "logo_uri": logo_uri,
+            "redirect_uris": redirect_uris,
+            "grant_types": grant_types,
+            "response_types": response_types,
+            "token_endpoint_auth_method": token_endpoint_auth_method,
+            "scope": scope,
+            "client_id_issued_at": int(time.time())
+        }
+        
+        client_registry[client_id] = client_metadata
+        
+        logger.info(f"Registered new client: {client_id} ({client_name})")
+        logger.info(f"  Redirect URIs: {redirect_uris}")
+        logger.info(f"  Scopes: {scope}")
+        
+        # Prepare response (exclude internal fields)
+        response_data = {
+            "client_id": client_id,
+            "client_id_issued_at": client_metadata["client_id_issued_at"],
+            "redirect_uris": redirect_uris,
+            "grant_types": grant_types,
+            "response_types": response_types,
+            "token_endpoint_auth_method": token_endpoint_auth_method,
+            "client_name": client_name
+        }
+        
+        # Include client_secret if generated
+        if client_secret:
+            response_data["client_secret"] = client_secret
+        
+        # Include optional fields if provided
+        if client_uri:
+            response_data["client_uri"] = client_uri
+        if logo_uri:
+            response_data["logo_uri"] = logo_uri
+        if scope:
+            response_data["scope"] = scope
+        
+        return JSONResponse(
+            response_data,
+            status_code=201,
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+    
+    except json.JSONDecodeError:
+        return JSONResponse(
+            {
+                "error": "invalid_request",
+                "error_description": "Invalid JSON in request body"
+            },
+            status_code=400,
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+    except Exception as e:
+        logger.error(f"Client registration error: {e}")
+        return JSONResponse(
+            {
+                "error": "server_error",
+                "error_description": "Internal server error during client registration"
+            },
+            status_code=500,
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
 
 
 # ============================================================================
@@ -518,6 +671,24 @@ async def authorize(request: Request):
             {"error": "invalid_request", "error_description": "Missing redirect_uri"},
             status_code=400
         )
+    
+    # Validate client_id and redirect_uri if client is registered via DCR
+    if client_id in client_registry:
+        client_metadata = client_registry[client_id]
+        registered_uris = client_metadata.get("redirect_uris", [])
+        
+        # Check if redirect_uri matches any registered URI
+        if redirect_uri not in registered_uris:
+            logger.warning(f"Client {client_id} attempted to use unregistered redirect_uri: {redirect_uri}")
+            return JSONResponse(
+                {
+                    "error": "invalid_request",
+                    "error_description": f"redirect_uri not registered for this client. Registered URIs: {', '.join(registered_uris)}"
+                },
+                status_code=400
+            )
+        
+        logger.info(f"Validated registered client: {client_id} ({client_metadata.get('client_name', 'Unknown')})")
     
     # Store OAuth session state
     state_store[state] = {
@@ -619,11 +790,18 @@ async def oauth_callback_github(request: Request):
         
         logger.info(f"GitHub user authenticated: {username}")
         
-        # Check if this is a legacy flow (redirect_uri is our /callback endpoint)
+        # Check if this is a legacy flow (agent/client with direct token)
         redirect_uri = session["redirect_uri"]
-        legacy_callback_url = f"{config.server_url}/callback"
         
-        if redirect_uri == legacy_callback_url:
+        # Legacy flows use direct GitHub token (not authorization code):
+        # 1. Server's own /callback endpoint (old agent/client)
+        # 2. localhost:8888/callback (new agent/client with automated callback)
+        is_legacy_flow = (
+            redirect_uri == f"{config.server_url}/callback" or
+            redirect_uri.startswith("http://localhost:8888/")
+        )
+        
+        if is_legacy_flow:
             # Legacy flow: agent.py or client.py
             # Redirect to /callback with the GitHub access token in URL
             callback_url = f"{redirect_uri}?token={gh_token}&state={state}&username={username}"

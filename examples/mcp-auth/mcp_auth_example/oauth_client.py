@@ -28,9 +28,11 @@ import secrets
 import base64
 import webbrowser
 from typing import Dict, Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, parse_qs
 import requests
 import os
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 
 
 class Config:
@@ -71,10 +73,9 @@ class Config:
         """
         Callback URL for OAuth
         
-        Uses the MCP server's legacy callback endpoint for direct auth flows.
-        This endpoint returns the GitHub token directly in the browser.
+        Uses a local callback server for automated token capture.
         """
-        return f"{self.server_url}/callback"
+        return "http://localhost:8888/callback"
     
     @property
     def server_host(self) -> str:
@@ -104,6 +105,111 @@ class PKCEHelper:
         return base64.urlsafe_b64encode(digest).decode('utf-8').rstrip('=')
 
 
+class CallbackHandler(BaseHTTPRequestHandler):
+    """HTTP handler for OAuth callback"""
+    
+    # Class variables to store callback data
+    callback_data: Optional[Dict[str, str]] = None
+    callback_received = threading.Event()
+    
+    def do_GET(self):
+        """Handle GET request for OAuth callback"""
+        # Parse the callback URL
+        parsed_url = urlparse(self.path)
+        params = parse_qs(parsed_url.query)
+        
+        # Extract token or error from query parameters
+        token = params.get('token', [None])[0]
+        error = params.get('error', [None])[0]
+        state = params.get('state', [None])[0]
+        username = params.get('username', [None])[0]
+        
+        # Store callback data
+        CallbackHandler.callback_data = {
+            'token': token,
+            'error': error,
+            'state': state,
+            'username': username
+        }
+        
+        # Send response to browser
+        if token:
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Authentication Successful</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    }}
+                    .container {{
+                        background: white;
+                        padding: 40px;
+                        border-radius: 10px;
+                        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                        text-align: center;
+                        max-width: 600px;
+                    }}
+                    h1 {{ color: #667eea; margin-bottom: 20px; }}
+                    p {{ color: #666; margin-bottom: 15px; }}
+                    .success-icon {{ font-size: 60px; margin-bottom: 20px; }}
+                    .user-info {{ color: #667eea; font-weight: bold; margin-bottom: 20px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="success-icon">✅</div>
+                    <h1>Authentication Successful!</h1>
+                    <div class="user-info">Authenticated as: {username or 'User'}</div>
+                    <p>Token has been automatically captured.</p>
+                    <p>You can close this window and return to your terminal.</p>
+                    <script>
+                        // Auto-close after 3 seconds
+                        setTimeout(function() {{
+                            window.close();
+                        }}, 3000);
+                    </script>
+                </div>
+            </body>
+            </html>
+            """
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(html.encode())
+        else:
+            error_msg = error or 'Unknown error'
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head><title>Authentication Error</title></head>
+            <body style="font-family: Arial; padding: 40px; text-align: center;">
+                <h1 style="color: #d32f2f;">❌ Authentication Error</h1>
+                <p>Error: {error_msg}</p>
+                <p>You can close this window.</p>
+            </body>
+            </html>
+            """
+            self.send_response(400)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(html.encode())
+        
+        # Signal that callback was received
+        CallbackHandler.callback_received.set()
+    
+    def log_message(self, format, *args):
+        """Suppress request logging"""
+        pass
+
+
 class OAuthClient:
     """
     Reusable OAuth2 client for MCP server authentication
@@ -113,6 +219,7 @@ class OAuthClient:
     - PKCE generation (RFC 7636)
     - Authorization code flow with GitHub
     - Token exchange
+    - Automated callback handling with local HTTP server
     """
     
     def __init__(self, config_file: str = "config.json", verbose: bool = True):
@@ -128,6 +235,8 @@ class OAuthClient:
         self.access_token: Optional[str] = None
         self.server_metadata: Optional[Dict] = None
         self.auth_server_metadata: Optional[Dict] = None
+        self.callback_server: Optional[HTTPServer] = None
+        self.callback_thread: Optional[threading.Thread] = None
     
     def _should_verify_ssl(self, url: str) -> bool:
         """
@@ -255,23 +364,65 @@ class OAuthClient:
             self._print(f"❌ Error during metadata discovery: {e}")
             return False
     
+    def _start_callback_server(self) -> bool:
+        """
+        Start local HTTP server to receive OAuth callback
+        
+        Returns:
+            True if server started successfully, False otherwise
+        """
+        try:
+            # Reset callback state
+            CallbackHandler.callback_data = None
+            CallbackHandler.callback_received.clear()
+            
+            # Start server on localhost:8888
+            self.callback_server = HTTPServer(('localhost', 8888), CallbackHandler)
+            
+            # Run server in background thread
+            def serve():
+                # Handle a single request then stop
+                self.callback_server.handle_request()
+            
+            self.callback_thread = threading.Thread(target=serve, daemon=True)
+            self.callback_thread.start()
+            
+            self._print("✅ Local callback server started on http://localhost:8888")
+            return True
+            
+        except Exception as e:
+            self._print(f"❌ Failed to start callback server: {e}")
+            self._print("   Make sure port 8888 is not in use")
+            return False
+    
+    def _stop_callback_server(self):
+        """Stop the local callback server"""
+        if self.callback_server:
+            try:
+                self.callback_server.server_close()
+            except:
+                pass
+            self.callback_server = None
+        self.callback_thread = None
+    
     def authenticate(self) -> bool:
         """
-        Perform OAuth2 authentication flow
+        Perform OAuth2 authentication flow with automated callback handling
         
         Following OAuth 2.1 with PKCE (RFC 6749, RFC 7636):
-        1. Generate PKCE parameters
-        2. Build authorization URL
-        3. Open browser for user authentication
-        4. Receive authorization code via callback
-        5. Exchange code for access token
+        1. Start local callback server
+        2. Generate PKCE parameters
+        3. Build authorization URL
+        4. Open browser for user authentication
+        5. Automatically receive token via callback
+        6. Verify token
         
         Returns:
             True if authentication successful, False otherwise
         """
         if self.verbose:
             self._print("\n" + "=" * 70)
-            self._print("🔐 OAuth2 Authentication Flow")
+            self._print("🔐 OAuth2 Authentication Flow (Automated)")
             self._print("=" * 70)
         
         # Ensure metadata is available
@@ -281,51 +432,85 @@ class OAuthClient:
                 self._print("❌ Error: Metadata discovery failed")
                 return False
         
-        # Generate PKCE parameters
-        self._print("\n🔑 Generating PKCE parameters...")
-        code_verifier = PKCEHelper.generate_code_verifier()
-        code_challenge = PKCEHelper.generate_code_challenge(code_verifier)
+        # Start local callback server
+        self._print("\n🌐 Starting local callback server...")
+        if not self._start_callback_server():
+            return False
         
-        # Generate state for CSRF protection
-        state = secrets.token_urlsafe(32)
-        
-        # Build authorization URL
-        auth_endpoint = self.auth_server_metadata["authorization_endpoint"]
-        
-        params = {
-            "client_id": self.config.github_client_id,
-            "redirect_uri": self.config.callback_url,
-            "response_type": "code",
-            "scope": "user",
-            "state": state,
-            "code_challenge": code_challenge,
-            "code_challenge_method": "S256",
-            # RFC 8707: Resource parameter binds token to MCP server
-            "resource": self.config.server_url
-        }
-        
-        auth_url = f"{auth_endpoint}?{urlencode(params)}"
-        
-        self._print(f"\n🌐 Opening browser for GitHub authentication...")
-        self._print(f"   URL: {auth_url}")
-        
-        # Open browser - server will display the token after callback
-        webbrowser.open(auth_url)
-        
-        self._print("\n⏳ Waiting for you to complete authentication in the browser...")
-        self._print("   After authorizing with GitHub, the server will display your access token.")
-        self._print("   Copy the token and paste it here.")
-        
-        # Prompt user for the token
         try:
-            token_input = input("\n🔑 Paste your access token: ").strip()
+            # Generate PKCE parameters
+            self._print("\n🔑 Generating PKCE parameters...")
+            code_verifier = PKCEHelper.generate_code_verifier()
+            code_challenge = PKCEHelper.generate_code_challenge(code_verifier)
             
-            if not token_input:
-                self._print("❌ Error: No token provided")
+            # Generate state for CSRF protection
+            state = secrets.token_urlsafe(32)
+            
+            # Build authorization URL
+            auth_endpoint = self.auth_server_metadata["authorization_endpoint"]
+            
+            params = {
+                "client_id": self.config.github_client_id,
+                "redirect_uri": self.config.callback_url,
+                "response_type": "code",
+                "scope": "user",
+                "state": state,
+                "code_challenge": code_challenge,
+                "code_challenge_method": "S256",
+                # RFC 8707: Resource parameter binds token to MCP server
+                "resource": self.config.server_url
+            }
+            
+            auth_url = f"{auth_endpoint}?{urlencode(params)}"
+            
+            self._print(f"\n🌐 Opening browser for GitHub authentication...")
+            self._print(f"   Authorization URL: {auth_endpoint}")
+            self._print(f"   Callback URL: {self.config.callback_url}")
+            
+            # Open browser
+            webbrowser.open(auth_url)
+            
+            self._print("\n⏳ Waiting for you to complete authentication in the browser...")
+            self._print("   The token will be captured automatically.")
+            
+            # Wait for callback (with timeout)
+            callback_received = CallbackHandler.callback_received.wait(timeout=120)  # 2 minutes
+            
+            if not callback_received:
+                self._print("❌ Timeout: Did not receive callback within 2 minutes")
                 return False
             
+            # Extract callback data
+            callback_data = CallbackHandler.callback_data
+            
+            if not callback_data:
+                self._print("❌ Error: No callback data received")
+                return False
+            
+            # Check for errors
+            if callback_data.get('error'):
+                self._print(f"❌ OAuth error: {callback_data['error']}")
+                return False
+            
+            # Verify state matches (CSRF protection)
+            if callback_data.get('state') != state:
+                self._print("❌ Error: State mismatch (possible CSRF attack)")
+                return False
+            
+            # Extract token
+            token = callback_data.get('token')
+            username = callback_data.get('username')
+            
+            if not token:
+                self._print("❌ Error: No token in callback")
+                return False
+            
+            self._print(f"✅ Token received automatically!")
+            if username:
+                self._print(f"   Authenticated as: {username}")
+            
             # Store the token
-            self.access_token = token_input
+            self.access_token = token
             
             # Verify the token works by making a test request
             self._print("\n🔍 Verifying token...")
@@ -342,13 +527,18 @@ class OAuthClient:
                 self._print(f"❌ Token verification failed (status: {test_response.status_code})")
                 self._print(f"   Response: {test_response.text}")
                 return False
-                
+        
         except KeyboardInterrupt:
             self._print("\n❌ Authentication cancelled")
             return False
         except Exception as e:
             self._print(f"❌ Error during authentication: {e}")
+            import traceback
+            traceback.print_exc()
             return False
+        finally:
+            # Clean up callback server
+            self._stop_callback_server()
     
     def get_token(self) -> Optional[str]:
         """
