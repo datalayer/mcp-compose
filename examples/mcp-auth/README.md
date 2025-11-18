@@ -75,7 +75,7 @@ mcp-auth/
    - OAuth2 endpoints integrated with FastAPI
    - Three example tools (calculator, greeter, server_info)
    - Token validation middleware
-   - Compatible with both SSE and STDIO transports
+   - Uses **HTTP Streaming (NDJSON)** transport for efficient communication
 
 ### 2. **MCP Client** (`mcp_auth_example/client.py`)
    - Built with **official MCP Python SDK**
@@ -101,7 +101,7 @@ mcp-auth/
    - Implements MCP Authorization specification (2025-06-18)
    - Exposes OAuth metadata endpoints (RFC 9728, RFC 8414)
    - Validates access tokens before serving tools
-   - Provides MCP tools via HTTP/SSE transport
+   - Provides MCP tools via **HTTP Streaming (NDJSON)** transport
    - Tools: calculator (add, multiply), greeter (hello, goodbye), server info
 
 ### 2. **MCP Client** (`mcp_auth_example/client.py`)
@@ -109,14 +109,14 @@ mcp-auth/
    - Automatically opens browser for user authentication
    - Manages access tokens
    - Connects to MCP server using **MCP SDK client**
-   - Makes authenticated requests via MCP protocol (SSE transport)
-   - Demonstrates proper MCP tool invocation
+   - Makes authenticated requests via MCP protocol (**HTTP Streaming transport**)
+   - Demonstrates proper MCP tool invocation with NDJSON format
 
 ### 3. **Pydantic AI Agent** (`mcp_auth_example/agent.py`) ✨ NEW
    - Interactive CLI agent powered by **pydantic-ai**
    - Uses **Anthropic Claude Sonnet 4.5** model
    - Automatically authenticates with OAuth2
-   - Connects to MCP server with authenticated tools
+   - Connects to MCP server with authenticated tools via HTTP Streaming
    - Natural language interface to MCP tools
    - Example: "What is 15 + 27?" → Uses calculator_add tool
 

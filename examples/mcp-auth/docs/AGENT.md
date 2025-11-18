@@ -65,8 +65,8 @@ The agent provides a natural language interface to the MCP server tools, powered
 │                           │                                 │
 │                           ▼                                 │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │  MCPServerSSE (pydantic_ai.mcp)                     │   │
-│  │  - URL: http://localhost:8080/sse                   │   │
+│  │  MCPServerStreamableHTTP (pydantic_ai.mcp)          │   │
+│  │  - URL: http://localhost:8080/mcp                   │   │
 │  │  - Auth: Bearer token from OAuth                    │   │
 │  │  - Tools: calculator_*, greeter_*, get_server_info  │   │
 │  └─────────────────────────────────────────────────────┘   │
@@ -77,7 +77,7 @@ The agent provides a natural language interface to the MCP server tools, powered
 │              MCP Server (server.py)                         │
 │  - Validates Bearer token with GitHub                       │
 │  - Executes tool functions                                  │
-│  - Returns results via SSE                                  │
+│  - Returns results via HTTP Streaming (NDJSON)              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -88,16 +88,16 @@ The agent provides a natural language interface to the MCP server tools, powered
    - Manages PKCE flow for security
    - Returns access token for MCP server
 
-2. **Agent Setup** (`agent.py`)
+3. **Agent Setup** (`agent.py`)
    - Creates `httpx.AsyncClient` with Bearer token
-   - Initializes `MCPServerSSE` connection
+   - Initializes `MCPServerStreamableHTTP` connection
    - Creates `Agent` with Anthropic Claude model
    - Registers MCP server as toolset
 
-3. **Tool Invocation Flow**
+4. **Tool Invocation Flow**
    - User types natural language query
    - Agent (Claude) analyzes query and decides which tool to call
-   - Agent calls tool via MCP protocol (HTTP SSE)
+   - Agent calls tool via MCP protocol (HTTP Streaming)
    - MCP server validates token and executes tool
    - Agent receives result and formulates response
    - Agent displays natural language answer to user
@@ -121,17 +121,17 @@ if oauth.authenticate():
 ```python
 import httpx
 from pydantic_ai import Agent
-from pydantic_ai.mcp import MCPServerSSE
+from pydantic_ai.mcp import MCPServerStreamableHTTP
 
 # Create HTTP client with authentication
 http_client = httpx.AsyncClient(
     headers={"Authorization": f"Bearer {token}"},
-    timeout=httpx.Timeout(30.0)
+    timeout=30.0
 )
 
 # Connect to MCP server
-mcp_server = MCPServerSSE(
-    url=f"{server_url}/sse",
+mcp_server = MCPServerStreamableHTTP(
+    url=f"{server_url}/mcp",
     http_client=http_client
 )
 

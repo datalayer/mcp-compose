@@ -249,9 +249,9 @@ class OAuthClient:
             self._print("=" * 70)
         
         try:
-            # Make unauthenticated request to SSE endpoint
-            self._print(f"\n📡 Requesting: {self.config.server_url}/sse")
-            response = requests.get(f"{self.config.server_url}/sse", timeout=5)
+            # Make unauthenticated request to MCP endpoint
+            self._print(f"\n📡 Requesting: {self.config.server_url}/mcp")
+            response = requests.get(f"{self.config.server_url}/mcp", timeout=5)
             
             if response.status_code == 401:
                 self._print("✅ Received 401 Unauthorized (expected)")

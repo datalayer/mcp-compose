@@ -17,7 +17,7 @@
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-green)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](Dockerfile)
 
-> **A powerful, production-ready framework for composing and orchestrating Model Context Protocol (MCP) servers with advanced management capabilities, REST API, and modern Web UI.**
+> **Similar to Docker Compose - Orchestrate Model Context Protocol (MCP) servers with management capabilities, REST API, and Web UI.**
 
 ## 🎯 Overview
 
