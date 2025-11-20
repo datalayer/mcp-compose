@@ -1,17 +1,16 @@
-{% set name = "mcp_compose" %}
+{% set name = "mcp-compose" %}
 
 package:
   name: {{ name|lower }}
   version: {{ environ.get("PKG_VERSION") }}
 
 source:
-  path: ..
+  path: .
 
 build:
   noarch: python
   number: 0
-  script: |
-    python -m pip install --no-deps --no-build-isolation -vv .
+  script: {{ PYTHON }} -m pip install --no-deps --no-build-isolation -vv .
 
 requirements:
   host:
@@ -19,21 +18,21 @@ requirements:
     - pip
     - hatchling ~=1.21
   run:
-    - python >=3.10
-    - pyjwt >=2.8.0
     - cryptography >=41.0.0
     - fastapi >=0.104.0
     - httpx >=0.25.0
     - importlib-metadata >=4.8.0
+    - mcp[cli] >=1.2.1
     - psutil >=5.9.0
+    - pyjwt >=2.8.0
     - pydantic >=2
+    - python >=3.10
     - python-dotenv >=1.0.0
     - sse-starlette >=1.8.0
     - toml >=0.10.2
+    - tomli >=2.0.0
     - typing-extensions >=4
     - uvicorn >=0.24.0
-    - tomli >=2.0.0
-    - mcp[cli] >=1.2.1
 
 test:
   requires:
@@ -41,16 +40,26 @@ test:
   commands:
     - python -c "import mcp_compose"
     - mcp-compose --help
+    - pip check
 
 about:
   home: https://github.com/datalayer/mcp-compose
-  license: BSD-3-Clause
+  summary: 'Composition server for the Model Context Protocol (MCP).'
+  description: |
+    A powerful, production-ready framework for composing and orchestrating Model
+    Context Protocol (MCP) servers with advanced management capabilities, REST API,
+    and modern Web UI.  # Remember to specify the license variants for BSD, Apache,
+    GPL, and LGPL.
+  license: MIT
+  license_family: MIT
   license_file: LICENSE
-  summary: "Composition server for the Model Context Protocol (MCP)."
   doc_url: https://github.com/datalayer/mcp-compose
   dev_url: https://github.com/datalayer/mcp-compose
 
 extra:
   recipe-maintainers:
     - datalayer
+    - echarles
+    - eleonorecharles
+    - goanpeca
 
