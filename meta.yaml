@@ -51,7 +51,7 @@ about:
     and modern Web UI.  # Remember to specify the license variants for BSD, Apache,
     GPL, and LGPL.
   license: MIT
-  license_family: MIT
+  license_family: BSD 3
   license_file: LICENSE
   doc_url: https://github.com/datalayer/mcp-compose
   dev_url: https://github.com/datalayer/mcp-compose
