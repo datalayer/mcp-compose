@@ -24,13 +24,13 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "PyJWT>=2.8.0",
     "cryptography>=41.0.0",
     "fastapi>=0.104.0",
     "httpx>=0.25.0",
     "importlib-metadata>=4.8.0",
     "mcp[cli]>=1.2.1",
     "psutil>=5.9.0",
+    "PyJWT>=2.8.0",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
     "sse-starlette>=1.8.0",
