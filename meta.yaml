@@ -50,7 +50,7 @@ about:
     Context Protocol (MCP) servers with advanced management capabilities, REST API,
     and modern Web UI.  # Remember to specify the license variants for BSD, Apache,
     GPL, and LGPL.
-  license: MIT
+  license: BSD-3-Clause
   license_family: BSD 3
   license_file: LICENSE
   doc_url: https://github.com/datalayer/mcp-compose
