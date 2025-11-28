@@ -138,6 +138,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
             <!DOCTYPE html>
             <html>
             <head>
+                <meta charset="UTF-8">
                 <title>Authentication Successful</title>
                 <style>
                     body {{
@@ -181,15 +182,18 @@ class CallbackHandler(BaseHTTPRequestHandler):
             </html>
             """
             self.send_response(200)
-            self.send_header('Content-type', 'text/html')
+            self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
-            self.wfile.write(html.encode())
+            self.wfile.write(html.encode('utf-8'))
         else:
             error_msg = error or 'Unknown error'
             html = f"""
             <!DOCTYPE html>
             <html>
-            <head><title>Authentication Error</title></head>
+            <head>
+                <meta charset="UTF-8">
+                <title>Authentication Error</title>
+            </head>
             <body style="font-family: Arial; padding: 40px; text-align: center;">
                 <h1 style="color: #d32f2f;">❌ Authentication Error</h1>
                 <p>Error: {error_msg}</p>
@@ -198,9 +202,9 @@ class CallbackHandler(BaseHTTPRequestHandler):
             </html>
             """
             self.send_response(400)
-            self.send_header('Content-type', 'text/html')
+            self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
-            self.wfile.write(html.encode())
+            self.wfile.write(html.encode('utf-8'))
         
         # Signal that callback was received
         CallbackHandler.callback_received.set()

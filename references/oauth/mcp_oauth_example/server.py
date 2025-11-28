@@ -732,7 +732,7 @@ async def oauth_callback_github(request: Request):
     # Handle OAuth errors from GitHub
     if error:
         return HTMLResponse(
-            f"<h1>Authentication Error</h1><p>GitHub returned error: {error}</p>",
+            f"<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body><h1>Authentication Error</h1><p>GitHub returned error: {error}</p></body></html>",
             status_code=400
         )
     
@@ -740,7 +740,7 @@ async def oauth_callback_github(request: Request):
     if not code or not state or state not in state_store:
         logger.error(f"Invalid callback: code={code}, state={state}, state_in_store={state in state_store if state else False}")
         return HTMLResponse(
-            "<h1>Invalid Request</h1><p>Invalid state or missing authorization code</p>",
+            "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body><h1>Invalid Request</h1><p>Invalid state or missing authorization code</p></body></html>",
             status_code=400
         )
     
@@ -825,7 +825,7 @@ async def oauth_callback_github(request: Request):
     except Exception as e:
         logger.error(f"OAuth callback error: {e}")
         return HTMLResponse(
-            f"<h1>Authentication Failed</h1><p>Error: {str(e)}</p>",
+            f"<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body><h1>Authentication Failed</h1><p>Error: {str(e)}</p></body></html>",
             status_code=500
         )
 
@@ -929,7 +929,10 @@ async def oauth_callback_legacy(request: Request):
         html = f"""
         <!DOCTYPE html>
         <html>
-        <head><title>Authentication Error</title></head>
+        <head>
+            <meta charset="UTF-8">
+            <title>Authentication Error</title>
+        </head>
         <body style="font-family: Arial; padding: 40px; text-align: center;">
             <h1 style="color: #d32f2f;">❌ Authentication Error</h1>
             <p>Error: {error}</p>
@@ -942,7 +945,10 @@ async def oauth_callback_legacy(request: Request):
         html = """
         <!DOCTYPE html>
         <html>
-        <head><title>Missing Token</title></head>
+        <head>
+            <meta charset="UTF-8">
+            <title>Missing Token</title>
+        </head>
         <body style="font-family: Arial; padding: 40px; text-align: center;">
             <h1>❌ Missing Access Token</h1>
             <p>No access token received.</p>
@@ -958,6 +964,7 @@ async def oauth_callback_legacy(request: Request):
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
             <title>Authentication Successful</title>
             <style>
                 body {{
@@ -1033,7 +1040,10 @@ async def oauth_callback_legacy(request: Request):
         html = f"""
         <!DOCTYPE html>
         <html>
-        <head><title>Authentication Failed</title></head>
+        <head>
+            <meta charset="UTF-8">
+            <title>Authentication Failed</title>
+        </head>
         <body style="font-family: Arial; padding: 40px; text-align: center;">
             <h1 style="color: #d32f2f;">❌ Authentication Failed</h1>
             <p>Error: {str(e)}</p>

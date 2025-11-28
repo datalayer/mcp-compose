@@ -50,7 +50,7 @@ Edit `config.json` in the example directory:
 {
   "github": {
     "client_id": "Iv1.abc123def456",
-    "client_secret": "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+    "client_secret": "...."
   },
   "server": {
     "host": "localhost",
