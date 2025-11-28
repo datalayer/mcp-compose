@@ -50,7 +50,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/datalayer/mcp-compose"
-Documentation = "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-oauth"
+Documentation = "https://github.com/datalayer/mcp-compose/tree/main/references/oauth"
 Repository = "https://github.com/datalayer/mcp-compose"
 Issues = "https://github.com/datalayer/mcp-compose/issues"
 

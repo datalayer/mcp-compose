@@ -88,7 +88,7 @@ The local CA is now installed in the Firefox and/or Chrome/Chromium trust store!
 Navigate to your project directory and generate certificates:
 
 ```bash
-cd /path/to/mcp-compose/examples/mcp-oauth
+cd /path/to/mcp-compose/references/oauth
 mkcert localhost 127.0.0.1 ::1
 ```
 

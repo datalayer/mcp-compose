@@ -369,7 +369,7 @@ See the [Git-File Example README](examples/git-file/README.md) for complete docu
 
 Production-ready example with GitHub OAuth2 authentication.
 
-**Location:** [`examples/mcp-auth/`](examples/mcp-auth/)
+**Location:** [`references/oauth/`](references/oauth/)
 
 **Features:**
 - OAuth2 authentication flow
@@ -377,7 +377,7 @@ Production-ready example with GitHub OAuth2 authentication.
 - Protected MCP server endpoints
 - Pydantic AI agent integration
 
-See the [MCP Auth Example README](examples/mcp-auth/README.md) for details.
+See the [MCP Auth Example README](references/oauth/README.md) for details.
 
 ## 🗂️ Resources
 

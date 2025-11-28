@@ -120,7 +120,7 @@ Key improvements:
 
 ### Test Agent Flow
 ```bash
-cd examples/mcp-oauth
+cd references/oauth
 make agent
 ```
 
@@ -134,7 +134,7 @@ make agent
 
 ### Test Client Flow
 ```bash
-cd examples/mcp-oauth
+cd references/oauth
 make client
 ```
 

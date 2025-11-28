@@ -86,7 +86,7 @@ MCP Inspector (Browser)
 
 ### Step 2: Update config.json
 
-Edit `examples/mcp-oauth/config.json`:
+Edit `references/oauth/config.json`:
 
 ```json
 {
