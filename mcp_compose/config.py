@@ -85,8 +85,16 @@ class ComposerConfig(BaseModel):
 
 class TransportConfig(BaseModel):
     """Transport layer configuration."""
+    # STDIO transport
     stdio_enabled: bool = Field(default=True, description="Enable STDIO transport")
-    sse_enabled: bool = Field(default=True, description="Enable SSE transport")
+    
+    # Streamable HTTP transport (recommended)
+    streamable_http_enabled: bool = Field(default=True, description="Enable Streamable HTTP transport")
+    streamable_http_path: str = Field(default="/mcp", description="Streamable HTTP endpoint path")
+    streamable_http_cors_enabled: bool = Field(default=True, description="Enable CORS for Streamable HTTP")
+    
+    # SSE transport (deprecated, use streamable_http instead)
+    sse_enabled: bool = Field(default=False, description="Enable SSE transport (deprecated)")
     sse_path: str = Field(default="/sse", description="SSE endpoint path")
     sse_cors_enabled: bool = Field(default=True, description="Enable CORS for SSE")
 

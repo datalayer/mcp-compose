@@ -13,7 +13,8 @@ from typing import Any, AsyncIterator, Dict, Optional
 class TransportType(str, Enum):
     """Types of MCP transports."""
     STDIO = "stdio"
-    SSE = "sse"
+    SSE = "sse"  # Deprecated: Use STREAMABLE_HTTP instead
+    STREAMABLE_HTTP = "streamable-http"  # Recommended modern transport
     WEBSOCKET = "websocket"
 
 

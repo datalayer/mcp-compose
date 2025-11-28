@@ -1,4 +1,4 @@
-.PHONY: help install dev-install server client agent test clean
+.PHONY: help install dev-install server client agent inspector test test-dcr clean
 
 # Default target
 help:
@@ -9,7 +9,9 @@ help:
 	@echo "  make server         - Start the MCP server (port 8080)"
 	@echo "  make client         - Run the MCP client demo"
 	@echo "  make agent          - Run the pydantic-ai agent CLI"
+	@echo "  make inspector      - Launch MCP Inspector for debugging"
 	@echo "  make test           - Run tests"
+	@echo "  make test-dcr       - Test Dynamic Client Registration"
 	@echo "  make clean          - Remove Python cache files"
 	@echo ""
 	@echo "Quick start:"
@@ -18,6 +20,7 @@ help:
 	@echo "  3. make server    (in one terminal)"
 	@echo "  4. make client    (in another terminal)"
 	@echo "  5. make agent     (for interactive AI agent)"
+	@echo "  6. make inspector (to debug MCP server)"
 
 # Install package in editable mode
 install:

@@ -1,13 +1,27 @@
 # MCP Compose Configuration
-# Calculator and Echo MCP Servers Example
+# Calculator and Echo MCP Servers Example - SSE Transport (Deprecated)
+#
+# ⚠️  WARNING: SSE transport is deprecated. Consider using Streamable HTTP instead.
+#     See the proxy-streamable-http example for the recommended approach.
 
 [composer]
 name = "demo-composer"
 conflict_resolution = "prefix"  # Prefix tool names with server name
 log_level = "INFO"
+port = 8080
 
 # ============================================================================
-# Calculator MCP Server (Proxied via STDIO)
+# Transport Configuration - SSE mode (deprecated)
+# ============================================================================
+[transport]
+stdio_enabled = false
+streamable_http_enabled = false
+sse_enabled = true
+sse_path = "/sse"
+sse_cors_enabled = true
+
+# ============================================================================
+# Calculator MCP Server (Proxied via STDIO, exposed via SSE)
 # ============================================================================
 [[servers.proxied.stdio]]
 name = "calculator"
@@ -16,7 +30,7 @@ restart_policy = "never"
 # Calculator tools: add, subtract, multiply, divide
 
 # ============================================================================
-# Echo MCP Server (Proxied via STDIO)
+# Echo MCP Server (Proxied via STDIO, exposed via SSE)
 # ============================================================================
 [[servers.proxied.stdio]]
 name = "echo"

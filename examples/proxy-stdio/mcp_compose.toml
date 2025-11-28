@@ -1,10 +1,18 @@
 # MCP Compose Configuration
-# Calculator and Echo MCP Servers Example
+# Calculator and Echo MCP Servers Example - STDIO Transport
 
 [composer]
 name = "demo-composer"
 conflict_resolution = "prefix"  # Prefix tool names with server name
 log_level = "INFO"
+
+# ============================================================================
+# Transport Configuration - STDIO mode for subprocess communication
+# ============================================================================
+[transport]
+stdio_enabled = true
+streamable_http_enabled = false
+sse_enabled = false
 
 # ============================================================================
 # Calculator MCP Server (Proxied via STDIO)

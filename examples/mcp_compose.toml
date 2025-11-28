@@ -14,8 +14,16 @@ port = 8080
 # Transport Configuration
 # ============================================================================
 [transport]
+# STDIO transport - for subprocess communication
 stdio_enabled = true
-sse_enabled = true
+
+# Streamable HTTP transport (recommended) - modern HTTP-based MCP transport
+streamable_http_enabled = true
+streamable_http_path = "/mcp"
+streamable_http_cors_enabled = true
+
+# SSE transport (deprecated) - use streamable_http instead
+sse_enabled = false
 sse_path = "/sse"
 sse_cors_enabled = true
 
@@ -117,11 +125,31 @@ enabled = true
 # max_cpu_percent = 50
 
 # ============================================================================
-# Proxied SSE MCP Servers
+# Proxied Streamable HTTP MCP Servers (Recommended)
+# ============================================================================
+# [[servers.proxied.http]]
+# name = "remote-api-server"
+# url = "https://api.example.com/mcp"
+# protocol = "lines"  # chunked, lines, poll
+# auth_token = "${REMOTE_SERVER_TOKEN}"
+# auth_type = "bearer"
+# timeout = 30
+# retry_interval = 5
+# keep_alive = true
+# reconnect_on_failure = true
+# max_reconnect_attempts = 10
+# poll_interval = 2  # Only for poll protocol
+# health_check_enabled = true
+# health_check_interval = 60
+# health_check_endpoint = "/health"
+# mode = "proxy"  # proxy or translator
+
+# ============================================================================
+# Proxied SSE MCP Servers (Deprecated - use Streamable HTTP instead)
 # ============================================================================
 # [[servers.proxied.sse]]
 # name = "remote-analytics-server"
-# url = "https://analytics.example.com/mcp/sse"
+# url = "https://analytics.example.com/sse"
 # auth_token = "${REMOTE_SERVER_TOKEN}"
 # timeout = 30
 # retry_interval = 5

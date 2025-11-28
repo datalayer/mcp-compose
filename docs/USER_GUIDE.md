@@ -21,7 +21,7 @@ MCP Compose is a comprehensive solution for managing and composing multiple Mode
 - **Web UI**: Modern web interface for management and monitoring
 - **REST API**: Full-featured API for programmatic control
 - **Real-time Monitoring**: Live logs, metrics, and status updates
-- **Protocol Translation**: Support for STDIO and SSE transports
+- **Protocol Translation**: Support for STDIO, Streamable HTTP, and SSE (deprecated) transports
 
 ### Who Should Use This?
 
@@ -150,7 +150,7 @@ The dashboard shows:
 
 Each server card shows:
 - Command and arguments
-- Transport type (STDIO/SSE)
+- Transport type (STDIO/Streamable HTTP/SSE)
 - Process ID (when running)
 - Uptime (formatted as hours and minutes)
 - Restart count
@@ -404,7 +404,7 @@ conflict_resolution = "prefix"        # Strategy for name conflicts
 name = "filesystem"                   # Unique server identifier
 command = "python"                    # Executable to run
 args = ["-m", "mcp_server_filesystem", "/data"]  # Command arguments
-transport = "stdio"                   # Transport type (stdio or sse)
+transport = "stdio"                   # Transport type (stdio, streamable-http, or sse)
 env = { DEBUG = "1" }                # Optional environment variables
 auto_start = true                    # Start automatically (default: true)
 ```

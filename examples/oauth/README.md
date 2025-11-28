@@ -142,6 +142,7 @@ mcp-oauth/
 4. **Run server** → `make server` (or `python -m mcp_oauth_example server`)
 5. **Run client** → `make client` (or `python -m mcp_oauth_example client`) in a new terminal
 6. **Run agent** → `make agent` (or `python -m mcp_oauth_example agent`) for interactive AI 🤖
+7. **Inspect MCP** → `make inspector` to launch the MCP Inspector for debugging 🔍
 
 👉 **Detailed walkthrough**: [docs/QUICKSTART.md](docs/QUICKSTART.md)
 
@@ -219,6 +220,24 @@ The client will:
 4. Exchange authorization code for access token
 5. Connect via SSE with Bearer token
 6. List and invoke MCP tools
+
+### Debug with MCP Inspector
+
+The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is a visual debugging tool for MCP servers:
+
+```bash
+make inspector
+# Or directly:
+npx @modelcontextprotocol/inspector
+```
+
+The inspector provides:
+- **Interactive UI** for testing MCP tools
+- **Request/response visualization** for debugging
+- **Protocol compliance checking**
+- **Token management** for OAuth-protected servers
+
+💡 **Tip**: Start the server first (`make server`), then use the inspector to explore available tools and test authentication flows.
 
 ## 📖 Understanding the Code
 

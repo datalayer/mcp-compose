@@ -228,6 +228,19 @@ async def run_server(config, args: argparse.Namespace) -> int:
     from .tool_proxy import ToolProxy
     from .auth import create_authenticator, AuthType
     from .api.dependencies import set_authenticator
+    
+    # Determine transport mode from CLI args or config
+    transport_mode = getattr(args, 'transport', None)
+    if transport_mode is None:
+        # Determine from config
+        if config.transport.stdio_enabled and not config.transport.streamable_http_enabled and not config.transport.sse_enabled:
+            transport_mode = "stdio"
+        elif config.transport.streamable_http_enabled:
+            transport_mode = "streamable-http"
+        elif config.transport.sse_enabled:
+            transport_mode = "sse"
+        else:
+            transport_mode = "streamable-http"  # Default to streamable-http
     import uvicorn
     
     # Initialize authenticator if authentication is enabled
@@ -582,6 +595,41 @@ async def run_server(config, args: argparse.Namespace) -> int:
         print("✓ All servers started successfully!")
         print()
         
+        # Handle transport mode
+        if transport_mode == "stdio":
+            # Run in STDIO mode - read from stdin, write to stdout
+            print("=" * 70)
+            print("📡 MCP Server Mode: STDIO")
+            print("=" * 70)
+            print(f"✓ Unified MCP server is ready!")
+            print(f"  Total tools: {len(composer.composed_tools)}")
+            print()
+            
+            # List all available tools
+            if composer.composed_tools:
+                print("🔧 Available Tools:")
+                for tool_name in sorted(composer.composed_tools.keys()):
+                    tool_def = composer.composed_tools[tool_name]
+                    params = []
+                    if "inputSchema" in tool_def:
+                        schema = tool_def["inputSchema"]
+                        if "properties" in schema:
+                            params = list(schema["properties"].keys())
+                    params_str = f"({', '.join(params)})" if params else "()"
+                    print(f"  • {tool_name}{params_str}", file=sys.stderr)
+            
+            print()
+            print("Running in STDIO mode - awaiting JSON-RPC messages on stdin...", file=sys.stderr)
+            
+            # Run the composed server in STDIO mode
+            try:
+                composer.composed_server.run(transport="stdio")
+            except KeyboardInterrupt:
+                print("\n⏹  Shutting down...", file=sys.stderr)
+            
+            return 0
+        
+        # HTTP-based transport modes (streamable-http or sse)
         # Create the FastAPI REST API app
         from .api import create_app
         from .api.dependencies import set_composer
@@ -592,25 +640,41 @@ async def run_server(config, args: argparse.Namespace) -> int:
         # Create the main FastAPI app with REST API routes
         app = create_app()
         
-        # Get the FastMCP SSE app and include its routes directly
-        try:
-            sse_app = composer.composed_server.sse_app()
+        if transport_mode == "streamable-http":
+            # Get the Streamable HTTP app
+            try:
+                streamable_app = composer.composed_server.streamable_http_app()
+                
+                if hasattr(streamable_app, 'routes'):
+                    logger.info(f"Streamable HTTP app has {len(streamable_app.routes)} routes")
+                    for route in streamable_app.routes:
+                        app.routes.append(route)
+                    
+                    logger.info("Streamable HTTP routes added successfully to main app")
+            except Exception as e:
+                logger.error(f"Failed to add Streamable HTTP routes: {e}")
+                print(f"⚠️  Warning: Streamable HTTP endpoint not available: {e}")
+        else:
+            # SSE transport (deprecated)
+            # Get the FastMCP SSE app and include its routes directly
+            try:
+                sse_app = composer.composed_server.sse_app()
             
-            # Debug: Check if sse_app has routes
-            if hasattr(sse_app, 'routes'):
-                logger.info(f"SSE app has {len(sse_app.routes)} routes")
-                for route in sse_app.routes:
-                    logger.info(f"  Route: {route}")
-                
-                # Add SSE app routes directly to the main app instead of mounting
-                # This way /sse goes to /sse instead of /sse/sse
-                for route in sse_app.routes:
-                    app.routes.append(route)
-                
-                logger.info("SSE routes added successfully to main app")
-        except Exception as e:
-            logger.error(f"Failed to add SSE routes: {e}")
-            print(f"⚠️  Warning: SSE endpoint not available: {e}")
+                # Debug: Check if sse_app has routes
+                if hasattr(sse_app, 'routes'):
+                    logger.info(f"SSE app has {len(sse_app.routes)} routes")
+                    for route in sse_app.routes:
+                        logger.info(f"  Route: {route}")
+                    
+                    # Add SSE app routes directly to the main app instead of mounting
+                    # This way /sse goes to /sse instead of /sse/sse
+                    for route in sse_app.routes:
+                        app.routes.append(route)
+                    
+                    logger.info("SSE routes added successfully to main app")
+            except Exception as e:
+                logger.error(f"Failed to add SSE routes: {e}")
+                print(f"⚠️  Warning: SSE endpoint not available: {e}")
         
         # Add a /tools endpoint to list all available tools
         from fastapi import APIRouter
@@ -637,9 +701,12 @@ async def run_server(config, args: argparse.Namespace) -> int:
         app.include_router(tools_router)
         
         print("=" * 70)
-        print("📡 MCP Server Endpoints")
+        print(f"📡 MCP Server Mode: {transport_mode.upper()}")
         print("=" * 70)
-        print(f"  SSE Endpoint:  http://localhost:{config.composer.port}/sse")
+        if transport_mode == "streamable-http":
+            print(f"  MCP Endpoint:  http://localhost:{config.composer.port}/mcp")
+        else:
+            print(f"  SSE Endpoint:  http://localhost:{config.composer.port}/sse (deprecated)")
         print(f"  Tools List:    http://localhost:{config.composer.port}/tools")
         print(f"  REST API:      http://localhost:{config.composer.port}/api/v1")
         print(f"  Health Check:  http://localhost:{config.composer.port}/api/v1/health")
@@ -729,6 +796,13 @@ def create_parser() -> argparse.ArgumentParser:
         type=int,
         default=8000,
         help="Port to bind to (default: 8000)",
+    )
+    serve_parser.add_argument(
+        "-t", "--transport",
+        type=str,
+        choices=["stdio", "sse", "streamable-http"],
+        default=None,
+        help="Transport mode: stdio (subprocess), sse (deprecated), or streamable-http (recommended HTTP transport). If not specified, uses config file settings.",
     )
 
     # Compose command
