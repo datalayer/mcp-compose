@@ -639,18 +639,48 @@ async def run_server(config, args: argparse.Namespace) -> int:
         # Create the FastAPI REST API app
         from .api import create_app
         from .api.dependencies import set_composer
+        from contextlib import asynccontextmanager
         
         # Set the composer instance for dependency injection
         set_composer(composer)
         
-        # Create the main FastAPI app with REST API routes
-        app = create_app()
+        # For streamable-http, we need to run the session manager in the lifespan
+        session_manager = None
+        if transport_mode == "streamable-http":
+            # Trigger creation of the streamable HTTP app to initialize session manager
+            _ = composer.composed_server.streamable_http_app()
+            session_manager = composer.composed_server.session_manager
+        
+        # Create a custom lifespan that also runs the session manager
+        @asynccontextmanager
+        async def custom_lifespan(app):
+            """Custom lifespan that runs the streamable HTTP session manager"""
+            from .api.routes.translators import shutdown_translators
+            
+            logger.info("Starting MCP Compose API")
+            
+            if session_manager is not None:
+                # Run the session manager for streamable HTTP
+                async with session_manager.run():
+                    logger.info("Streamable HTTP session manager started")
+                    yield
+                    logger.info("Streamable HTTP session manager stopping")
+            else:
+                yield
+            
+            # Shutdown
+            logger.info("Shutting down MCP Compose API")
+            await shutdown_translators()
+        
+        # Create the main FastAPI app with our custom lifespan
+        app = create_app(lifespan=custom_lifespan)
         
         if transport_mode == "streamable-http":
-            # Get the Streamable HTTP app
+            # Get the Streamable HTTP app and add its routes
             try:
                 streamable_app = composer.composed_server.streamable_http_app()
                 
+                # Add the routes from the streamable app to our main app
                 if hasattr(streamable_app, 'routes'):
                     logger.info(f"Streamable HTTP app has {len(streamable_app.routes)} routes")
                     for route in streamable_app.routes:
