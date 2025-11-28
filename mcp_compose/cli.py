@@ -768,7 +768,9 @@ async def run_server(config, args: argparse.Namespace) -> int:
                 from .api.routes.oauth import router as oauth_router, configure_oauth
                 
                 # Configure OAuth with server details
-                server_url = f"http://{args.host}:{config.composer.port}"
+                # Always use localhost for OAuth callback URLs (GitHub requires exact match)
+                oauth_host = "localhost" if args.host == "0.0.0.0" else args.host
+                server_url = f"http://{oauth_host}:{config.composer.port}"
                 configure_oauth(
                     provider=oauth2_config.provider,
                     client_id=oauth2_config.client_id,
