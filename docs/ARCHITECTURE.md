@@ -122,11 +122,32 @@ issuer = "mcp-composer"
 audience = "mcp-clients"
 
 # OAuth2/OIDC Authentication
+# Supports two modes:
+# 1. Generic token validation (validates bearer tokens via userinfo/introspection)
+# 2. OAuth2 authorization flow (for known providers like google, github, microsoft)
+
+# Example 1: Generic OAuth2 token validation (recommended for server-side auth)
 [authentication.oauth2]
-provider = "auth0"  # auth0, keycloak, custom
-client_id = "${OAUTH_CLIENT_ID}"
-client_secret = "${OAUTH_CLIENT_SECRET}"
-discovery_url = "${OAUTH_DISCOVERY_URL}"
+provider = "generic"  # Use generic for standard OAuth2/OIDC token validation
+issuer_url = "https://id.example.com"  # OIDC issuer for auto-discovery
+# Or explicit endpoints:
+# userinfo_endpoint = "https://id.example.com/userinfo"
+# introspection_endpoint = "https://id.example.com/oauth/introspect"
+client_id = "${OAUTH_CLIENT_ID}"        # Optional, for introspection
+client_secret = "${OAUTH_CLIENT_SECRET}"  # Optional, for introspection
+user_id_claim = "sub"                   # Claim to use for user identification
+# required_scopes = ["openid", "profile"]  # Optional scope requirements
+
+# Example 2: OAuth2 authorization flow (for client-side auth)
+# [authentication.oauth2]
+# provider = "github"  # google, github, microsoft, auth0
+# client_id = "${OAUTH_CLIENT_ID}"
+# client_secret = "${OAUTH_CLIENT_SECRET}"
+# redirect_uri = "http://localhost:8080/oauth/callback"
+# scopes = ["read:user"]
+
+# Legacy configuration (deprecated, use issuer_url instead)
+# discovery_url = "${OAUTH_DISCOVERY_URL}"
 
 # Mutual TLS Authentication
 [authentication.mtls]

@@ -8,11 +8,20 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# Anaconda Authentication MCP Servers Example
+# Anaconda OAuth2 Authentication Example
 
-This example demonstrates how to use MCP Compose with **Anaconda authentication at the composer level**.
+This example demonstrates how to use MCP Compose with **generic OAuth2 token validation** using Anaconda's OIDC endpoints.
 
 ## 🎯 Overview
+
+This example is similar to `anaconda-token/` but uses a different authentication mechanism:
+
+| Feature | `anaconda-token/` | `anaconda-oauth/` (this example) |
+|---------|------------------|----------------------------------|
+| **Authentication** | `anaconda` provider | `oauth2` (generic) provider |
+| **Token Validation** | Uses `anaconda-auth` library | Uses standard OIDC userinfo endpoint |
+| **Configuration** | `[authentication.anaconda]` | `[authentication.oauth2]` |
+| **Use Case** | Anaconda-specific | Any OAuth2/OIDC provider |
 
 This configuration launches two simple Python MCP servers behind an authenticated MCP Compose:
 
@@ -34,14 +43,20 @@ Both servers:
 │   Client    │
 │  (Agent)    │
 └──────┬──────┘
-       │ HTTP/SSE + Anaconda Auth
+       │ HTTP/SSE + Bearer Token
        ▼
 ┌─────────────────────────────┐
 │    MCP Compose              │
 │  ┌─────────────────────┐    │
-│  │ Authentication      │    │ ← Anaconda auth here
-│  │ Middleware          │    │
+│  │ OAuth2 Token        │    │ ← Validates via OIDC
+│  │ Validator           │    │   userinfo endpoint
 │  └─────────┬───────────┘    │
+│            │                 │
+│            ▼                 │
+│  ┌─────────────────────┐    │
+│  │ Anaconda OIDC       │◄───┼── https://id.anaconda.com
+│  │ (userinfo endpoint) │    │
+│  └─────────────────────┘    │
 │            │                 │
 │  ┌─────────┴───────────┐    │
 │  │  Tool Manager       │    │
@@ -56,18 +71,19 @@ Both servers:
 └────────────┘ └────────────┘
 ```
 
-**Key Point**: Authentication happens at the **MCP Compose level**, not in the individual servers. The servers are simple STDIO processes without authentication logic.
+**Key Points**:
+- Authentication happens at the **MCP Compose level**
+- Tokens are validated via standard **OIDC userinfo endpoint** (not the anaconda-auth library)
+- This pattern works with **any OAuth2/OIDC provider** (Google, GitHub, Keycloak, etc.)
 
 ## 📋 Features
 
+- **Generic OAuth2**: Works with any OIDC-compliant provider
+- **OIDC Auto-Discovery**: Endpoints auto-discovered from `issuer_url`
 - **Two Simple Servers**: Calculator and Echo servers with basic tools
-- **Anaconda Authentication**: Secure authentication via anaconda-auth
-- **Pure Python**: Minimal dependencies (FastMCP + anaconda-auth)
+- **Pure Python**: Minimal dependencies (FastMCP + httpx)
 - **Configuration-Based**: Define servers in `mcp_compose.toml`
 - **Process Management**: Composer manages server lifecycles
-- **STDIO Transport**: Standard input/output for MCP communication
-- **Environment Variables**: Secure token passing via environment
-- **Easy Management**: Simple make commands to control everything
 
 ## 🔑 Prerequisites
 
@@ -75,12 +91,12 @@ Both servers:
 
 Clients connecting to this MCP Compose will need:
 - An Anaconda.com account (sign up at https://anaconda.cloud/)
-- A valid Anaconda access token or API key
+- A valid OAuth access token (obtained via `anaconda_auth.login()`)
 
 ### 2. No Server Prerequisites
 
-The MCP Compose **does not require** an `ANACONDA_API_KEY` to start.
-It validates bearer tokens provided by clients in their requests.
+The MCP Compose **does not require** credentials to start.
+It validates bearer tokens by calling Anaconda's OIDC userinfo endpoint.
 
 ## 🚀 Quick Start
 
@@ -93,7 +109,8 @@ make install
 This will install:
 - `mcp-compose` (the orchestrator)
 - `fastmcp` (for the demo MCP servers)
-- `anaconda-auth` (for token validation)
+- `httpx` (for token validation)
+- `anaconda-auth` (for client-side token acquisition)
 
 ### 2. Start the Echo HTTP Server
 

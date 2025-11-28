@@ -138,7 +138,7 @@ mcp-oauth/
 
 1. **Create GitHub OAuth app** → [docs/GITHUB.md](docs/GITHUB.md)
 2. **Configure** → Edit `config.json` with your Client ID and Secret
-3. **Install** → `make install` (or `pip install -r requirements.txt`)
+3. **Install** → `make install` (or `pip install -e .`)
 4. **Run server** → `make server` (or `python -m mcp_oauth_example server`)
 5. **Run client** → `make client` (or `python -m mcp_oauth_example client`) in a new terminal
 6. **Run agent** → `make agent` (or `python -m mcp_oauth_example agent`) for interactive AI 🤖
@@ -195,7 +195,7 @@ See [docs/GITHUB.md](docs/GITHUB.md) for how to get these credentials.
 ### Start the Server
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 python -m mcp_oauth_example server
 # Or use make:
 make server

@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Pydantic AI Agent with MCP Compose - Anaconda OAuth2 Example
+Pydantic AI Agent with MCP Compose - GitHub OAuth2 Example
 
 This agent demonstrates how to connect a pydantic-ai agent to the MCP Compose
-using generic OAuth2 authentication with Anaconda's OIDC provider.
+using generic OAuth2 authentication with GitHub as the identity provider.
 
-Unlike the anaconda-token example (which validates tokens using the anaconda-auth
-library directly), this example uses standard OAuth2/OIDC token validation via
-the userinfo endpoint. This demonstrates how to use any OAuth2/OIDC provider
-with mcp-compose.
+This example uses standard OAuth2/OIDC token validation via GitHub's userinfo
+endpoint (https://api.github.com/user). This demonstrates how to use GitHub
+OAuth with mcp-compose.
 
 Features:
 - Connection to MCP Compose via SSE transport
-- OAuth2 authentication via Anaconda's OIDC provider
+- OAuth2 authentication via GitHub
 - Interactive CLI interface powered by pydantic-ai
 - Access to Calculator and Echo server tools through the composer
 
 Authentication Flow:
-1. Client obtains OAuth token via anaconda_auth.login() (interactive OAuth flow)
+1. Client obtains OAuth token via GitHub OAuth flow (browser-based)
 2. Client sends bearer token to MCP Compose
-3. MCP Compose validates token via Anaconda's userinfo endpoint
+3. MCP Compose validates token via GitHub's API (https://api.github.com/user)
 4. Request proceeds if token is valid
 
 Usage:
@@ -31,7 +30,8 @@ Usage:
     python agent.py
 
 Configuration:
-    See mcp_compose.toml for the generic OAuth2 configuration with Anaconda endpoints.
+    See mcp_compose.toml for the generic OAuth2 configuration with GitHub endpoints.
+    See config.json for GitHub OAuth client credentials.
 
 Servers:
 - Calculator Server (mcp1.py): add, subtract, multiply, divide
@@ -54,14 +54,13 @@ except ImportError:
     sys.exit(1)
 
 
-def get_anaconda_token() -> str:
+def get_github_token() -> str:
     """
-    Get Anaconda access token using login() method.
+    Get GitHub OAuth access token.
     
     Tries to get token from:
-    1. Environment variable ANACONDA_TOKEN
-    2. Interactive OAuth flow via anaconda_auth library
-    3. Interactive OAuth flow via mcp_compose.oauth_client (fallback)
+    1. Environment variable GITHUB_TOKEN
+    2. Interactive OAuth flow via mcp_compose.oauth_client module
     
     Returns:
         Access token string
@@ -69,55 +68,63 @@ def get_anaconda_token() -> str:
     import os
     
     # First check for environment variable
-    token = os.environ.get("ANACONDA_TOKEN")
+    token = os.environ.get("GITHUB_TOKEN")
     if token:
-        print("\n🔐 Using Anaconda token from ANACONDA_TOKEN environment variable")
+        print("\n🔐 Using GitHub token from GITHUB_TOKEN environment variable")
         return token
     
-    print("\n🔐 Authenticating with Anaconda...")
+    print("\n🔐 Authenticating with GitHub...")
+    print("   No GITHUB_TOKEN environment variable found.")
+    print("   Starting OAuth flow...")
     
-    # Try anaconda-auth library first (preferred)
     try:
-        from anaconda_auth import login
-        from anaconda_auth.token import TokenInfo
+        from mcp_compose.oauth_client import GitHubOAuthClient
+        import json
         
-        # Use interactive login (opens browser)
-        login()
+        # Load config
+        config_file = "config.json"
+        if not os.path.exists(config_file):
+            print(f"\n❌ Error: {config_file} not found")
+            print("   Copy config.template.json to config.json and add your GitHub OAuth credentials")
+            print("   See: https://github.com/settings/developers")
+            sys.exit(1)
         
-        # Get access token
-        token_info = TokenInfo(domain="anaconda.com")
-        access_token = token_info.get_access_token()
+        with open(config_file) as f:
+            config = json.load(f)
+        
+        client_id = config["github"]["client_id"]
+        client_secret = config["github"]["client_secret"]
+        
+        # Create OAuth client and get token
+        oauth_client = GitHubOAuthClient(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri="http://localhost:8080/callback"
+        )
+        
+        access_token = oauth_client.get_token_interactive()
         
         if not access_token:
-            raise Exception("Failed to get access token after login")
+            raise Exception("Failed to get access token")
         
-        print("✅ Successfully authenticated with Anaconda")
+        print("✅ Successfully authenticated with GitHub")
         return access_token
         
     except ImportError:
-        print("   anaconda-auth not installed, trying mcp_compose.oauth_client...")
-    except Exception as e:
-        print(f"   anaconda-auth failed: {e}, trying mcp_compose.oauth_client...")
-    
-    # Fallback to mcp_compose.oauth_client
-    try:
-        from mcp_compose.oauth_client import get_anaconda_token as oauth_get_token
-        
-        access_token = oauth_get_token()
-        if access_token:
-            print("✅ Successfully authenticated with Anaconda")
-            return access_token
-        raise Exception("Failed to get access token")
-        
-    except ImportError:
-        print("\n❌ Error: Neither anaconda-auth nor mcp_compose.oauth_client available")
-        print("   Install anaconda-auth: pip install anaconda-auth")
-        print("   Or install mcp-compose: pip install -e .")
+        print("\n❌ Error: mcp_compose.oauth_client module not found")
+        print("   Make sure mcp-compose is installed: pip install -e .")
         print("")
-        print("   Alternatively, set the ANACONDA_TOKEN environment variable")
+        print("   Alternatively, set the GITHUB_TOKEN environment variable:")
+        print("   export GITHUB_TOKEN='your-github-personal-access-token'")
+        sys.exit(1)
+    except FileNotFoundError as e:
+        print(f"\n❌ Error: {e}")
         sys.exit(1)
     except Exception as e:
         print(f"\n❌ Authentication failed: {e}")
+        print("")
+        print("   You can also set the GITHUB_TOKEN environment variable:")
+        print("   export GITHUB_TOKEN='your-github-personal-access-token'")
         sys.exit(1)
 
 
@@ -143,12 +150,12 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
     print("🤖 Pydantic AI Agent with MCP Compose")
     print("=" * 70)
     
-    # Get Anaconda access token
-    access_token = get_anaconda_token()
+    # Get GitHub access token
+    access_token = get_github_token()
     
     print(f"\n📡 Connecting to MCP Compose: {server_url}/sse")
     print("   Unified access to Calculator and Echo servers")
-    print("   Using Anaconda bearer token authentication")
+    print("   Using GitHub bearer token authentication")
     
     # Create MCP server connection with SSE transport and authentication
     mcp_server = MCPServerSSE(

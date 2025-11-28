@@ -222,7 +222,9 @@ async def handle_sse(request: Request, authorization: Optional[str] = Header(Non
 ### 1. Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
+# Or use make:
+make install
 ```
 
 Installs:
@@ -230,7 +232,7 @@ Installs:
 - `fastapi` - Web framework
 - `uvicorn` - ASGI server
 - `requests` - HTTP client
-- `sse-starlette` - SSE support
+- `pydantic-ai[mcp]` - AI agent with MCP support
 
 ### 2. Configure OAuth
 

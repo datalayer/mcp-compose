@@ -40,18 +40,18 @@ Edit `config.json` and replace the placeholders:
 ## Step 3: Install Dependencies (1 minute)
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 # Or using make:
 make install
 ```
 
 This installs:
-- `requests` - HTTP client
-- `httpx` - Async HTTP client (for agent)
 - `mcp` - Official MCP Python SDK
+- `httpx` - Async HTTP client
 - `fastapi` - Web framework for server
 - `uvicorn` - ASGI server
-- `sse-starlette` - Server-Sent Events support
+- `requests` - HTTP client
+- `PyJWT` - JWT token handling
 - `pydantic-ai[mcp]` - AI agent framework with MCP support
 
 ## Step 4: Run the Server (30 seconds)

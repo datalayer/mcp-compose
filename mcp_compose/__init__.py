@@ -18,6 +18,15 @@ from .exceptions import (
     MCPToolConflictError,
     MCPPromptConflictError,
 )
+from .oauth_client import (
+    OAuthClient,
+    GitHubOAuthClient,
+    AnacondaOAuthClient,
+    GenericOIDCClient,
+    get_oauth_client,
+    get_github_token,
+    get_anaconda_token,
+)
 
 __all__ = [
     "MCPServerComposer",
@@ -30,5 +39,12 @@ __all__ = [
     "MCPCompositionError",
     "MCPToolConflictError",
     "MCPPromptConflictError",
+    "OAuthClient",
+    "GitHubOAuthClient",
+    "AnacondaOAuthClient",
+    "GenericOIDCClient",
+    "get_oauth_client",
+    "get_github_token",
+    "get_anaconda_token",
     "__version__",
 ]

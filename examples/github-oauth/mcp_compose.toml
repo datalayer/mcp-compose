@@ -1,33 +1,31 @@
 # MCP Compose Configuration
-# Anaconda OAuth2 Authentication Example
+# GitHub OAuth2 Authentication Example
 #
-# This example demonstrates using the generic OAuth2 provider with Anaconda's
-# OIDC endpoints. Unlike the anaconda-token example (which uses anaconda-auth
-# library for token validation), this uses standard OAuth2/OIDC token validation.
+# This example demonstrates using the generic OAuth2 provider with GitHub's
+# OAuth endpoints. Token validation is done via GitHub's userinfo endpoint
+# (https://api.github.com/user).
 
 [composer]
-name = "anaconda-oauth-composer"
+name = "github-oauth-composer"
 conflict_resolution = "prefix"  # Prefix tool names with server name
 log_level = "INFO"
 
 # ============================================================================
 # Authentication Configuration
 # ============================================================================
-# Generic OAuth2 token validation using Anaconda's OIDC endpoints.
+# Generic OAuth2 token validation using GitHub's API.
 #
 # The composer validates incoming bearer tokens by:
-# 1. Auto-discovering endpoints from the issuer_url
-# 2. Calling the userinfo endpoint with the bearer token
-# 3. Extracting user ID from the configured claim (default: "sub")
+# 1. Calling GitHub's userinfo endpoint (https://api.github.com/user)
+# 2. Extracting user ID from the "id" or "login" claim
 #
-# Clients must provide valid Anaconda OAuth tokens in Authorization header:
-#   Authorization: Bearer <your_anaconda_oauth_token>
+# Clients must provide valid GitHub OAuth tokens in Authorization header:
+#   Authorization: Bearer <your_github_oauth_token>
 #
-# To get an OAuth token, clients should:
-#   from anaconda_auth import login
-#   login()  # Interactive OAuth flow
-#   from anaconda_auth.token import TokenInfo
-#   token = TokenInfo().get_access_token()
+# To get an OAuth token, use the GitHub OAuth flow:
+# 1. Register an OAuth App at https://github.com/settings/developers
+# 2. Set callback URL to http://localhost:8080/callback
+# 3. Use the oauth_client.py or web browser flow to get a token
 
 [authentication]
 enabled = true
@@ -38,22 +36,15 @@ default_provider = "oauth2"
 # Use generic provider for standard OAuth2/OIDC token validation
 provider = "generic"
 
-# Anaconda OIDC issuer URL - endpoints will be auto-discovered
-issuer_url = "https://id.anaconda.com"
+# GitHub API userinfo endpoint (GitHub doesn't use standard OIDC discovery)
+userinfo_endpoint = "https://api.github.com/user"
 
-# Alternative: Explicit endpoint configuration (uncomment if auto-discovery fails)
-# userinfo_endpoint = "https://id.anaconda.com/userinfo"
-# introspection_endpoint = "https://id.anaconda.com/oauth/introspect"
+# Claim to use for user identification (GitHub uses "login" for username, "id" for numeric ID)
+user_id_claim = "login"
 
-# Claim to use for user identification (Anaconda uses "sub" for user ID)
-user_id_claim = "sub"
-
-# Optional: Client credentials for introspection (if required by provider)
-# client_id = "your-client-id"
-# client_secret = "your-client-secret"
-
-# Optional: Require specific scopes
-# required_scopes = ["openid", "profile"]
+# Optional: Client credentials for introspection (not needed for GitHub userinfo)
+# client_id = "your-github-client-id"
+# client_secret = "your-github-client-secret"
 
 # ============================================================================
 # Backend MCP Servers (No auth - accessed via composer only)
