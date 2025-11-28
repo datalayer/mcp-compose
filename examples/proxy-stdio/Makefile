@@ -1,16 +1,17 @@
-.PHONY: help install install-agent start agent stop clean
+.PHONY: help install install-agent agent clean
 
 # Default target
 help:
-	@echo "Git-File MCP Compose Example - Makefile"
+	@echo "STDIO Transport Example - Makefile"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  install        - Install mcp-compose and MCP servers"
 	@echo "  install-agent  - Install pydantic-ai for agent support"
-	@echo "  start          - Start the MCP Compose (manages both servers)"
-	@echo "  agent          - Run the AI agent (requires composer to be running)"
-	@echo "  stop           - Stop the MCP Compose"
+	@echo "  agent          - Run the AI agent (spawns composer automatically)"
 	@echo "  clean          - Clean up temporary files"
+	@echo ""
+	@echo "Note: With STDIO transport, you don't need to start the composer"
+	@echo "      separately. The agent spawns it as a subprocess."
 	@echo ""
 
 # Install dependencies
@@ -27,10 +28,7 @@ install:
 	@echo "  • mcp1.py - Calculator tools (add, subtract, multiply, divide)"
 	@echo "  • mcp2.py - Echo tools (ping, echo, reverse, uppercase, etc.)"
 	@echo ""
-	@echo "To start:"
-	@echo "  make start"
-	@echo ""
-	@echo "To use the AI agent:"
+	@echo "To use the AI agent (spawns composer automatically):"
 	@echo "  make install-agent"
 	@echo "  make agent"
 
@@ -42,21 +40,18 @@ install-agent:
 	@echo "✓ Agent dependencies installed!"
 	@echo ""
 	@echo "Usage:"
-	@echo "  1. Start composer: make start"
-	@echo "  2. In another terminal: make agent"
-
-# Start the MCP Compose
-start:
-	@echo "Starting MCP Compose..."
+	@echo "  make agent"
 	@echo ""
-	mcp-compose serve --config mcp_compose.toml
+	@echo "Note: With STDIO transport, the agent spawns the composer"
+	@echo "      automatically - no need to start it separately!"
 
-# Run the AI agent
+# Run the AI agent (spawns composer as subprocess)
 agent:
-	@echo "Starting AI Agent..."
+	@echo "Starting AI Agent with STDIO Transport..."
 	@echo ""
-	@echo "⚠️  Make sure the MCP Compose is running!"
-	@echo "   (Run 'make start' in another terminal)"
+	@echo "📋 STDIO Transport Mode:"
+	@echo "   The agent will spawn mcp-compose as a subprocess"
+	@echo "   No need to start the composer separately!"
 	@echo ""
 	@echo "Usage: python agent.py [model]"
 	@echo "  Default: anthropic:claude-sonnet-4-0"
@@ -70,15 +65,12 @@ agent:
 	@echo "  - AZURE_OPENAI_ENDPOINT (base URL, e.g., https://your-resource.openai.azure.com)"
 	@echo "  - AZURE_OPENAI_API_VERSION (optional)"
 	@echo ""
-	python agent.py azure-openai:gpt-4o-mini
-
-# Stop the composer (use Ctrl+C in the terminal where it's running)
-stop:
-	@echo "To stop the composer, press Ctrl+C in the terminal where it's running"
+	python agent.py $(MODEL)
 
 # Clean up
 clean:
 	@echo "Cleaning up..."
 	@rm -f *.log nohup.out
 	@rm -f .composer.pid composer.log
+	@rm -rf __pycache__
 	@echo "✓ Cleanup complete"

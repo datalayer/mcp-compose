@@ -59,7 +59,6 @@ agent:
 	@echo ""
 	mcp-oauth-agent azure-openai:gpt-4o-mini
 
-
 # Run MCP Inspector
 inspector:
 	@echo "🔍 Starting Model Context Protocol Inspector..."

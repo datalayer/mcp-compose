@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Pydantic AI Agent with MCP Compose
+Pydantic AI Agent with MCP Compose (Streamable HTTP Transport)
 
-This agent demonstrates how to connect a pydantic-ai agent to the MCP Compose.
-The composer manages multiple MCP servers and exposes them through a unified endpoint.
+This agent demonstrates how to connect a pydantic-ai agent to the MCP Compose
+using Streamable HTTP transport. This is the modern, recommended HTTP transport
+for MCP that replaces the deprecated SSE transport.
 
 Features:
-- Connection to MCP Compose via SSE transport
+- Connection to MCP Compose via Streamable HTTP transport
 - Interactive CLI interface powered by pydantic-ai
 - Access to Calculator and Echo server tools through the composer
-- Uses Anthropic Claude Sonnet 4.5 model
+- Uses Anthropic Claude Sonnet 4 model
 
 Usage:
     # First start the composer server:
@@ -20,9 +21,10 @@ Usage:
     python agent.py
 
 Learning Objectives:
-1. Integrate pydantic-ai Agent with MCP Compose
+1. Integrate pydantic-ai Agent with MCP Compose via Streamable HTTP
 2. Access multiple MCP servers through a unified interface
 3. Build interactive CLI agents with pydantic-ai
+4. Understand modern HTTP-based MCP transport
 
 Servers:
 - Calculator Server (mcp1.py): add, subtract, multiply, divide
@@ -36,7 +38,7 @@ import asyncio
 # Pydantic AI imports
 try:
     from pydantic_ai import Agent
-    from pydantic_ai.mcp import MCPServerSSE
+    from pydantic_ai.mcp import MCPServerStreamableHTTP
     HAS_PYDANTIC_AI = True
 except ImportError:
     HAS_PYDANTIC_AI = False
@@ -47,7 +49,7 @@ except ImportError:
 
 def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "http://localhost:8080") -> Agent:
     """
-    Create a pydantic-ai Agent connected to the MCP Compose
+    Create a pydantic-ai Agent connected to the MCP Compose via Streamable HTTP
     
     Args:
         model: Model string in format 'provider:model-name' (e.g., 'anthropic:claude-sonnet-4-0', 'openai:gpt-4o')
@@ -64,20 +66,18 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
         - AZURE_OPENAI_API_VERSION (optional, defaults to latest)
     """
     print("\n" + "=" * 70)
-    print("🤖 Pydantic AI Agent with MCP Compose")
+    print("🤖 Pydantic AI Agent with MCP Compose (Streamable HTTP Transport)")
     print("=" * 70)
     
-    print(f"\n📡 Connecting to MCP Compose: {server_url}/sse")
+    print(f"\n📡 Connecting to MCP Compose: {server_url}/mcp")
     print("   Unified access to Calculator and Echo servers")
     
-    # Create MCP server connection with SSE transport
-    # No authentication required for this example
-    mcp_server = MCPServerSSE(
-        url=f"{server_url}/sse",
-        # Increase read timeout for long-running tool calls
-        read_timeout=300.0,  # 5 minutes
-        # Allow retries for transient failures
-        max_retries=2
+    # Create MCP server connection with Streamable HTTP transport
+    # This is the modern, recommended transport (SSE is deprecated)
+    mcp_server = MCPServerStreamableHTTP(
+        url=f"{server_url}/mcp",
+        # Increase timeout for long-running tool calls
+        timeout=300.0,  # 5 minutes
     )
     
     print(f"\n🤖 Initializing Agent with {model}")
@@ -127,55 +127,15 @@ def main():
     
     try:
         print("\n" + "=" * 70)
-        print("🚀 MCP Compose Agent")
+        print("🚀 MCP Compose Agent (Streamable HTTP Transport)")
         print("=" * 70)
         print(f"\nUsing model: {model}")
         print("\n⚠️  IMPORTANT: Make sure the MCP Compose is running!")
         print("   Run in another terminal: make start")
-        print("\nConnecting to server at http://localhost:8080...")
+        print("\nConnecting to server at http://localhost:8080/mcp...")
         
         # Create agent with MCP server connection
         agent = create_agent(model=model)
-        
-        # List all available tools from the server using MCP SDK
-        async def list_tools():
-            """List all tools available from the MCP server"""
-            try:
-                # Import MCP SDK client
-                from mcp import ClientSession
-                from mcp.client.sse import sse_client
-                
-                # Connect using SSE client
-                async with sse_client("http://localhost:8080/sse") as (read, write):
-                    async with ClientSession(read, write) as session:
-                        # Initialize the session
-                        await session.initialize()
-                        
-                        # List tools
-                        tools_result = await session.list_tools()
-                        tools = tools_result.tools
-                        
-                        print("\n🔧 Available Tools:")
-                        
-                        for tool in tools:
-                            name = tool.name
-                            params = []
-                            
-                            if hasattr(tool, 'inputSchema') and tool.inputSchema:
-                                schema = tool.inputSchema
-                                if isinstance(schema, dict) and "properties" in schema:
-                                    params = list(schema["properties"].keys())
-                            
-                            param_str = f"({', '.join(params)})" if params else "()"
-                            print(f"   • {name}{param_str}")
-                        
-                        print(f"\n   Total: {len(tools)} tools")
-                        
-            except Exception as e:
-                print(f"\n⚠️  Could not list tools: {e}")
-                print("   The agent will still work with available tools")
-        
-        asyncio.run(list_tools())
         
         # Launch interactive CLI
         print("\n" + "=" * 70)
@@ -200,7 +160,7 @@ def main():
         async def _run_cli() -> None:
             assert agent is not None
             async with agent:
-                await agent.to_cli(prog_name='proxy-anonymous-agent')
+                await agent.to_cli(prog_name='proxy-streamable-http-agent')
 
         asyncio.run(_run_cli())
     
@@ -214,26 +174,17 @@ def main():
         print("\n" + "=" * 70)
         print("⚠️  CONNECTION ISSUE")
         print("=" * 70)
-        print("\nThe agent cannot connect because the SSE endpoint is not yet")
-        print("implemented in the serve command.")
-        print("\nCurrent Status:")
-        print("  ✅ Child servers (mcp1.py, mcp2.py) start successfully")
-        print("  ❌ No SSE endpoint exposed at http://localhost:8080/sse")
-        print("\nWhat's Needed:")
-        print("  The serve command needs to be enhanced to:")
-        print("  1. Create a unified FastMCP server")
-        print("  2. Expose SSE transport at /sse endpoint")
-        print("  3. Proxy requests between SSE clients and STDIO child servers")
-        print("\nThis is documented in IMPLEMENTATION_STATUS.md")
+        print("\nThe agent cannot connect to the MCP Compose.")
+        print("\nTroubleshooting:")
+        print("  1. Make sure mcp-compose is running: make start")
+        print("  2. Check that the endpoint is http://localhost:8080/mcp")
+        print("  3. Verify no firewall blocking port 8080")
         print("=" * 70)
         raise
     except ConnectionError as e:
         print(f"\n❌ Connection Error: {e}")
         print("   Make sure the MCP Compose is running on port 8080")
         print("   (Run: make start in another terminal)")
-        print("\n⚠️  NOTE: The unified SSE endpoint is not yet implemented!")
-        print("   The serve command currently only starts child processes.")
-        print("   The SSE endpoint at http://localhost:8080/sse will be added soon.")
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback

@@ -8,33 +8,56 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# Demo MCP Servers Example
+# Streamable HTTP Transport Example
 
-This example demonstrates how to use MCP Compose to manage multiple MCP servers from a configuration file.
+This example demonstrates how to use MCP Compose with **Streamable HTTP transport**. This is the modern, recommended HTTP transport for MCP that replaces the deprecated SSE transport.
 
 ## 🎯 Overview
 
-This configuration launches two simple Python MCP servers managed by the composer:
+This example shows:
 
-1. **Calculator Server** (`mcp1.py`) - Math operations (add, subtract, multiply, divide)
-2. **Echo Server** (`mcp2.py`) - String operations (ping, echo, reverse, uppercase, lowercase, count_words)
+1. **Two MCP Servers**: Calculator and Echo servers (`mcp1.py`, `mcp2.py`)
+2. **Streamable HTTP Transport**: Modern HTTP-based MCP communication
+3. **Unified Access**: Single interface to all tools from multiple servers
 
-Both servers run in **proxy mode** via STDIO transport and are managed by the MCP Compose.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Pydantic AI Agent                        │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │              MCPServerStreamableHTTP                   │  │
+│  │        (connects to http://localhost:8080/mcp)         │  │
+│  └──────────────────────┬─────────────────────────────────┘  │
+└─────────────────────────┼────────────────────────────────────┘
+                          │ HTTP (Streamable HTTP transport)
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   MCP Compose Server                         │
+│              (http://localhost:8080/mcp)                     │
+│                                                              │
+│  ┌─────────────────┐         ┌─────────────────┐            │
+│  │   Calculator    │         │      Echo       │            │
+│  │    (mcp1.py)    │         │    (mcp2.py)    │            │
+│  │                 │         │                 │            │
+│  │ • add           │         │ • ping          │            │
+│  │ • subtract      │         │ • echo          │            │
+│  │ • multiply      │         │ • reverse       │            │
+│  │ • divide        │         │ • uppercase     │            │
+│  │                 │         │ • lowercase     │            │
+│  │                 │         │ • count_words   │            │
+│  └─────────────────┘         └─────────────────┘            │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## 📋 Features
 
-- **Two Simple Servers**: Calculator and Echo servers with basic tools
-- **Pure Python**: No external dependencies beyond FastMCP
-- **Configuration-Based**: Define servers in `mcp_compose.toml`
-- **Process Management**: Composer manages server lifecycles
-- **STDIO Transport**: Standard input/output for MCP communication
-- **SSE API**: Unified MCP server endpoint for client connections (coming soon)
-- **AI Agent Support**: Connect pydantic-ai agents to the composed server (coming soon)
-- **Easy Management**: Simple make commands to control everything
+- **Streamable HTTP Transport**: Modern, recommended MCP transport (SSE is deprecated)
+- **Server Mode**: MCP Compose runs as a persistent server
+- **Multiple Clients**: Multiple agents can connect simultaneously
+- **REST-like**: Standard HTTP semantics for easier integration
+- **Unified Interface**: All tools accessible through a single endpoint
 
 ## 🚀 Quick Start
-
-> **⚠️ Note**: The serve command currently starts the child MCP servers but does not yet expose a unified SSE endpoint. The composer architecture is being implemented to provide a unified MCP protocol server that proxies requests to the child servers. For now, the example demonstrates configuration-based process management.
 
 ### 1. Install Dependencies
 
@@ -46,11 +69,7 @@ This will install:
 - `mcp-compose` (the orchestrator)
 - `fastmcp` (for the demo MCP servers)
 
-The example includes two simple Python MCP servers:
-- `mcp1.py` - Calculator tools (add, subtract, multiply, divide)
-- `mcp2.py` - Echo tools (ping, echo, reverse, uppercase, lowercase, count_words)
-
-### 2. Start the Composer
+### 2. Start the Composer Server
 
 ```bash
 make start
@@ -58,241 +77,106 @@ make start
 
 The composer will:
 - Read configuration from `mcp_compose.toml`
-- Start both Calculator and Echo MCP servers as child processes
-- Manage their lifecycles (coming soon: unified SSE endpoint)
+- Start both Calculator and Echo MCP servers
+- Expose a unified Streamable HTTP endpoint at `http://localhost:8080/mcp`
 
-### 3. Use the AI Agent (Coming Soon)
-
-> **🚧 Work in Progress**: The agent integration requires the unified SSE endpoint to be implemented in the serve command. The agent.py file is ready and demonstrates the intended usage pattern.
+### 3. Install Agent Dependencies
 
 ```bash
-# Install pydantic-ai
 make install-agent
+```
 
-# Run the agent (requires SSE endpoint - coming soon!)
+### 4. Run the Agent (in another terminal)
+
+```bash
 make agent
 ```
 
-The agent is designed to:
-- Connect to the MCP Compose via SSE
-- Access tools from both Calculator and Echo servers through a unified interface
-- Provide an interactive CLI powered by Anthropic Claude
+### Example Interactions
 
-Example interactions (once SSE endpoint is available):
+Once the agent is running:
 - "What is 15 plus 27?"
 - "Multiply 8 by 9"
 - "Reverse the text 'hello world'"
 - "Convert 'Hello World' to uppercase"
 - "Count the words in 'The quick brown fox jumps'"
 
-### 4. Stop the Composer
+### 5. Stop the Composer
 
 Press `Ctrl+C` in the terminal where the composer is running.
 
-## � Features
+## 🔧 How Streamable HTTP Transport Works
 
-- **Multiple Servers**: Git and Filesystem servers orchestrated together
-- **Configuration-Based**: Define servers in `mcp_compose.toml`
-- **Process Management**: Composer manages server lifecycles
-- **STDIO Transport**: Standard input/output for MCP communication
-- **Easy Management**: Simple make commands to control everything
+With Streamable HTTP transport, the **server runs independently**:
 
-## �🚀 Quick Start
+1. **Server starts**: `mcp-compose serve --transport streamable-http`
+2. **Endpoint exposed**: Server listens at `http://localhost:8080/mcp`
+3. **Clients connect**: Using `MCPServerStreamableHTTP` from pydantic-ai
+4. **Communication**: Standard HTTP requests with streaming responses
 
-### 1. Install Dependencies
+This is different from STDIO transport where the client spawns the server.
 
-```bash
-make install
+### Agent Code Snippet
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai.mcp import MCPServerStreamableHTTP
+
+# Create MCP server connection with Streamable HTTP transport
+mcp_server = MCPServerStreamableHTTP(
+    url="http://localhost:8080/mcp",
+    timeout=300.0,
+)
+
+# Create agent with MCP tools
+agent = Agent(
+    model="anthropic:claude-sonnet-4-0",
+    toolsets=[mcp_server],
+)
+
+# Use async context manager
+async with agent:
+    result = await agent.run("What is 5 + 3?")
 ```
 
-This will install:
-- `mcp-compose` (the orchestrator)
-- `mcp-server-git` (Git operations)
-- `mcp-server-filesystem` (File operations)
+### Streamable HTTP vs SSE
 
-### 2. Start the Composer
+| Feature | Streamable HTTP | SSE (deprecated) |
+|---------|-----------------|------------------|
+| Endpoint | `/mcp` | `/sse` |
+| Protocol | Modern HTTP streaming | Server-Sent Events |
+| Status | **Recommended** | Deprecated |
+| Bidirectional | Yes | Limited |
 
-```bash
-make start
-```
+## 📁 Files
 
-The composer will:
-- Read configuration from `mcp_compose.toml`
-- Start both Git and Filesystem MCP servers
-- Manage their processes
-- Handle auto-restart if servers crash
+| File | Description |
+|------|-------------|
+| `mcp_compose.toml` | Configuration for the MCP servers |
+| `mcp1.py` | Calculator MCP server (add, subtract, multiply, divide) |
+| `mcp2.py` | Echo MCP server (ping, echo, reverse, uppercase, etc.) |
+| `agent.py` | Pydantic AI agent using Streamable HTTP transport |
+| `Makefile` | Convenience commands |
 
-### 3. Stop the Composer
+## ⚙️ Configuration
 
-Press `Ctrl+C` in the terminal where the composer is running.
-
-## 📖 Usage Examples
-
-### List Available Tools
-
-```bash
-# All tools
-make list-tools
-
-# Git tools only
-make list-git
-
-# Filesystem tools only
-make list-fs
-```
-
-### Test Git Server
-
-```bash
-# Get commit log
-make test-git
-
-# Get git status
-make test-git-status
-```
-
-### Test Filesystem Server
-
-```bash
-# List directory
-make test-fs
-
-# Read a file
-make test-fs-read
-```
-
-### Manual API Calls
-
-#### Git Operations
-
-**Get commit log:**
-```bash
-curl -X POST http://localhost:8000/api/v1/tools/git:log/invoke \
-  -H "Content-Type: application/json" \
-  -d '{"limit": 10}'
-```
-
-**Get repository status:**
-```bash
-curl -X POST http://localhost:8000/api/v1/tools/git:status/invoke \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-**Show diff:**
-```bash
-curl -X POST http://localhost:8000/api/v1/tools/git:diff/invoke \
-  -H "Content-Type: application/json" \
-  -d '{"cached": false}'
-```
-
-#### Filesystem Operations
-
-**List directory:**
-```bash
-curl -X POST http://localhost:8000/api/v1/tools/filesystem:list_directory/invoke \
-  -H "Content-Type: application/json" \
-  -d '{"path": "/tmp"}'
-```
-
-**Read file:**
-```bash
-curl -X POST http://localhost:8000/api/v1/tools/filesystem:read_file/invoke \
-  -H "Content-Type: application/json" \
-  -d '{"path": "/tmp/myfile.txt"}'
-```
-
-**Write file:**
-```bash
-curl -X POST http://localhost:8000/api/v1/tools/filesystem:write_file/invoke \
-  -H "Content-Type: application/json" \
-  -d '{
-    "path": "/tmp/test.txt",
-    "content": "Hello from MCP!"
-  }'
-```
-
-## 🎨 Web UI Features
-
-Access the Web UI at http://localhost:8000
-
-### Dashboard
-- View active servers count
-- See total available tools
-- Monitor system health
-- Quick navigation
-
-### Server Management
-- Start/stop individual servers
-- View server status and uptime
-- Monitor process IDs
-- See restart counts
-
-### Tool Browser
-- Search and filter tools
-- View tool schemas
-- Invoke tools interactively
-- See results in real-time
-
-### Configuration Editor
-- Edit server configuration
-- Validate before applying
-- Reload from file
-- Live updates
-
-### Log Viewer
-- Real-time log streaming
-- Filter by level and server
-- Search log messages
-- Download logs
-
-### Metrics Dashboard
-- Request rates
-- Tool invocations
-- Response latency
-- System resources
-
-## 🔧 Configuration
-
-The configuration file `mcp_compose.toml` defines:
+The `mcp_compose.toml` defines the managed MCP servers:
 
 ```toml
 [composer]
-name = "git-file-composer"
-conflict_resolution = "prefix"  # Tools are prefixed: git:log, filesystem:read_file
+name = "demo-composer"
+conflict_resolution = "prefix"  # Tools become calculator:add, echo:ping, etc.
+log_level = "INFO"
 
-[[servers]]
-name = "git"
-command = "uvx"
-args = ["mcp-server-git", "--repository", "."]
-transport = "stdio"
-auto_start = true
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "mcp1.py"]
+restart_policy = "never"
 
-[[servers]]
-name = "filesystem"
-command = "uvx"
-args = ["mcp-server-filesystem", "/tmp"]
-transport = "stdio"
-auto_start = true
-```
-
-### Customization Options
-
-**Change Git Repository:**
-```toml
-args = ["mcp-server-git", "--repository", "/path/to/your/repo"]
-```
-
-**Change Filesystem Root:**
-```toml
-args = ["mcp-server-filesystem", "/your/allowed/path"]
-```
-
-**Add Environment Variables:**
-```toml
-[servers.env]
-GIT_AUTHOR_NAME = "Bot"
-GIT_AUTHOR_EMAIL = "bot@example.com"
+[[servers.proxied.stdio]]
+name = "echo"
+command = ["python", "mcp2.py"]
+restart_policy = "never"
 ```
 
 ## 🛠️ Makefile Commands
@@ -300,145 +184,33 @@ GIT_AUTHOR_EMAIL = "bot@example.com"
 | Command | Description |
 |---------|-------------|
 | `make help` | Show all available commands |
-| `make install` | Install dependencies |
-| `make start` | Start composer (foreground) |
-| `make start-bg` | Start composer (background) |
-| `make stop` | Stop composer |
-| `make restart` | Restart composer |
-| `make status` | Check status |
-| `make health` | Check health endpoint |
-| `make logs` | View real-time logs |
-| `make list-tools` | List all tools |
-| `make list-git` | List Git tools |
-| `make list-fs` | List Filesystem tools |
-| `make test-git` | Test Git server |
-| `make test-fs` | Test Filesystem server |
-| `make test-all` | Run all tests |
-| `make open-ui` | Open Web UI |
-| `make examples` | Show API examples |
-| `make clean` | Clean up files |
+| `make install` | Install mcp-compose and FastMCP |
+| `make install-agent` | Install pydantic-ai with MCP support |
+| `make start` | Start the MCP Compose server |
+| `make agent` | Run the AI agent (requires composer running) |
+| `make stop` | Stop the MCP Compose server |
+| `make clean` | Clean up temporary files |
 
-## 🔧 Available Tools
+## 🔍 When to Use Streamable HTTP Transport
 
-### Git Server Tools
+**Use Streamable HTTP when:**
+- ✅ Multiple clients need to connect
+- ✅ Server should persist beyond client sessions
+- ✅ Deploying as a standalone service
+- ✅ Need standard HTTP for load balancers, proxies
+- ✅ Using modern MCP features
 
-The Git MCP server typically provides:
-
-- `git:status` - Get repository status
-- `git:log` - Get commit history
-- `git:diff` - Show changes
-- `git:commit` - Create commits
-- `git:add` - Stage files
-- `git:branch` - Manage branches
-- `git:checkout` - Switch branches
-- And more...
-
-### Filesystem Server Tools
-
-The Filesystem MCP server provides:
-
-- `filesystem:read_file` - Read file contents
-- `filesystem:write_file` - Write to file
-- `filesystem:list_directory` - List directory contents
-- `filesystem:create_directory` - Create directories
-- `filesystem:delete_file` - Delete files
-- `filesystem:move_file` - Move/rename files
-- And more...
-
-Run `make list-tools` to see the exact tools available with your versions.
-
-## 📊 Monitoring
-
-### Prometheus Metrics
-
-Metrics are exposed at: http://localhost:8000/metrics
-
-Example metrics:
-- `mcp_http_requests_total` - Total HTTP requests
-- `mcp_tool_invocations_total` - Tool invocation count
-- `mcp_request_duration_seconds` - Request latency
-
-### Health Checks
-
-```bash
-# Simple health check
-curl http://localhost:8000/api/v1/health
-
-# Detailed status
-curl http://localhost:8000/api/v1/status
-```
-
-## 🐛 Troubleshooting
-
-### Server Won't Start
-
-1. Check if port 8000 is available:
-   ```bash
-   lsof -i :8000
-   ```
-
-2. View logs:
-   ```bash
-   make logs
-   ```
-
-3. Check server status:
-   ```bash
-   make status
-   ```
-
-### Tools Not Found
-
-1. Verify servers are running:
-   ```bash
-   curl http://localhost:8000/api/v1/servers
-   ```
-
-2. Restart servers:
-   ```bash
-   make restart
-   ```
-
-### Permission Errors (Filesystem)
-
-The filesystem server is limited to `/tmp` by default. To access other directories, update the configuration:
-
-```toml
-args = ["mcp-server-filesystem", "/your/allowed/path"]
-```
-
-## 🔒 Security Notes
-
-⚠️ **This example runs with NO AUTHENTICATION**
-
-For production use:
-
-1. **Enable authentication** in the config:
-   ```toml
-   [authentication]
-   enabled = true
-   providers = ["api_key"]
-   
-   [authentication.api_key]
-   keys = ["your-secret-key"]
-   ```
-
-2. **Restrict filesystem access** to specific directories
-
-3. **Use HTTPS** in production
-
-4. **Enable CORS** only for trusted origins
-
-5. **Add rate limiting** for public-facing deployments
-
-See the [Security documentation](../../docs/DEPLOYMENT.md#security-hardening) for more details.
+**Use STDIO when:**
+- ❌ Single client, local usage
+- ❌ Client should manage server lifecycle
+- ❌ Simpler deployment without network
 
 ## 📚 Learn More
 
+- **[STDIO Example](../proxy-stdio/)** - STDIO transport (subprocess)
+- **[SSE Example](../proxy-sse/)** - SSE transport (deprecated)
 - **[User Guide](../../docs/USER_GUIDE.md)** - Complete feature documentation
-- **[API Reference](../../docs/API_REFERENCE.md)** - REST API documentation  
-- **[Deployment Guide](../../docs/DEPLOYMENT.md)** - Production deployment
-- **[Architecture](../../ARCHITECTURE.md)** - System design
+- **[Architecture](../../docs/ARCHITECTURE.md)** - System design
 
 ## 🤝 Contributing
 

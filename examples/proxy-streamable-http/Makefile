@@ -2,15 +2,21 @@
 
 # Default target
 help:
-	@echo "Git-File MCP Compose Example - Makefile"
+	@echo "Streamable HTTP Transport Example - Makefile"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  install        - Install mcp-compose and MCP servers"
 	@echo "  install-agent  - Install pydantic-ai for agent support"
-	@echo "  start          - Start the MCP Compose (manages both servers)"
-	@echo "  agent          - Run the AI agent (requires composer to be running)"
-	@echo "  stop           - Stop the MCP Compose"
+	@echo "  start          - Start the MCP Compose server"
+	@echo "  agent          - Run the AI agent (requires composer running)"
+	@echo "  stop           - Stop the MCP Compose server"
 	@echo "  clean          - Clean up temporary files"
+	@echo ""
+	@echo "Usage:"
+	@echo "  1. make install"
+	@echo "  2. make install-agent"
+	@echo "  3. make start          (in one terminal)"
+	@echo "  4. make agent          (in another terminal)"
 	@echo ""
 
 # Install dependencies
@@ -27,10 +33,10 @@ install:
 	@echo "  • mcp1.py - Calculator tools (add, subtract, multiply, divide)"
 	@echo "  • mcp2.py - Echo tools (ping, echo, reverse, uppercase, etc.)"
 	@echo ""
-	@echo "To start:"
+	@echo "To start the server:"
 	@echo "  make start"
 	@echo ""
-	@echo "To use the AI agent:"
+	@echo "To use the AI agent (in another terminal):"
 	@echo "  make install-agent"
 	@echo "  make agent"
 
@@ -45,15 +51,17 @@ install-agent:
 	@echo "  1. Start composer: make start"
 	@echo "  2. In another terminal: make agent"
 
-# Start the MCP Compose
+# Start the MCP Compose server with Streamable HTTP transport
 start:
-	@echo "Starting MCP Compose..."
+	@echo "Starting MCP Compose with Streamable HTTP transport..."
 	@echo ""
-	mcp-compose serve --config mcp_compose.toml
+	@echo "📡 Server will be available at: http://localhost:8080/mcp"
+	@echo ""
+	mcp-compose serve --config mcp_compose.toml --transport streamable-http
 
 # Run the AI agent
 agent:
-	@echo "Starting AI Agent..."
+	@echo "Starting AI Agent with Streamable HTTP Transport..."
 	@echo ""
 	@echo "⚠️  Make sure the MCP Compose is running!"
 	@echo "   (Run 'make start' in another terminal)"
@@ -70,7 +78,7 @@ agent:
 	@echo "  - AZURE_OPENAI_ENDPOINT (base URL, e.g., https://your-resource.openai.azure.com)"
 	@echo "  - AZURE_OPENAI_API_VERSION (optional)"
 	@echo ""
-	python agent.py azure-openai:gpt-4o-mini
+	python agent.py $(MODEL)
 
 # Stop the composer (use Ctrl+C in the terminal where it's running)
 stop:
@@ -81,4 +89,5 @@ clean:
 	@echo "Cleaning up..."
 	@rm -f *.log nohup.out
 	@rm -f .composer.pid composer.log
+	@rm -rf __pycache__
 	@echo "✓ Cleanup complete"
