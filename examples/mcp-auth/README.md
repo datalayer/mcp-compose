@@ -15,6 +15,7 @@ A clear, educational example demonstrating OAuth2 authentication for MCP (Model 
 ## 📚 What You'll Learn
 
 - **OAuth2** - Authorization Code flow with PKCE
+- **Dynamic Client Registration (DCR)** - RFC 7591 implementation for automatic client registration
 - **MCP Authorization** - Official specification (2025-06-18)
 - **Security** - Token validation, CSRF protection, resource indicators
 - **MCP SDK** - Building servers with FastMCP and clients with MCP SDK
@@ -39,9 +40,11 @@ make install
 |------|---------|------------------|
 | **[docs/QUICKSTART.md](docs/QUICKSTART.md)** | Get running in 5 minutes | You want to try it immediately |
 | **[docs/GITHUB.md](docs/GITHUB.md)** | GitHub OAuth app setup | Setting up for the first time |
+| **[docs/INSPECTOR.md](docs/INSPECTOR.md)** | MCP Inspector setup and testing | You want to test with MCP Inspector |
 | **[docs/FLOW_EXPLAINED.md](docs/FLOW_EXPLAINED.md)** | Detailed OAuth flow | You want to understand how it works |
 | **[docs/DIAGRAMS.md](docs/DIAGRAMS.md)** | Visual explanations | You prefer diagrams |
 | **[docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)** | Technical details | You're implementing your own |
+| **[docs/DYNAMIC_CLIENT_REGISTRATION.md](docs/DYNAMIC_CLIENT_REGISTRATION.md)** | Dynamic Client Registration (DCR) | You want to understand automatic client registration |
 
 ## 📁 Project Structure
 
@@ -75,7 +78,7 @@ mcp-auth/
    - OAuth2 endpoints integrated with FastAPI
    - Three example tools (calculator, greeter, server_info)
    - Token validation middleware
-   - Compatible with both SSE and STDIO transports
+   - Uses **HTTP Streaming (NDJSON)** transport for efficient communication
 
 ### 2. **MCP Client** (`mcp_auth_example/client.py`)
    - Built with **official MCP Python SDK**
@@ -101,7 +104,7 @@ mcp-auth/
    - Implements MCP Authorization specification (2025-06-18)
    - Exposes OAuth metadata endpoints (RFC 9728, RFC 8414)
    - Validates access tokens before serving tools
-   - Provides MCP tools via HTTP/SSE transport
+   - Provides MCP tools via **HTTP Streaming (NDJSON)** transport
    - Tools: calculator (add, multiply), greeter (hello, goodbye), server info
 
 ### 2. **MCP Client** (`mcp_auth_example/client.py`)
@@ -109,14 +112,14 @@ mcp-auth/
    - Automatically opens browser for user authentication
    - Manages access tokens
    - Connects to MCP server using **MCP SDK client**
-   - Makes authenticated requests via MCP protocol (SSE transport)
-   - Demonstrates proper MCP tool invocation
+   - Makes authenticated requests via MCP protocol (**HTTP Streaming transport**)
+   - Demonstrates proper MCP tool invocation with NDJSON format
 
 ### 3. **Pydantic AI Agent** (`mcp_auth_example/agent.py`) ✨ NEW
    - Interactive CLI agent powered by **pydantic-ai**
    - Uses **Anthropic Claude Sonnet 4.5** model
    - Automatically authenticates with OAuth2
-   - Connects to MCP server with authenticated tools
+   - Connects to MCP server with authenticated tools via HTTP Streaming
    - Natural language interface to MCP tools
    - Example: "What is 15 + 27?" → Uses calculator_add tool
 

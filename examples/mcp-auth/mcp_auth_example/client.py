@@ -5,10 +5,10 @@ MCP Client with GitHub OAuth2 Authentication
 
 This client demonstrates how to:
 1. Discover OAuth metadata from an MCP server
-2. Perform OAuth2 authorization flow with GitHub
-3. Handle PKCE for security
-4. Connect to MCP server via SSE transport with authentication
-5. Invoke MCP tools with proper authentication
+2. Load configuration (OAuth app credentials, server URL)
+3. Authenticate using OAuth2 with PKCE
+4. Connect to MCP server via HTTP Streaming transport with authentication
+5. List available tools
 
 Learning Objectives:
 1. Understand OAuth2 discovery process
@@ -17,8 +17,9 @@ Learning Objectives:
 4. Use MCP SDK client with authenticated transport
 """
 
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, AsyncIterator
 import asyncio
+import json
 
 # Import shared OAuth client
 from .oauth_client import OAuthClient
@@ -26,11 +27,12 @@ from .oauth_client import OAuthClient
 # MCP client imports
 try:
     from mcp import ClientSession
-    from mcp.client.sse import sse_client
+    from mcp.client.streamable_http import streamablehttp_client
+    import httpx
     HAS_MCP = True
 except ImportError:
     HAS_MCP = False
-    print("⚠️  MCP SDK not installed. Install with: pip install mcp")
+    print("⚠️  MCP SDK not installed. Install with: pip install mcp httpx")
 
 
 class MCPClient:
@@ -81,16 +83,27 @@ class MCPClient:
             return None
         
         try:
-            # Use MCP protocol to list tools
+            # Use MCP protocol to list tools with HTTP streaming
             async def _list_tools():
-                async with sse_client(
-                    url=f"{self.oauth.get_server_url()}/sse",
-                    headers={"Authorization": f"Bearer {self.access_token}"}
-                ) as (read_stream, write_stream):
-                    async with ClientSession(read_stream, write_stream) as session:
-                        await session.initialize()
-                        tools_list = await session.list_tools()
-                        return tools_list
+                # Disable SSL verification for localhost (development with mkcert)
+                server_url = self.oauth.get_server_url()
+                verify_ssl = not server_url.startswith("https://localhost")
+                
+                # Create HTTP client with auth headers
+                async with httpx.AsyncClient(
+                    headers={"Authorization": f"Bearer {self.access_token}"},
+                    timeout=30.0,
+                    verify=verify_ssl
+                ) as http_client:
+                    # Connect using MCP SDK's streamable HTTP client
+                    async with streamablehttp_client(
+                        f"{self.oauth.get_server_url()}/mcp",
+                        http_client=http_client
+                    ) as (read_stream, write_stream):
+                        async with ClientSession(read_stream, write_stream) as session:
+                            await session.initialize()
+                            tools_list = await session.list_tools()
+                            return tools_list
             
             # Run async function
             tools_list = asyncio.run(_list_tools())
@@ -113,7 +126,7 @@ class MCPClient:
     
     async def invoke_tool_mcp(self, tool_name: str, arguments: Dict[str, Any]) -> Optional[Any]:
         """
-        Invoke an MCP tool using the MCP SDK client
+        Invoke an MCP tool using the MCP SDK client with HTTP streaming
         
         Args:
             tool_name: Name of the tool to invoke
@@ -134,40 +147,47 @@ class MCPClient:
         print(f"   Arguments: {arguments}")
         
         try:
-            # Create headers with authentication
-            headers = {"Authorization": f"Bearer {self.access_token}"}
+            # Disable SSL verification for localhost (development with mkcert)
+            server_url = self.oauth.get_server_url()
+            verify_ssl = not server_url.startswith("https://localhost")
             
-            # Connect to MCP server via SSE
-            async with sse_client(
-                url=f"{self.oauth.get_server_url()}/sse",
-                headers=headers
-            ) as (read_stream, write_stream):
-                async with ClientSession(read_stream, write_stream) as session:
-                    # Initialize the session
-                    await session.initialize()
-                    
-                    # Call the tool
-                    result = await session.call_tool(tool_name, arguments)
-                    
-                    # Extract content from result
-                    if hasattr(result, 'content'):
-                        content = result.content
-                        if isinstance(content, list) and len(content) > 0:
-                            # Get the text content from the first item
-                            first_content = content[0]
-                            if hasattr(first_content, 'text'):
-                                result_text = first_content.text
+            # Create HTTP client with auth headers
+            async with httpx.AsyncClient(
+                headers={"Authorization": f"Bearer {self.access_token}"},
+                timeout=30.0,
+                verify=verify_ssl
+            ) as http_client:
+                # Connect to MCP server via HTTP streaming
+                async with streamablehttp_client(
+                    f"{self.oauth.get_server_url()}/mcp",
+                    http_client=http_client
+                ) as (read_stream, write_stream):
+                    async with ClientSession(read_stream, write_stream) as session:
+                        # Initialize the session
+                        await session.initialize()
+                        
+                        # Call the tool
+                        result = await session.call_tool(tool_name, arguments)
+                        
+                        # Extract content from result
+                        if hasattr(result, 'content'):
+                            content = result.content
+                            if isinstance(content, list) and len(content) > 0:
+                                # Get the text content from the first item
+                                first_content = content[0]
+                                if hasattr(first_content, 'text'):
+                                    result_text = first_content.text
+                                else:
+                                    result_text = str(first_content)
                             else:
-                                result_text = str(first_content)
+                                result_text = str(content)
                         else:
-                            result_text = str(content)
-                    else:
-                        result_text = str(result)
-                    
-                    print(f"✅ Tool invoked successfully")
-                    print(f"   Result: {result_text}")
-                    
-                    return result
+                            result_text = str(result)
+                        
+                        print(f"✅ Tool invoked successfully")
+                        print(f"   Result: {result_text}")
+                        
+                        return result
         
         except Exception as e:
             print(f"❌ Error invoking tool: {e}")

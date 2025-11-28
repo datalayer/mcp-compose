@@ -102,3 +102,17 @@ class MCPConfigurationError(MCPComposerError):
         super().__init__(message)
         self.config_path = config_path
         self.validation_errors = validation_errors or []
+
+
+class ValidationError(MCPComposerError):
+    """Raised when data validation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        field_name: Optional[str] = None,
+        invalid_value: Optional[Any] = None,
+    ) -> None:
+        super().__init__(message)
+        self.field_name = field_name
+        self.invalid_value = invalid_value
