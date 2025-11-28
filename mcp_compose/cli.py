@@ -276,6 +276,31 @@ async def run_server(config, args: argparse.Namespace) -> int:
                 )
             else:
                 print("   ⚠️  Warning: API Key auth config missing", file=out)
+        elif provider == AuthProvider.OAUTH2:
+            if config.authentication.oauth2:
+                oauth2_config = config.authentication.oauth2
+                print(f"   Provider: {oauth2_config.provider}", file=out)
+                if oauth2_config.issuer_url:
+                    print(f"   Issuer: {oauth2_config.issuer_url}", file=out)
+                if oauth2_config.userinfo_endpoint:
+                    print(f"   UserInfo: {oauth2_config.userinfo_endpoint}", file=out)
+                
+                authenticator = create_authenticator(
+                    AuthType.OAUTH2,
+                    provider=oauth2_config.provider,
+                    issuer_url=oauth2_config.issuer_url,
+                    userinfo_endpoint=oauth2_config.userinfo_endpoint,
+                    introspection_endpoint=oauth2_config.introspection_endpoint,
+                    client_id=oauth2_config.client_id,
+                    client_secret=oauth2_config.client_secret,
+                    audience=oauth2_config.audience,
+                    required_scopes=oauth2_config.required_scopes,
+                    user_id_claim=oauth2_config.user_id_claim,
+                    redirect_uri=oauth2_config.redirect_uri,
+                    scopes=oauth2_config.scopes,
+                )
+            else:
+                print("   ⚠️  Warning: OAuth2 auth config missing", file=out)
         else:
             print(f"   ⚠️  Warning: Provider {provider} not yet implemented", file=out)
         
@@ -735,6 +760,28 @@ async def run_server(config, args: argparse.Namespace) -> int:
         
         # Include the tools router
         app.include_router(tools_router)
+        
+        # Add OAuth routes if OAuth2 authentication is enabled
+        if config.authentication and config.authentication.enabled:
+            oauth2_config = config.authentication.oauth2
+            if oauth2_config and oauth2_config.client_id and oauth2_config.client_secret:
+                from .api.routes.oauth import router as oauth_router, configure_oauth
+                
+                # Configure OAuth with server details
+                server_url = f"http://{args.host}:{config.composer.port}"
+                configure_oauth(
+                    provider=oauth2_config.provider,
+                    client_id=oauth2_config.client_id,
+                    client_secret=oauth2_config.client_secret,
+                    server_url=server_url,
+                    userinfo_endpoint=oauth2_config.userinfo_endpoint,
+                    scopes=oauth2_config.scopes,
+                )
+                
+                # Include OAuth routes
+                app.include_router(oauth_router)
+                print(f"  OAuth Callback: http://localhost:{config.composer.port}/oauth/callback", file=out)
+                print(f"  Authorize:      http://localhost:{config.composer.port}/authorize", file=out)
         
         print("=" * 70, file=out)
         print(f"📡 MCP Server Mode: {transport_mode.upper()}", file=out)

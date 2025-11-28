@@ -12,7 +12,7 @@ the userinfo endpoint. This demonstrates how to use any OAuth2/OIDC provider
 with mcp-compose.
 
 Features:
-- Connection to MCP Compose via SSE transport
+- Connection to MCP Compose via Streamable HTTP transport
 - OAuth2 authentication via Anaconda's OIDC provider
 - Interactive CLI interface powered by pydantic-ai
 - Access to Calculator and Echo server tools through the composer
@@ -45,7 +45,7 @@ import asyncio
 # Pydantic AI imports
 try:
     from pydantic_ai import Agent
-    from pydantic_ai.mcp import MCPServerSSE
+    from pydantic_ai.mcp import MCPServerStreamableHTTP
     HAS_PYDANTIC_AI = True
 except ImportError:
     HAS_PYDANTIC_AI = False
@@ -146,20 +146,18 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
     # Get Anaconda access token
     access_token = get_anaconda_token()
     
-    print(f"\n📡 Connecting to MCP Compose: {server_url}/sse")
+    print(f"\n📡 Connecting to MCP Compose: {server_url}/mcp")
     print("   Unified access to Calculator and Echo servers")
     print("   Using Anaconda bearer token authentication")
     
-    # Create MCP server connection with SSE transport and authentication
-    mcp_server = MCPServerSSE(
-        url=f"{server_url}/sse",
+    # Create MCP server connection with Streamable HTTP transport and authentication
+    mcp_server = MCPServerStreamableHTTP(
+        url=f"{server_url}/mcp",
         headers={
             "Authorization": f"Bearer {access_token}"
         },
-        # Increase read timeout for long-running tool calls
-        read_timeout=300.0,  # 5 minutes
-        # Allow retries for transient failures
-        max_retries=2
+        # Increase timeout for long-running tool calls
+        timeout=300.0,  # 5 minutes
     )
     
     print(f"\n🤖 Initializing Agent with {model}")
@@ -223,15 +221,15 @@ def main():
         async def list_tools(access_token: str):
             """List all tools available from the MCP server"""
             try:
-                # Import MCP SDK client
+                # Import MCP SDK client for streamable HTTP
                 from mcp import ClientSession
-                from mcp.client.sse import sse_client
+                from mcp.client.streamable_http import streamablehttp_client
                 
-                # Connect using SSE client with authentication
-                async with sse_client(
-                    "http://localhost:8080/sse",
+                # Connect using Streamable HTTP client with authentication
+                async with streamablehttp_client(
+                    "http://localhost:8080/mcp",
                     headers={"Authorization": f"Bearer {access_token}"}
-                ) as (read, write):
+                ) as (read, write, _):
                     async with ClientSession(read, write) as session:
                         # Initialize the session
                         await session.initialize()

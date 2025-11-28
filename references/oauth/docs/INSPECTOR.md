@@ -108,7 +108,7 @@ Edit `references/oauth/config.json`:
 python -m mcp_oauth_example.server
 
 # Or use make
-make server
+make start
 ```
 
 Verify the server shows:
@@ -338,7 +338,7 @@ curl http://localhost:8080/health
 
 **Check 3: Check server logs**
 
-Look for errors in the terminal where `make server` is running.
+Look for errors in the terminal where `make start` is running.
 
 ### OAuth Flow Fails
 
@@ -368,7 +368,7 @@ Look for errors in the terminal where `make server` is running.
 **Solutions:**
 
 1. **Check firewall**: Allow connections to localhost:8080
-2. **Server not running**: Start with `make server`
+2. **Server not running**: Start with `make start`
 3. **Wrong port**: Verify port 8080 in server config
 4. **Check URL**: Ensure using `http://localhost:8080/mcp` (not `https://` unless configured)
 
@@ -420,7 +420,7 @@ Look for errors in the terminal where `make server` is running.
 
 ### Test OAuth Flow End-to-End
 
-1. **Start server**: `make server`
+1. **Start server**: `make start`
 2. **Start Inspector**: `make inspector`
 3. **Connect**: Enter `http://localhost:8080/mcp`, click Connect
 4. **Authenticate**: Sign in to GitHub when browser opens

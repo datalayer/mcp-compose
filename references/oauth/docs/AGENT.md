@@ -19,7 +19,7 @@ The agent provides a natural language interface to the MCP server tools, powered
 
 1. **Start the MCP server** (in one terminal):
    ```bash
-   make server
+   make start
    # Or: python -m mcp_oauth_example server
    ```
 
@@ -250,7 +250,7 @@ Alternatively, configure in pydantic-ai's configuration file.
 **Problem**: Agent says it doesn't have access to tools
 
 **Solution**: 
-- Ensure MCP server is running (`make server`)
+- Ensure MCP server is running (`make start`)
 - Check that OAuth authentication succeeded
 - Verify the Bearer token is being sent in headers
 

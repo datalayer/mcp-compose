@@ -163,7 +163,7 @@ def main():
     print("\n🧪 Dynamic Client Registration Test Suite")
     print("=" * 70)
     print(f"Testing server: {SERVER_URL}")
-    print("Make sure the server is running: make server")
+    print("Make sure the server is running: make start")
     print("=" * 70)
     
     # Check if server is running
@@ -174,7 +174,7 @@ def main():
             sys.exit(1)
     except requests.exceptions.ConnectionError:
         print(f"\n❌ Cannot connect to {SERVER_URL}")
-        print("   Make sure the server is running: make server")
+        print("   Make sure the server is running: make start")
         sys.exit(1)
     
     # Run tests

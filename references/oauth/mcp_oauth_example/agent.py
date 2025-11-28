@@ -68,7 +68,7 @@ def authenticate() -> tuple[str, str]:
     if not oauth.authenticate():
         print("\n❌ Authentication failed!")
         print("   Make sure the MCP server is running on port 8080")
-        print("   (Run: make server)")
+        print("   (Run: make start)")
         sys.exit(1)
     
     # Get the token and server URL

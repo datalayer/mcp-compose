@@ -96,9 +96,12 @@ You need to create a GitHub OAuth App:
 3. Fill in the details:
    - **Application name**: MCP Compose Test (or any name)
    - **Homepage URL**: http://localhost:8080
-   - **Authorization callback URL**: http://localhost:8080/callback
+   - **Authorization callback URL**: http://localhost:8080/oauth/callback
 4. Click "Register application"
 5. Copy the **Client ID** and generate a **Client Secret**
+
+> **Note**: The callback URL is `http://localhost:8080/oauth/callback` because MCP Compose
+> handles the GitHub OAuth flow. The agent receives the token via a local callback on port 8888.
 
 ### 2. Configure Credentials
 

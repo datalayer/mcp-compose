@@ -255,7 +255,7 @@ Create `config.json` with GitHub OAuth credentials:
 ```bash
 python -m mcp_oauth_example server
 # Or using make:
-make server
+make start
 ```
 
 Server starts on http://localhost:8080 with:

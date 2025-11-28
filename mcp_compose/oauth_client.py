@@ -56,7 +56,7 @@ class OAuthClient(ABC):
         self,
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
-        redirect_uri: str = "http://localhost:8080/callback",
+        redirect_uri: str = "http://localhost:8888/callback",
         scopes: Optional[list] = None,
     ):
         """
@@ -145,7 +145,7 @@ class GitHubOAuthClient(OAuthClient):
         self,
         client_id: str,
         client_secret: str,
-        redirect_uri: str = "http://localhost:8080/callback",
+        redirect_uri: str = "http://localhost:8888/callback",
         scopes: Optional[list] = None,
     ):
         """
@@ -386,7 +386,7 @@ class AnacondaOAuthClient(OAuthClient):
     def __init__(
         self,
         domain: str = "anaconda.com",
-        redirect_uri: str = "http://localhost:8080/callback",
+        redirect_uri: str = "http://localhost:8888/callback",
     ):
         """
         Initialize the Anaconda OAuth client.
@@ -519,7 +519,7 @@ class GenericOIDCClient(OAuthClient):
         userinfo_endpoint: Optional[str] = None,
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
-        redirect_uri: str = "http://localhost:8080/callback",
+        redirect_uri: str = "http://localhost:8888/callback",
         scopes: Optional[list] = None,
     ):
         """
@@ -820,7 +820,7 @@ def get_oauth_client(
     provider: str,
     client_id: Optional[str] = None,
     client_secret: Optional[str] = None,
-    redirect_uri: str = "http://localhost:8080/callback",
+    redirect_uri: str = "http://localhost:8888/callback",
     **kwargs
 ) -> OAuthClient:
     """
@@ -873,7 +873,7 @@ def get_oauth_client(
 def get_github_token(
     client_id: Optional[str] = None,
     client_secret: Optional[str] = None,
-    redirect_uri: str = "http://localhost:8080/callback",
+    redirect_uri: str = "http://localhost:8888/callback",
     scopes: Optional[list] = None,
 ) -> str:
     """
@@ -918,7 +918,7 @@ def get_github_token(
 
 def get_anaconda_token(
     domain: str = "anaconda.com",
-    redirect_uri: str = "http://localhost:8080/callback",
+    redirect_uri: str = "http://localhost:8888/callback",
 ) -> str:
     """
     Get an Anaconda OAuth access token via interactive browser flow.

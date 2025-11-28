@@ -11,7 +11,7 @@ endpoint (https://api.github.com/user). This demonstrates how to use GitHub
 OAuth with mcp-compose.
 
 Features:
-- Connection to MCP Compose via SSE transport
+- Connection to MCP Compose via Streamable HTTP transport
 - OAuth2 authentication via GitHub
 - Interactive CLI interface powered by pydantic-ai
 - Access to Calculator and Echo server tools through the composer
@@ -45,7 +45,7 @@ import asyncio
 # Pydantic AI imports
 try:
     from pydantic_ai import Agent
-    from pydantic_ai.mcp import MCPServerSSE
+    from pydantic_ai.mcp import MCPServerStreamableHTTP
     HAS_PYDANTIC_AI = True
 except ImportError:
     HAS_PYDANTIC_AI = False
@@ -54,13 +54,24 @@ except ImportError:
     sys.exit(1)
 
 
-def get_github_token() -> str:
+def get_github_token(server_url: str = "http://localhost:8080") -> str:
     """
-    Get GitHub OAuth access token.
+    Get GitHub OAuth access token via MCP Compose server's OAuth flow.
+    
+    The flow works as follows:
+    1. Agent starts local callback server on port 8888
+    2. Agent opens browser to MCP Compose /authorize endpoint
+    3. MCP Compose redirects to GitHub for authentication
+    4. GitHub redirects back to MCP Compose /oauth/callback
+    5. MCP Compose exchanges code for token and redirects to agent's callback
+    6. Agent receives token from callback
     
     Tries to get token from:
     1. Environment variable GITHUB_TOKEN
-    2. Interactive OAuth flow via mcp_compose.oauth_client module
+    2. OAuth flow via MCP Compose server
+    
+    Args:
+        server_url: MCP Compose server URL (default: http://localhost:8080)
     
     Returns:
         Access token string
@@ -73,55 +84,154 @@ def get_github_token() -> str:
         print("\n🔐 Using GitHub token from GITHUB_TOKEN environment variable")
         return token
     
-    print("\n🔐 Authenticating with GitHub...")
+    print("\n🔐 Authenticating with GitHub via MCP Compose server...")
     print("   No GITHUB_TOKEN environment variable found.")
     print("   Starting OAuth flow...")
     
     try:
-        from mcp_compose.oauth_client import GitHubOAuthClient
-        import json
+        import webbrowser
+        import secrets
+        import threading
+        import http.server
+        import socketserver
+        import urllib.parse
+        from urllib.parse import urlencode
         
-        # Load config
-        config_file = "config.json"
-        if not os.path.exists(config_file):
-            print(f"\n❌ Error: {config_file} not found")
-            print("   Copy config.template.json to config.json and add your GitHub OAuth credentials")
-            print("   See: https://github.com/settings/developers")
-            sys.exit(1)
+        # Callback configuration
+        callback_port = 8888
+        callback_path = "/callback"
+        callback_uri = f"http://localhost:{callback_port}{callback_path}"
         
-        with open(config_file) as f:
-            config = json.load(f)
+        # Storage for the received token
+        received_token = None
+        received_username = None
+        received_state = None
         
-        client_id = config["github"]["client_id"]
-        client_secret = config["github"]["client_secret"]
+        # Generate state for CSRF protection
+        state = secrets.token_urlsafe(16)
         
-        # Create OAuth client and get token
-        oauth_client = GitHubOAuthClient(
-            client_id=client_id,
-            client_secret=client_secret,
-            redirect_uri="http://localhost:8080/callback"
-        )
+        class CallbackHandler(http.server.BaseHTTPRequestHandler):
+            """HTTP handler for OAuth callback"""
+            
+            def log_message(self, format, *args):
+                pass  # Suppress logging
+            
+            def do_GET(self):
+                nonlocal received_token, received_username, received_state
+                
+                # Parse query parameters
+                query = urllib.parse.urlparse(self.path).query
+                params = urllib.parse.parse_qs(query)
+                
+                if self.path.startswith(callback_path):
+                    received_token = params.get("token", [None])[0]
+                    received_username = params.get("username", [None])[0]
+                    received_state = params.get("state", [None])[0]
+                    
+                    if received_token:
+                        # Send success response
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/html")
+                        self.end_headers()
+                        username_display = received_username or 'User'
+                        self.wfile.write(f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Authentication Successful</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }}
+        .container {{
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }}
+        h1 {{ color: #667eea; margin-bottom: 20px; }}
+        .success-icon {{ font-size: 60px; margin-bottom: 20px; }}
+        .user-info {{ color: #667eea; font-weight: bold; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Authentication Successful!</h1>
+        <p class="user-info">Authenticated as: {username_display}</p>
+        <p>You can close this window and return to the terminal.</p>
+        <script>setTimeout(function() {{ window.close(); }}, 3000);</script>
+    </div>
+</body>
+</html>
+""".encode())
+                    else:
+                        error = params.get("error", ["Unknown error"])[0]
+                        self.send_response(400)
+                        self.send_header("Content-Type", "text/html")
+                        self.end_headers()
+                        self.wfile.write(f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Authentication Failed</title></head>
+<body style="font-family: sans-serif; text-align: center; padding: 50px;">
+    <h1 style="color: #d32f2f;">❌ Authentication Failed</h1>
+    <p>Error: {error}</p>
+</body>
+</html>
+""".encode())
+                else:
+                    self.send_response(404)
+                    self.end_headers()
         
-        access_token = oauth_client.get_token_interactive()
+        # Build authorization URL
+        auth_params = {
+            "redirect_uri": callback_uri,
+            "state": state,
+            "response_type": "code",
+        }
+        auth_url = f"{server_url}/authorize?{urlencode(auth_params)}"
         
-        if not access_token:
-            raise Exception("Failed to get access token")
+        print(f"\n🌐 Starting local callback server on port {callback_port}...")
+        print(f"📋 Opening browser for GitHub authentication...")
+        print(f"   Server: {server_url}")
         
-        print("✅ Successfully authenticated with GitHub")
-        return access_token
+        # Open browser
+        webbrowser.open(auth_url)
         
-    except ImportError:
-        print("\n❌ Error: mcp_compose.oauth_client module not found")
-        print("   Make sure mcp-compose is installed: pip install -e .")
-        print("")
-        print("   Alternatively, set the GITHUB_TOKEN environment variable:")
-        print("   export GITHUB_TOKEN='your-github-personal-access-token'")
-        sys.exit(1)
-    except FileNotFoundError as e:
-        print(f"\n❌ Error: {e}")
-        sys.exit(1)
+        # Wait for callback
+        with socketserver.TCPServer(("", callback_port), CallbackHandler) as httpd:
+            httpd.timeout = 120  # 2 minute timeout
+            httpd.handle_request()
+        
+        # Verify we got a token
+        if not received_token:
+            raise Exception("No token received from callback")
+        
+        # Verify state matches
+        if received_state != state:
+            raise Exception("State mismatch - possible CSRF attack")
+        
+        if received_username:
+            print(f"✅ Authenticated as: {received_username}")
+        else:
+            print("✅ Successfully authenticated with GitHub")
+        
+        return received_token
+        
     except Exception as e:
         print(f"\n❌ Authentication failed: {e}")
+        print("")
+        print("   Make sure the MCP Compose server is running with OAuth enabled:")
+        print("   cd examples/github-oauth && make start")
         print("")
         print("   You can also set the GITHUB_TOKEN environment variable:")
         print("   export GITHUB_TOKEN='your-github-personal-access-token'")
@@ -153,20 +263,18 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
     # Get GitHub access token
     access_token = get_github_token()
     
-    print(f"\n📡 Connecting to MCP Compose: {server_url}/sse")
+    print(f"\n📡 Connecting to MCP Compose: {server_url}/mcp")
     print("   Unified access to Calculator and Echo servers")
     print("   Using GitHub bearer token authentication")
     
-    # Create MCP server connection with SSE transport and authentication
-    mcp_server = MCPServerSSE(
-        url=f"{server_url}/sse",
+    # Create MCP server connection with Streamable HTTP transport and authentication
+    mcp_server = MCPServerStreamableHTTP(
+        url=f"{server_url}/mcp",
         headers={
             "Authorization": f"Bearer {access_token}"
         },
-        # Increase read timeout for long-running tool calls
-        read_timeout=300.0,  # 5 minutes
-        # Allow retries for transient failures
-        max_retries=2
+        # Increase timeout for long-running tool calls
+        timeout=300.0,  # 5 minutes
     )
     
     print(f"\n🤖 Initializing Agent with {model}")
@@ -230,15 +338,15 @@ def main():
         async def list_tools(access_token: str):
             """List all tools available from the MCP server"""
             try:
-                # Import MCP SDK client
+                # Import MCP SDK client for streamable HTTP
                 from mcp import ClientSession
-                from mcp.client.sse import sse_client
+                from mcp.client.streamable_http import streamablehttp_client
                 
-                # Connect using SSE client with authentication
-                async with sse_client(
-                    "http://localhost:8080/sse",
+                # Connect using Streamable HTTP client with authentication
+                async with streamablehttp_client(
+                    "http://localhost:8080/mcp",
                     headers={"Authorization": f"Bearer {access_token}"}
-                ) as (read, write):
+                ) as (read, write, _):
                     async with ClientSession(read, write) as session:
                         # Initialize the session
                         await session.initialize()

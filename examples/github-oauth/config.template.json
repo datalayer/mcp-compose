@@ -1,4 +1,5 @@
 {
+  "_comment": "Create OAuth App at https://github.com/settings/developers with callback URL: http://localhost:8080/oauth/callback",
   "github": {
     "client_id": "YOUR_GITHUB_CLIENT_ID",
     "client_secret": "YOUR_GITHUB_CLIENT_SECRET"

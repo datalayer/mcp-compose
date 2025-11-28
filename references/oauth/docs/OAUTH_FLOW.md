@@ -143,7 +143,7 @@ Configure your GitHub OAuth App with these callback URLs:
 
 1. **Start the server**:
    ```bash
-   make server
+   make start
    ```
 
 2. **Test automated agent flow**:

@@ -1,4 +1,4 @@
-.PHONY: help install dev-install server client agent inspector test test-dcr clean
+.PHONY: help install dev-install start client agent inspector test test-dcr clean
 
 # Default target
 help:
@@ -6,7 +6,7 @@ help:
 	@echo ""
 	@echo "  make install        - Install package in editable mode"
 	@echo "  make dev-install    - Install package with dev dependencies"
-	@echo "  make server         - Start the MCP server (port 8080)"
+	@echo "  make start          - Start the MCP server (port 8080)"
 	@echo "  make client         - Run the MCP client demo"
 	@echo "  make agent          - Run the pydantic-ai agent CLI"
 	@echo "  make inspector      - Launch MCP Inspector for debugging"
@@ -17,7 +17,7 @@ help:
 	@echo "Quick start:"
 	@echo "  1. Configure config.json with GitHub OAuth credentials"
 	@echo "  2. make install"
-	@echo "  3. make server    (in one terminal)"
+	@echo "  3. make start     (in one terminal)"
 	@echo "  4. make client    (in another terminal)"
 	@echo "  5. make agent     (for interactive AI agent)"
 	@echo "  6. make inspector (to debug MCP server)"
@@ -35,7 +35,7 @@ dev-install:
 	@echo "✅ Package installed with dev dependencies"
 
 # Run the MCP server
-server:
+start:
 	@echo "🚀 Starting MCP server on http://localhost:8080..."
 	mcp-oauth-server
 
@@ -70,7 +70,7 @@ inspector:
 # Test Dynamic Client Registration
 test-dcr:
 	@echo "🧪 Testing Dynamic Client Registration (DCR)..."
-	@echo "Make sure the server is running in another terminal: make server"
+	@echo "Make sure the server is running in another terminal: make start"
 	@echo ""
 	python test_dcr.py
 

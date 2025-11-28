@@ -7,10 +7,8 @@ help:
 	@echo "Available targets:"
 	@echo "  install        - Install mcp-compose and dependencies"
 	@echo "  setup-auth     - Check GitHub OAuth configuration"
-	@echo "  install-agent              - Install pydantic-ai for agent support"
-	@echo "  start-echo-streamable-http - Start the echo MCP server in HTTP streaming mode (port 8082)"
-	@echo "  start-echo-sse             - Start the echo MCP server in SSE mode (port 8081)"
-	@echo "  start                      - Start the MCP Compose with authentication"
+	@echo "  install-agent  - Install pydantic-ai for agent support"
+	@echo "  start          - Start the MCP Compose with GitHub OAuth authentication"
 	@echo "  agent          - Run the AI agent (requires composer running)"
 	@echo "  oauth-test     - Test the OAuth client (get a token)"
 	@echo "  stop           - Stop the MCP Compose"
@@ -32,16 +30,14 @@ install:
 	@echo ""
 	@echo "This example demonstrates GitHub OAuth authentication at the composer level."
 	@echo ""
-	@echo "Backend servers:"
-	@echo "  • mcp1.py      - Calculator tools (add, subtract, multiply, divide)"
-	@echo "  • mcp2_http.py - Echo tools with HTTP streaming (JSON Lines)"
-	@echo "  • mcp2_sse.py  - Echo tools with SSE (alternative)"
+	@echo "Backend servers (both use STDIO, managed by composer):"
+	@echo "  • mcp1.py - Calculator tools (add, subtract, multiply, divide)"
+	@echo "  • mcp2.py - Echo tools (ping, echo, reverse, uppercase, lowercase, count_words)"
 	@echo ""
 	@echo "Next steps:"
 	@echo "  1. Configure config.json with GitHub OAuth credentials"
-	@echo "  2. Start echo server:     make start-echo-streamable-http"
-	@echo "  3. Start the composer:    make start (in another terminal)"
-	@echo "  4. Use the AI agent:      make install-agent && make agent"
+	@echo "  2. Start the composer:    make start"
+	@echo "  3. Use the AI agent:      make install-agent && make agent"
 
 # Check authentication setup
 setup-auth:
@@ -80,67 +76,30 @@ install-agent:
 	@echo "  1. Start composer: make start"
 	@echo "  2. In another terminal: make agent"
 
-# Start the echo MCP server in HTTP streaming mode
-start-echo-streamable-http:
-	@echo "Starting Echo MCP Server in HTTP Streaming mode..."
-	@echo ""
-	@echo "Configuration:"
-	@echo "  • Transport: HTTP Streaming (JSON Lines)"
-	@echo "  • Port: 8082"
-	@echo "  • Endpoint: http://localhost:8082/stream"
-	@echo "  • Protocol: JSON Lines (newline-delimited JSON)"
-	@echo ""
-	@echo "Available endpoints:"
-	@echo "  • GET  /stream - Stream MCP messages"
-	@echo "  • POST /stream - Send MCP messages"
-	@echo "  • GET  /health - Health check"
-	@echo ""
-	@echo "Note: Keep this running in a separate terminal"
-	@echo "      Then run 'make start' to start the composer"
-	@echo ""
-	python mcp2_http.py
-
-# Start the echo MCP server in SSE mode
-start-echo-sse:
-	@echo "Starting Echo MCP Server in SSE mode..."
-	@echo ""
-	@echo "Configuration:"
-	@echo "  • Transport: SSE"
-	@echo "  • Port: 8081"
-	@echo "  • Endpoint: http://localhost:8081/sse"
-	@echo ""
-	@echo "Note: Keep this running in a separate terminal"
-	@echo "      Then run 'make start' to start the composer"
-	@echo ""
-	python mcp2_sse.py
-
-# Start the MCP Compose (no auth key required to start)
+# Start the MCP Compose with GitHub OAuth authentication
 start:
-	@echo "Starting MCP Compose..."
+	@echo "Starting MCP Compose with GitHub OAuth..."
 	@echo ""
 	@echo "Configuration:"
-	@echo "  • Authentication: Anaconda bearer token validation"
-	@echo "  • Backend servers: calculator (STDIO), echo (SSE)"
+	@echo "  • Authentication: GitHub OAuth2 (validates bearer tokens via GitHub API)"
+	@echo "  • Backend servers: calculator (STDIO), echo (STDIO)"
 	@echo "  • Port: 8080"
+	@echo "  • MCP Endpoint: http://localhost:8080/mcp"
 	@echo ""
-	@echo "Prerequisites:"
-	@echo "  1. Echo HTTP server must be running: make start-echo-streamable-http"
-	@echo "     (or use SSE: make start-echo-sse - requires config change)"
-	@echo ""
-	@echo "Note: Server starts without requiring ANACONDA_API_KEY."
-	@echo "      Clients must provide valid Anaconda bearer tokens."
+	@echo "Note: Server validates incoming bearer tokens against GitHub's API."
+	@echo "      Clients must provide valid GitHub OAuth tokens."
 	@echo ""
 	mcp-compose serve --config mcp_compose.toml
 
 # Run the AI agent
 agent:
-	@echo "Starting AI Agent with Anaconda authentication..."
+	@echo "Starting AI Agent with GitHub OAuth authentication..."
 	@echo ""
 	@echo "⚠️  Prerequisites:"
 	@echo "   1. MCP Compose must be running (make start)"
-	@echo "   2. Anaconda account credentials (will use login() if needed)"
+	@echo "   2. GitHub OAuth credentials in config.json"
 	@echo ""
-	@echo "The agent will authenticate using anaconda_auth.login() if needed."
+	@echo "The agent will authenticate using GitHub OAuth."
 	@echo "This will open your browser for authentication."
 	@echo ""
 	@echo "Usage: python agent.py [model]"
@@ -155,7 +114,7 @@ agent:
 	@echo "  - AZURE_OPENAI_ENDPOINT"
 	@echo "  - AZURE_OPENAI_API_VERSION (optional)"
 	@echo ""
-	python agent.py azure-openai:gpt-4o-mini
+	python agent.py
 
 # Stop the composer (use Ctrl+C in the terminal where it's running)
 stop:

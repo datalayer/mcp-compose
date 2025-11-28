@@ -113,7 +113,7 @@ It will expire on 18 February 2028 🗓
 The MCP server automatically detects the certificates and enables HTTPS:
 
 ```bash
-make server
+make start
 # Or: python -m mcp_oauth_example.server
 ```
 
@@ -195,7 +195,7 @@ You should see:
 
 ### Test with Claude Desktop
 
-1. Start the MCP server: `make server`
+1. Start the MCP server: `make start`
 2. Configure Claude Desktop (see above)
 3. Restart Claude Desktop
 4. Claude should connect without errors
@@ -286,7 +286,7 @@ rm localhost+2*.pem
 mkcert localhost 127.0.0.1 ::1
 
 # Restart server
-make server
+make start
 ```
 
 ### Remove mkcert CA (Uninstall)

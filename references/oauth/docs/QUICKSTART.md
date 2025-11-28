@@ -59,7 +59,7 @@ This installs:
 ```bash
 python -m mcp_oauth_example server
 # Or using make:
-make server
+make start
 ```
 
 You should see:
@@ -177,7 +177,7 @@ make test
 - Check that your callback URL in GitHub settings exactly matches `http://localhost:8080/callback`
 
 ### Error: "Connection refused"
-- Make sure the server is running: `make server` or `python -m mcp_oauth_example server`
+- Make sure the server is running: `make start` or `python -m mcp_oauth_example server`
 
 ### Error: Token validation fails
 **Solution**: Get fresh token (they expire). Run `make client` or `python -m mcp_oauth_example client` again to get a fresh token
