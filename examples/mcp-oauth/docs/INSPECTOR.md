@@ -86,7 +86,7 @@ MCP Inspector (Browser)
 
 ### Step 2: Update config.json
 
-Edit `examples/mcp-auth/config.json`:
+Edit `examples/mcp-oauth/config.json`:
 
 ```json
 {
@@ -105,7 +105,7 @@ Edit `examples/mcp-auth/config.json`:
 
 ```bash
 # For HTTP (recommended for local development)
-python -m mcp_auth_example.server
+python -m mcp_oauth_example.server
 
 # Or use make
 make server

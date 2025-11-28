@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mcp-auth-example"
+name = "mcp-oauth-example"
 version = "0.1.0"
 description = "Example of using Pydantic AI Agent with authenticated MCP server"
 readme = "README.md"
@@ -45,18 +45,18 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/datalayer/mcp-compose"
-Documentation = "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
+Documentation = "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-oauth"
 Repository = "https://github.com/datalayer/mcp-compose"
 Issues = "https://github.com/datalayer/mcp-compose/issues"
 
 [project.scripts]
-mcp-auth = "mcp_auth_example.__main__:main"
-mcp-auth-agent = "mcp_auth_example.agent:main"
-mcp-auth-client = "mcp_auth_example.client:main"
-mcp-auth-server = "mcp_auth_example.server:main"
+mcp-oauth = "mcp_oauth_example.__main__:main"
+mcp-oauth-agent = "mcp_oauth_example.agent:main"
+mcp-oauth-client = "mcp_oauth_example.client:main"
+mcp-oauth-server = "mcp_oauth_example.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mcp_auth_example"]
+packages = ["mcp_oauth_example"]
 
 [tool.black]
 line-length = 100

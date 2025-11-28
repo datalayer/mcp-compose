@@ -57,7 +57,7 @@ This installs:
 ## Step 4: Run the Server (30 seconds)
 
 ```bash
-python -m mcp_auth_example server
+python -m mcp_oauth_example server
 # Or using make:
 make server
 ```
@@ -80,7 +80,7 @@ You should see:
 Open a **new terminal** and run:
 
 ```bash
-python -m mcp_auth_example client
+python -m mcp_oauth_example client
 # Or using make:
 make client
 ```
@@ -102,7 +102,7 @@ The demo will:
 # Set your Anthropic API key first
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-python -m mcp_auth_example agent
+python -m mcp_oauth_example agent
 # Or using make:
 make agent
 ```
@@ -177,10 +177,10 @@ make test
 - Check that your callback URL in GitHub settings exactly matches `http://localhost:8080/callback`
 
 ### Error: "Connection refused"
-- Make sure the server is running: `make server` or `python -m mcp_auth_example server`
+- Make sure the server is running: `make server` or `python -m mcp_oauth_example server`
 
 ### Error: Token validation fails
-**Solution**: Get fresh token (they expire). Run `make client` or `python -m mcp_auth_example client` again to get a fresh token
+**Solution**: Get fresh token (they expire). Run `make client` or `python -m mcp_oauth_example client` again to get a fresh token
 
 ### Browser doesn't open
 - Manually copy the URL from the terminal and paste it in your browser

@@ -484,7 +484,7 @@ async def authorization_server_metadata(request: Request):
             "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
             "scopes_supported": ["openid", "read:mcp", "write:mcp"],
             "registration_endpoint": f"{config.server_url}/register",
-            "service_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
+            "service_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-oauth"
         },
         headers={"Access-Control-Allow-Origin": "*"}
     )
@@ -1062,7 +1062,7 @@ async def root(request: Request):
             "protected_resource": f"{config.server_url}/.well-known/oauth-protected-resource",
             "authorization_server": f"{config.server_url}/.well-known/oauth-authorization-server"
         },
-        "documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
+        "documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-oauth"
     })
 
 

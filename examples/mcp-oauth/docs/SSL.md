@@ -88,7 +88,7 @@ The local CA is now installed in the Firefox and/or Chrome/Chromium trust store!
 Navigate to your project directory and generate certificates:
 
 ```bash
-cd /path/to/mcp-compose/examples/mcp-auth
+cd /path/to/mcp-compose/examples/mcp-oauth
 mkcert localhost 127.0.0.1 ::1
 ```
 
@@ -114,7 +114,7 @@ The MCP server automatically detects the certificates and enables HTTPS:
 
 ```bash
 make server
-# Or: python -m mcp_auth_example.server
+# Or: python -m mcp_oauth_example.server
 ```
 
 You should see:

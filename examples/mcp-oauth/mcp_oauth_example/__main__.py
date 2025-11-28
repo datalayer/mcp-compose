@@ -2,18 +2,18 @@
 MCP Authentication Example
 
 Run the server with:
-    python -m mcp_auth_example server
+    python -m mcp_oauth_example server
 
 Run the client with:
-    python -m mcp_auth_example client
+    python -m mcp_oauth_example client
 
 Run the pydantic-ai agent with:
-    python -m mcp_auth_example agent
+    python -m mcp_oauth_example agent
 
 Or use the installed scripts:
-    mcp-auth-server
-    mcp-auth-client
-    mcp-auth-agent
+    mcp-oauth-server
+    mcp-oauth-client
+    mcp-oauth-agent
 """
 
 import sys
@@ -24,21 +24,21 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__)
         print("\nUsage:")
-        print("  python -m mcp_auth_example server    # Run the MCP server")
-        print("  python -m mcp_auth_example client    # Run the MCP client demo")
-        print("  python -m mcp_auth_example agent     # Run the pydantic-ai agent CLI")
+        print("  python -m mcp_oauth_example server    # Run the MCP server")
+        print("  python -m mcp_oauth_example client    # Run the MCP client demo")
+        print("  python -m mcp_oauth_example agent     # Run the pydantic-ai agent CLI")
         sys.exit(1)
     
     command = sys.argv[1].lower()
     
     if command == "server":
-        from mcp_auth_example.server import main as server_main
+        from mcp_oauth_example.server import main as server_main
         server_main()
     elif command == "client":
-        from mcp_auth_example.client import main as client_main
+        from mcp_oauth_example.client import main as client_main
         client_main()
     elif command == "agent":
-        from mcp_auth_example.agent import main as agent_main
+        from mcp_oauth_example.agent import main as agent_main
         agent_main()
     else:
         print(f"Unknown command: {command}")

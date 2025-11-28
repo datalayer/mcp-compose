@@ -14,18 +14,18 @@ Usage:
     pip install -e .
     
     # Run the MCP server
-    mcp-auth-server
+    mcp-oauth-server
     
     # Run the test client
-    mcp-auth-client
+    mcp-oauth-client
     
     # Run the AI agent
-    mcp-auth-agent
+    mcp-oauth-agent
 
 Or use the Python module:
-    python -m mcp_auth_example server
-    python -m mcp_auth_example client
-    python -m mcp_auth_example agent
+    python -m mcp_oauth_example server
+    python -m mcp_oauth_example client
+    python -m mcp_oauth_example agent
 """
 
 __version__ = "0.1.0"

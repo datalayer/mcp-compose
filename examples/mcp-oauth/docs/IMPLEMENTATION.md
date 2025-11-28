@@ -9,7 +9,7 @@ The server has been updated to use the **official MCP Python SDK** (FastMCP) ins
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Client Application                       │
-│                      (mcp_auth_example/client.py)                     │
+│                      (mcp_oauth_example/client.py)                     │
 │                                                                  │
 │  1. OAuth2 Flow (GitHub authentication)                         │
 │  2. MCP SDK Client (mcp.client.sse)                            │
@@ -20,7 +20,7 @@ The server has been updated to use the **official MCP Python SDK** (FastMCP) ins
                             │
 ┌───────────────────────────┴─────────────────────────────────────┐
 │                      FastAPI Application                         │
-│                      (mcp_auth_example/server.py)                     │
+│                      (mcp_oauth_example/server.py)                     │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │         Authentication Middleware                          │ │
@@ -53,7 +53,7 @@ The server has been updated to use the **official MCP Python SDK** (FastMCP) ins
 
 ## Key Components
 
-### 1. Server (mcp_auth_example/server.py)
+### 1. Server (mcp_oauth_example/server.py)
 
 **Built with:**
 - `FastMCP` from `mcp.server.fastmcp` - Official MCP SDK
@@ -77,7 +77,7 @@ The server has been updated to use the **official MCP Python SDK** (FastMCP) ins
 5. Request forwarded to FastMCP handler
 6. Tools executed with user context available
 
-### 2. Client (mcp_auth_example/client.py)
+### 2. Client (mcp_oauth_example/client.py)
 
 **Built with:**
 - `mcp.ClientSession` - Official MCP client
@@ -251,7 +251,7 @@ Create `config.json` with GitHub OAuth credentials:
 ### 3. Run Server
 
 ```bash
-python -m mcp_auth_example server
+python -m mcp_oauth_example server
 # Or using make:
 make server
 ```
@@ -265,7 +265,7 @@ Server starts on http://localhost:8080 with:
 ### 4. Run Client
 
 ```bash
-python -m mcp_auth_example client
+python -m mcp_oauth_example client
 # Or using make:
 make client
 ```
@@ -322,7 +322,7 @@ curl http://localhost:8080/tools
 
 ## Comparison: Custom vs MCP SDK
 
-| Aspect | Custom (_old/auth_server.py) | MCP SDK (mcp_auth_example/server.py) |
+| Aspect | Custom (_old/auth_server.py) | MCP SDK (mcp_oauth_example/server.py) |
 |--------|------------------------------|----------------------------------|
 | Protocol | Custom HTTP/JSON | Standard MCP |
 | Transport | HTTP POST | HTTP SSE |

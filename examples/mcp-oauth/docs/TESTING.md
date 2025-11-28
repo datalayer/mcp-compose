@@ -6,7 +6,7 @@ This guide shows how to test the MCP server with curl commands.
 
 1. Server must be running:
    ```bash
-   python mcp_auth_example/server.py
+   python mcp_oauth_example/server.py
    ```
 
 2. You need a valid GitHub OAuth token (get one by running the client first)
@@ -34,7 +34,7 @@ Expected response:
         "protected_resource": "http://localhost:8080/.well-known/oauth-protected-resource",
         "authorization_server": "http://localhost:8080/.well-known/oauth-authorization-server"
     },
-    "documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
+    "documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-oauth"
 }
 ```
 
@@ -63,7 +63,7 @@ Expected response:
     "resource": "http://localhost:8080",
     "authorization_servers": ["http://localhost:8080"],
     "bearer_methods_supported": ["header"],
-    "resource_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-auth"
+    "resource_documentation": "https://github.com/datalayer/mcp-compose/tree/main/examples/mcp-oauth"
 }
 ```
 
@@ -132,7 +132,7 @@ content-type: application/json
 
 ### Method 1: Run the Client
 ```bash
-python mcp_auth_example/client.py
+python mcp_oauth_example/client.py
 ```
 Follow the OAuth flow and the client will display your token.
 
@@ -148,7 +148,7 @@ The MCP protocol works over Server-Sent Events (SSE). To properly test tool invo
 
 1. Use the Python client:
    ```bash
-   python mcp_auth_example/client.py
+   python mcp_oauth_example/client.py
 ```2. Or use an MCP-compatible client library that supports SSE transport with Bearer authentication
 
 ## Troubleshooting

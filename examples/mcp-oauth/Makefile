@@ -21,43 +21,43 @@ help:
 
 # Install package in editable mode
 install:
-	@echo "📦 Installing mcp-auth..."
+	@echo "📦 Installing mcp-oauth..."
 	pip install -e .
 	@echo "✅ Package installed"
 
 # Install with dev dependencies
 dev-install:
-	@echo "📦 Installing mcp-auth with dev dependencies..."
+	@echo "📦 Installing mcp-oauth with dev dependencies..."
 	pip install -e ".[dev]"
 	@echo "✅ Package installed with dev dependencies"
 
 # Run the MCP server
 server:
 	@echo "🚀 Starting MCP server on http://localhost:8080..."
-	mcp-auth-server
+	mcp-oauth-server
 
 # Run the MCP client
 client:
 	@echo "🔐 Starting MCP client..."
-	mcp-auth-client
+	mcp-oauth-client
 
 # Run the pydantic-ai agent
 agent:
 	@echo "🤖 Starting pydantic-ai agent..."
 	@echo ""
-	@echo "Usage: mcp-auth-agent [model]"
+	@echo "Usage: mcp-oauth-agent [model]"
 	@echo "  Default: anthropic:claude-sonnet-4-0"
 	@echo "  Examples:"
-	@echo "    mcp-auth-agent openai:gpt-4o"
-	@echo "    mcp-auth-agent anthropic:claude-sonnet-4-0"
-	@echo "    mcp-auth-agent azure-openai:gpt-4o-mini"
+	@echo "    mcp-oauth-agent openai:gpt-4o"
+	@echo "    mcp-oauth-agent anthropic:claude-sonnet-4-0"
+	@echo "    mcp-oauth-agent azure-openai:gpt-4o-mini"
 	@echo ""
 	@echo "Note: For Azure OpenAI, set these environment variables:"
 	@echo "  - AZURE_OPENAI_API_KEY"
 	@echo "  - AZURE_OPENAI_ENDPOINT (base URL, e.g., https://your-resource.openai.azure.com)"
 	@echo "  - AZURE_OPENAI_API_VERSION (optional)"
 	@echo ""
-	mcp-auth-agent azure-openai:gpt-4o-mini
+	mcp-oauth-agent azure-openai:gpt-4o-mini
 
 
 # Run MCP Inspector
