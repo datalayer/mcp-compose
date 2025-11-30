@@ -649,3 +649,466 @@ def create_oauth2_authenticator(
         raise ValueError(f"Unsupported OAuth2 provider: {provider}")
     
     return OAuth2Authenticator(provider_instance)
+
+
+# ============================================================================
+# Generic OAuth2 Token Validation
+# ============================================================================
+# The following classes support validating existing OAuth2 tokens
+# (as opposed to the OAuth2 authorization flow above)
+
+
+class GenericOAuth2TokenValidator:
+    """
+    Generic OAuth2 token validator.
+    
+    Validates access tokens by:
+    1. Token introspection (RFC 7662) - if introspection_endpoint is configured
+    2. UserInfo endpoint call - if userinfo_endpoint is configured
+    3. OIDC discovery - if issuer_url is configured (auto-discovers endpoints)
+    
+    This is designed for server-side token validation where mcp-compose
+    receives bearer tokens from clients and needs to validate them with
+    the OAuth2/OIDC provider.
+    """
+    
+    def __init__(
+        self,
+        issuer_url: Optional[str] = None,
+        userinfo_endpoint: Optional[str] = None,
+        introspection_endpoint: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        audience: Optional[str] = None,
+        required_scopes: Optional[list[str]] = None,
+        user_id_claim: str = "sub",
+    ):
+        """
+        Initialize the token validator.
+        
+        Args:
+            issuer_url: OIDC issuer URL for auto-discovery (e.g., "https://accounts.google.com").
+                If provided, will fetch /.well-known/openid-configuration to discover endpoints.
+            userinfo_endpoint: Direct URL to userinfo endpoint.
+                Falls back to discovered endpoint if issuer_url is provided.
+            introspection_endpoint: Direct URL to token introspection endpoint (RFC 7662).
+                Used for validating tokens when available.
+            client_id: Client ID for introspection requests (if required by provider).
+            client_secret: Client secret for introspection requests (if required by provider).
+            audience: Expected audience claim (for token validation).
+            required_scopes: List of scopes that must be present in the token.
+            user_id_claim: Claim to use for user ID extraction (default: "sub").
+        """
+        if not HTTPX_AVAILABLE:
+            raise ImportError(
+                "httpx is required for OAuth2 token validation. "
+                "Install with: pip install httpx"
+            )
+        
+        self.issuer_url = issuer_url.rstrip('/') if issuer_url else None
+        self._userinfo_endpoint = userinfo_endpoint
+        self._introspection_endpoint = introspection_endpoint
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.audience = audience
+        self.required_scopes = required_scopes or []
+        self.user_id_claim = user_id_claim
+        
+        # Cache for discovered metadata
+        self._discovery_cache: Optional[Dict[str, Any]] = None
+        
+        # Token cache for avoiding repeated validation calls
+        self._token_cache: Dict[str, Dict[str, Any]] = {}
+        self._cache_ttl_seconds = 300  # 5 minutes
+    
+    async def _discover_metadata(self) -> Dict[str, Any]:
+        """
+        Fetch OIDC discovery metadata from issuer.
+        
+        Returns:
+            Discovery metadata dictionary.
+        """
+        if self._discovery_cache:
+            return self._discovery_cache
+        
+        if not self.issuer_url:
+            return {}
+        
+        discovery_url = f"{self.issuer_url}/.well-known/openid-configuration"
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(discovery_url, timeout=10)
+                response.raise_for_status()
+                self._discovery_cache = response.json()
+                logger.info(f"Discovered OIDC metadata from {discovery_url}")
+                return self._discovery_cache
+        except Exception as e:
+            logger.warning(f"Failed to discover OIDC metadata from {discovery_url}: {e}")
+            return {}
+    
+    async def get_userinfo_endpoint(self) -> Optional[str]:
+        """Get the userinfo endpoint URL."""
+        if self._userinfo_endpoint:
+            return self._userinfo_endpoint
+        
+        metadata = await self._discover_metadata()
+        return metadata.get("userinfo_endpoint")
+    
+    async def get_introspection_endpoint(self) -> Optional[str]:
+        """Get the token introspection endpoint URL."""
+        if self._introspection_endpoint:
+            return self._introspection_endpoint
+        
+        metadata = await self._discover_metadata()
+        return metadata.get("introspection_endpoint")
+    
+    async def validate_token(self, token: str) -> Dict[str, Any]:
+        """
+        Validate an access token and return user information.
+        
+        Tries introspection first (if available), then falls back to userinfo.
+        
+        Args:
+            token: The access token to validate.
+        
+        Returns:
+            Dictionary with user information including:
+            - user_id: The user identifier
+            - active: Whether the token is active (for introspection)
+            - scopes: Token scopes (if available)
+            - raw: Raw response from the provider
+        
+        Raises:
+            AuthenticationError: If token validation fails.
+        """
+        # Check cache first
+        cache_key = hashlib.sha256(token.encode()).hexdigest()[:16]
+        if cache_key in self._token_cache:
+            cached = self._token_cache[cache_key]
+            if cached.get("cached_at", 0) + self._cache_ttl_seconds > datetime.utcnow().timestamp():
+                logger.debug(f"Using cached token validation for {cache_key}")
+                return cached["data"]
+        
+        # Try introspection first
+        introspection_endpoint = await self.get_introspection_endpoint()
+        if introspection_endpoint:
+            try:
+                result = await self._introspect_token(token, introspection_endpoint)
+                self._cache_result(cache_key, result)
+                return result
+            except Exception as e:
+                logger.debug(f"Introspection failed, falling back to userinfo: {e}")
+        
+        # Fall back to userinfo endpoint
+        userinfo_endpoint = await self.get_userinfo_endpoint()
+        if userinfo_endpoint:
+            result = await self._get_userinfo(token, userinfo_endpoint)
+            self._cache_result(cache_key, result)
+            return result
+        
+        raise AuthenticationError(
+            "No token validation method available. "
+            "Configure userinfo_endpoint, introspection_endpoint, or issuer_url."
+        )
+    
+    async def _introspect_token(
+        self, token: str, endpoint: str
+    ) -> Dict[str, Any]:
+        """
+        Validate token using RFC 7662 introspection.
+        
+        Args:
+            token: The access token to validate.
+            endpoint: The introspection endpoint URL.
+        
+        Returns:
+            Token information dictionary.
+        """
+        data = {"token": token}
+        headers = {"Accept": "application/json"}
+        
+        # Add client credentials if available
+        auth = None
+        if self.client_id and self.client_secret:
+            auth = httpx.BasicAuth(self.client_id, self.client_secret)
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    endpoint,
+                    data=data,
+                    headers=headers,
+                    auth=auth,
+                    timeout=10,
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                # Check if token is active
+                if not result.get("active", True):
+                    raise InvalidCredentialsError("Token is not active")
+                
+                # Extract user ID
+                user_id = result.get(self.user_id_claim) or result.get("username", "")
+                
+                # Extract scopes
+                scope_str = result.get("scope", "")
+                scopes = scope_str.split() if isinstance(scope_str, str) else []
+                
+                # Check required scopes
+                self._check_required_scopes(scopes)
+                
+                return {
+                    "user_id": user_id,
+                    "active": True,
+                    "scopes": scopes,
+                    "raw": result,
+                }
+        except InvalidCredentialsError:
+            raise
+        except Exception as e:
+            logger.error(f"Token introspection failed: {e}")
+            raise AuthenticationError(f"Token introspection failed: {e}")
+    
+    async def _get_userinfo(self, token: str, endpoint: str) -> Dict[str, Any]:
+        """
+        Get user info using the access token.
+        
+        Args:
+            token: The access token.
+            endpoint: The userinfo endpoint URL.
+        
+        Returns:
+            User information dictionary.
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    endpoint,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/json",
+                    },
+                    timeout=10,
+                )
+                
+                if response.status_code == 401:
+                    raise InvalidCredentialsError("Invalid or expired token")
+                
+                response.raise_for_status()
+                result = response.json()
+                
+                # Extract user ID
+                user_id = result.get(self.user_id_claim) or result.get("email", "")
+                
+                if not user_id:
+                    logger.warning(f"Could not extract user ID from userinfo response: {result.keys()}")
+                    user_id = "unknown"
+                
+                return {
+                    "user_id": user_id,
+                    "active": True,
+                    "scopes": [],  # Userinfo doesn't return scopes
+                    "raw": result,
+                }
+        except InvalidCredentialsError:
+            raise
+        except Exception as e:
+            logger.error(f"Userinfo request failed: {e}")
+            raise AuthenticationError(f"Userinfo request failed: {e}")
+    
+    def _check_required_scopes(self, scopes: list[str]) -> None:
+        """Check if all required scopes are present."""
+        if not self.required_scopes:
+            return
+        
+        missing = [s for s in self.required_scopes if s not in scopes]
+        if missing:
+            raise InvalidCredentialsError(
+                f"Token missing required scopes: {', '.join(missing)}"
+            )
+    
+    def _cache_result(self, cache_key: str, result: Dict[str, Any]) -> None:
+        """Cache a validation result."""
+        self._token_cache[cache_key] = {
+            "data": result,
+            "cached_at": datetime.utcnow().timestamp(),
+        }
+        
+        # Clean old entries (simple LRU-like cleanup)
+        if len(self._token_cache) > 1000:
+            # Remove oldest entries
+            sorted_keys = sorted(
+                self._token_cache.keys(),
+                key=lambda k: self._token_cache[k].get("cached_at", 0)
+            )
+            for key in sorted_keys[:500]:
+                del self._token_cache[key]
+    
+    def clear_cache(self) -> None:
+        """Clear the token cache."""
+        self._token_cache.clear()
+        self._discovery_cache = None
+
+
+class GenericOAuth2TokenAuthenticator(Authenticator):
+    """
+    Authenticator that validates OAuth2 tokens using GenericOAuth2TokenValidator.
+    
+    This is designed for use with mcp-compose where clients send bearer tokens
+    and the composer validates them with the OAuth2 provider.
+    
+    Example configuration in mcp_compose.toml:
+    
+        [authentication]
+        enabled = true
+        providers = ["oauth2"]
+        default_provider = "oauth2"
+        
+        [authentication.oauth2]
+        provider = "generic"
+        issuer_url = "https://id.anaconda.com"
+        # Or provide explicit endpoints:
+        # userinfo_endpoint = "https://id.anaconda.com/userinfo"
+        # introspection_endpoint = "https://id.anaconda.com/oauth/introspect"
+        client_id = "your-client-id"          # Optional, for introspection
+        client_secret = "your-client-secret"  # Optional, for introspection
+        user_id_claim = "sub"                 # Claim to use for user ID
+    """
+    
+    def __init__(
+        self,
+        issuer_url: Optional[str] = None,
+        userinfo_endpoint: Optional[str] = None,
+        introspection_endpoint: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        audience: Optional[str] = None,
+        required_scopes: Optional[list[str]] = None,
+        user_id_claim: str = "sub",
+    ):
+        """
+        Initialize the authenticator.
+        
+        See GenericOAuth2TokenValidator for parameter documentation.
+        """
+        super().__init__(AuthType.OAUTH2)
+        
+        self.validator = GenericOAuth2TokenValidator(
+            issuer_url=issuer_url,
+            userinfo_endpoint=userinfo_endpoint,
+            introspection_endpoint=introspection_endpoint,
+            client_id=client_id,
+            client_secret=client_secret,
+            audience=audience,
+            required_scopes=required_scopes,
+            user_id_claim=user_id_claim,
+        )
+    
+    async def authenticate(self, credentials: Dict[str, Any]) -> AuthContext:
+        """
+        Authenticate using a bearer token.
+        
+        Args:
+            credentials: Must contain "token" or "api_key" field with the bearer token.
+        
+        Returns:
+            AuthContext for the authenticated user.
+        
+        Raises:
+            InvalidCredentialsError: If token is invalid.
+            AuthenticationError: If authentication fails.
+        """
+        # Extract token from credentials
+        token = credentials.get("token") or credentials.get("api_key")
+        if not token:
+            raise InvalidCredentialsError("Bearer token not provided")
+        
+        # Validate the token
+        result = await self.validator.validate_token(token)
+        
+        user_id = result.get("user_id", "unknown")
+        scopes = result.get("scopes", [])
+        
+        logger.info(f"OAuth2 token validated for user: {user_id}")
+        
+        return AuthContext(
+            user_id=user_id,
+            auth_type=AuthType.OAUTH2,
+            token=token,
+            scopes=scopes if scopes else ["*"],  # Grant all scopes if not specified
+            metadata={
+                "raw_userinfo": result.get("raw", {}),
+            },
+        )
+    
+    async def validate(self, context: AuthContext) -> bool:
+        """
+        Validate an existing authentication context.
+        
+        Args:
+            context: Authentication context to validate.
+        
+        Returns:
+            True if valid, False otherwise.
+        """
+        if context.auth_type != AuthType.OAUTH2:
+            return False
+        
+        if context.is_expired():
+            return False
+        
+        if not context.token:
+            return False
+        
+        # Re-validate the token
+        try:
+            await self.validator.validate_token(context.token)
+            return True
+        except Exception as e:
+            logger.debug(f"Token re-validation failed: {e}")
+            return False
+
+
+def create_generic_oauth2_authenticator(
+    issuer_url: Optional[str] = None,
+    userinfo_endpoint: Optional[str] = None,
+    introspection_endpoint: Optional[str] = None,
+    client_id: Optional[str] = None,
+    client_secret: Optional[str] = None,
+    audience: Optional[str] = None,
+    required_scopes: Optional[list[str]] = None,
+    user_id_claim: str = "sub",
+    **kwargs
+) -> GenericOAuth2TokenAuthenticator:
+    """
+    Factory function to create a generic OAuth2 token authenticator.
+    
+    This authenticator validates existing bearer tokens (as opposed to
+    performing the OAuth2 authorization flow).
+    
+    Args:
+        issuer_url: OIDC issuer URL for auto-discovery.
+        userinfo_endpoint: Direct URL to userinfo endpoint.
+        introspection_endpoint: Direct URL to token introspection endpoint.
+        client_id: Client ID for introspection requests.
+        client_secret: Client secret for introspection requests.
+        audience: Expected audience claim.
+        required_scopes: List of required scopes.
+        user_id_claim: Claim to use for user ID (default: "sub").
+        **kwargs: Ignored (for compatibility).
+    
+    Returns:
+        GenericOAuth2TokenAuthenticator instance.
+    """
+    return GenericOAuth2TokenAuthenticator(
+        issuer_url=issuer_url,
+        userinfo_endpoint=userinfo_endpoint,
+        introspection_endpoint=introspection_endpoint,
+        client_id=client_id,
+        client_secret=client_secret,
+        audience=audience,
+        required_scopes=required_scopes,
+        user_id_claim=user_id_claim,
+    )

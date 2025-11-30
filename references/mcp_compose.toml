@@ -1,0 +1,264 @@
+# MCP Compose Configuration Example
+# This file demonstrates all available configuration options
+
+# ============================================================================
+# Composer Settings
+# ============================================================================
+[composer]
+name = "my-unified-server"
+conflict_resolution = "prefix"  # prefix, suffix, ignore, error, override, custom
+log_level = "INFO"
+port = 8080
+
+# ============================================================================
+# Transport Configuration
+# ============================================================================
+[transport]
+# STDIO transport - for subprocess communication
+stdio_enabled = true
+
+# Streamable HTTP transport (recommended) - modern HTTP-based MCP transport
+streamable_http_enabled = true
+streamable_http_path = "/mcp"
+streamable_http_cors_enabled = true
+
+# SSE transport (deprecated) - use streamable_http instead
+sse_enabled = false
+sse_path = "/sse"
+sse_cors_enabled = true
+
+# ============================================================================
+# Authentication Configuration (Optional)
+# ============================================================================
+[authentication]
+enabled = false
+providers = ["api_key"]
+default_provider = "api_key"
+
+[authentication.api_key]
+header_name = "X-API-Key"
+keys = ["${MCP_API_KEY_1}", "${MCP_API_KEY_2}"]
+
+# [authentication.jwt]
+# secret = "${JWT_SECRET}"
+# algorithm = "HS256"
+# issuer = "mcp-composer"
+# audience = "mcp-clients"
+
+# [authentication.oauth2]
+# provider = "auth0"
+# client_id = "${OAUTH_CLIENT_ID}"
+# client_secret = "${OAUTH_CLIENT_SECRET}"
+# discovery_url = "${OAUTH_DISCOVERY_URL}"
+
+# [authentication.mtls]
+# ca_cert = "/path/to/ca.crt"
+# client_cert = "/path/to/client.crt"
+# client_key = "/path/to/client.key"
+
+# ============================================================================
+# Authorization Configuration (Optional)
+# ============================================================================
+[authorization]
+enabled = false
+model = "rbac"
+
+# [[authorization.roles]]
+# name = "admin"
+# permissions = ["*"]
+
+# [[authorization.roles]]
+# name = "developer"
+# permissions = ["tools:*", "servers:read", "logs:read"]
+
+# [[authorization.roles]]
+# name = "user"
+# permissions = ["tools:execute", "tools:list"]
+
+[authorization.rate_limiting]
+enabled = false
+default_limit = 100
+# per_role_limits = { admin = 1000, developer = 500, user = 100 }
+
+# ============================================================================
+# Embedded MCP Servers
+# ============================================================================
+[servers.embedded]
+
+# Example: Jupyter MCP Server
+[[servers.embedded.servers]]
+name = "jupyter-mcp-server"
+package = "jupyter_mcp_server"
+enabled = true
+# Optional: Tool name mappings for conflict resolution
+# tool_mappings = { "create" = "jupyter_create", "run" = "jupyter_run" }
+
+# Example: Another embedded server
+# [[servers.embedded.servers]]
+# name = "earthdata-mcp-server"
+# package = "earthdata_mcp_server"
+# enabled = true
+# version = ">=0.1.0"
+
+# ============================================================================
+# Proxied STDIO MCP Servers
+# ============================================================================
+# [[servers.proxied.stdio]]
+# name = "weather-server"
+# command = ["uvx", "mcp-server-weather"]
+# env = { WEATHER_API_KEY = "${WEATHER_API_KEY}" }
+# working_dir = "/opt/mcp-servers/weather"
+# restart_policy = "on-failure"  # never, on-failure, always
+# max_restarts = 3
+# restart_delay = 5
+# health_check_enabled = true
+# health_check_interval = 30
+# health_check_timeout = 5
+# health_check_method = "tool"
+# health_check_tool = "health"
+# log_stdout = true
+# log_stderr = true
+# log_file = "/var/log/mcp-composer/weather-server.log"
+
+# [[servers.proxied.stdio.resource_limits]]
+# max_memory_mb = 512
+# max_cpu_percent = 50
+
+# ============================================================================
+# Proxied Streamable HTTP MCP Servers (Recommended)
+# ============================================================================
+# [[servers.proxied.http]]
+# name = "remote-api-server"
+# url = "https://api.example.com/mcp"
+# protocol = "lines"  # chunked, lines, poll
+# auth_token = "${REMOTE_SERVER_TOKEN}"
+# auth_type = "bearer"
+# timeout = 30
+# retry_interval = 5
+# keep_alive = true
+# reconnect_on_failure = true
+# max_reconnect_attempts = 10
+# poll_interval = 2  # Only for poll protocol
+# health_check_enabled = true
+# health_check_interval = 60
+# health_check_endpoint = "/health"
+# mode = "proxy"  # proxy or translator
+
+# ============================================================================
+# Proxied SSE MCP Servers (Deprecated - use Streamable HTTP instead)
+# ============================================================================
+# [[servers.proxied.sse]]
+# name = "remote-analytics-server"
+# url = "https://analytics.example.com/sse"
+# auth_token = "${REMOTE_SERVER_TOKEN}"
+# timeout = 30
+# retry_interval = 5
+# keep_alive = true
+# reconnect_on_failure = true
+# max_reconnect_attempts = 10
+# health_check_enabled = true
+# health_check_interval = 60
+# health_check_endpoint = "/health"
+# mode = "proxy"  # proxy or translator
+
+# ============================================================================
+# Tool Manager Configuration
+# ============================================================================
+[tool_manager]
+conflict_resolution = "prefix"
+
+# Per-tool conflict resolution overrides
+# [[tool_manager.tool_overrides]]
+# tool_pattern = "notebook_*"
+# resolution = "prefix"
+
+# [[tool_manager.tool_overrides]]
+# tool_pattern = "search_*"
+# resolution = "suffix"
+
+[tool_manager.custom_template]
+template = "{server_name}_{tool_name}"
+
+# Tool aliasing
+# [tool_manager.aliases]
+# jupyter_create = "create_notebook"
+# fs_read = "read_file"
+
+[tool_manager.versioning]
+enabled = false
+allow_multiple_versions = false
+version_suffix_format = "_v{version}"
+
+# ============================================================================
+# REST API Configuration
+# ============================================================================
+[api]
+enabled = true
+path_prefix = "/api/v1"
+host = "0.0.0.0"
+port = 8080
+cors_enabled = true
+cors_origins = ["http://localhost:3000"]
+cors_methods = ["GET", "POST", "PUT", "DELETE"]
+docs_enabled = true
+docs_path = "/docs"
+openapi_path = "/openapi.json"
+
+# ============================================================================
+# Web UI Configuration
+# ============================================================================
+[ui]
+enabled = true
+framework = "react"
+mode = "embedded"
+path = "/ui"
+# static_dir = "/var/www/mcp-composer/ui"
+features = [
+    "server_management",
+    "tool_testing",
+    "logs_viewing",
+    "metrics_dashboard",
+    "configuration_editor"
+]
+
+# ============================================================================
+# Monitoring & Observability
+# ============================================================================
+[monitoring]
+enabled = true
+
+[monitoring.metrics]
+enabled = true
+provider = "prometheus"
+endpoint = "/metrics"
+collection_interval = 15
+collect = [
+    "tool_invocation_count",
+    "tool_invocation_duration",
+    "tool_error_rate",
+    "server_health_status",
+    "process_cpu_usage",
+    "process_memory_usage",
+    "request_rate",
+    "response_time"
+]
+
+[monitoring.logging]
+level = "INFO"
+format = "json"
+output = "stdout"
+# log_file = "/var/log/mcp-composer/composer.log"
+rotation = "daily"
+max_size_mb = 100
+max_files = 7
+aggregate_managed_logs = true
+
+[monitoring.tracing]
+enabled = false
+provider = "opentelemetry"
+endpoint = "http://localhost:4317"
+sample_rate = 1.0
+
+[monitoring.health]
+endpoint = "/health"
+detailed_endpoint = "/health/detailed"

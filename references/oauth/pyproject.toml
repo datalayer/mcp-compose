@@ -1,0 +1,91 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-oauth-example"
+version = "0.1.0"
+description = "Example of using Pydantic AI Agent with authenticated MCP server"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Datalayer", email = "info@datalayer.ai" },
+]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "pydantic-ai",
+    "oauth2",
+    "authentication",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "pydantic-ai[mcp]>=0.0.14",
+    "mcp>=1.0.0",
+    "httpx>=0.27.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "requests>=2.28.0",
+    "PyJWT>=2.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/datalayer/mcp-compose"
+Documentation = "https://github.com/datalayer/mcp-compose/tree/main/references/oauth"
+Repository = "https://github.com/datalayer/mcp-compose"
+Issues = "https://github.com/datalayer/mcp-compose/issues"
+
+[project.scripts]
+mcp-oauth = "mcp_oauth_example.__main__:main"
+mcp-oauth-agent = "mcp_oauth_example.agent:main"
+mcp-oauth-client = "mcp_oauth_example.client:main"
+mcp-oauth-server = "mcp_oauth_example.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mcp_oauth_example"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501", # line too long (black handles this)
+    "B008", # do not perform function calls in argument defaults
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

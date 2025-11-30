@@ -1,0 +1,71 @@
+# MCP Compose Configuration
+# GitHub OAuth2 Authentication Example
+#
+# This example demonstrates using the generic OAuth2 provider with GitHub's
+# OAuth endpoints. The MCP Compose server handles the OAuth flow:
+# 1. Agent calls /authorize with its callback (http://localhost:8888/callback)
+# 2. Server redirects to GitHub with its callback (http://localhost:8080/oauth/callback)
+# 3. GitHub redirects back after authentication
+# 4. Server exchanges code for token and redirects to agent's callback with token
+
+[composer]
+name = "github-oauth-composer"
+conflict_resolution = "prefix"  # Prefix tool names with server name
+log_level = "INFO"
+
+# ============================================================================
+# Authentication Configuration
+# ============================================================================
+# GitHub OAuth2 authentication with full authorization flow.
+#
+# The composer:
+# 1. Exposes /authorize endpoint for agents to initiate OAuth flow
+# 2. Handles /oauth/callback from GitHub
+# 3. Validates bearer tokens via GitHub's userinfo endpoint
+#
+# GitHub OAuth App Setup:
+# 1. Go to https://github.com/settings/developers
+# 2. Create a new OAuth App
+# 3. Set callback URL to: http://localhost:8080/oauth/callback
+# 4. Copy client_id and client_secret here
+
+[authentication]
+enabled = true
+providers = ["oauth2"]
+default_provider = "oauth2"
+
+[authentication.oauth2]
+# GitHub OAuth provider
+provider = "github"
+
+# GitHub OAuth App credentials (from config.json or environment)
+# IMPORTANT: Update these with your actual credentials!
+client_id = "Ov23litxnBF0hCITVhzy"
+client_secret = "3936f4cd351eb59d2c2de6dd977337c1f3f121b3"
+
+# GitHub API userinfo endpoint for token validation
+userinfo_endpoint = "https://api.github.com/user"
+
+# Claim to use for user identification
+user_id_claim = "login"
+
+# OAuth scopes to request
+scopes = ["read:user"]
+
+# ============================================================================
+# Backend MCP Servers (No auth - accessed via composer only)
+# ============================================================================
+
+# Calculator MCP Server (Proxied via STDIO)
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "mcp1.py"]
+restart_policy = "never"
+# Calculator tools: add, subtract, multiply, divide
+
+# Echo MCP Server (Proxied via STDIO)
+[[servers.proxied.stdio]]
+name = "echo"
+command = ["python", "mcp2.py"]
+restart_policy = "never"
+# Echo tools: ping, echo, reverse, uppercase, lowercase, count_words

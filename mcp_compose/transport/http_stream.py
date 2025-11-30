@@ -76,7 +76,7 @@ class HttpStreamTransport(Transport):
                 "Install with: pip install httpx"
             )
         
-        super().__init__(name, TransportType.WEBSOCKET)  # Reusing WEBSOCKET for HTTP streaming
+        super().__init__(name, TransportType.STREAMABLE_HTTP)
         
         self.url = url
         self.protocol = protocol

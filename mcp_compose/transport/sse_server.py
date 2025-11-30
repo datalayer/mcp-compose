@@ -2,6 +2,10 @@
 SSE (Server-Sent Events) transport for MCP.
 
 This module implements an SSE-based transport for MCP protocol communication.
+
+.. deprecated::
+    SSE transport is deprecated. Use Streamable HTTP transport instead.
+    See :mod:`mcp_compose.transport.http_stream` for the recommended approach.
 """
 
 import asyncio

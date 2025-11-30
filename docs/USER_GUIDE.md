@@ -21,7 +21,7 @@ MCP Compose is a comprehensive solution for managing and composing multiple Mode
 - **Web UI**: Modern web interface for management and monitoring
 - **REST API**: Full-featured API for programmatic control
 - **Real-time Monitoring**: Live logs, metrics, and status updates
-- **Protocol Translation**: Support for STDIO and SSE transports
+- **Protocol Translation**: Support for STDIO, Streamable HTTP, and SSE (deprecated) transports
 
 ### Who Should Use This?
 
@@ -150,7 +150,7 @@ The dashboard shows:
 
 Each server card shows:
 - Command and arguments
-- Transport type (STDIO/SSE)
+- Transport type (STDIO/Streamable HTTP/SSE)
 - Process ID (when running)
 - Uptime (formatted as hours and minutes)
 - Restart count
@@ -404,7 +404,7 @@ conflict_resolution = "prefix"        # Strategy for name conflicts
 name = "filesystem"                   # Unique server identifier
 command = "python"                    # Executable to run
 args = ["-m", "mcp_server_filesystem", "/data"]  # Command arguments
-transport = "stdio"                   # Transport type (stdio or sse)
+transport = "stdio"                   # Transport type (stdio, streamable-http, or sse)
 env = { DEBUG = "1" }                # Optional environment variables
 auto_start = true                    # Start automatically (default: true)
 ```
@@ -450,6 +450,79 @@ DEBUG = "0"
 LOG_LEVEL = "INFO"
 CACHE_DIR = "/tmp/cache"
 ```
+
+### Authentication Configuration
+
+MCP Compose supports multiple authentication providers for securing access to your composed MCP servers.
+
+#### API Key Authentication
+
+```toml
+[authentication]
+enabled = true
+providers = ["api_key"]
+default_provider = "api_key"
+
+[authentication.api_key]
+header_name = "X-API-Key"
+keys = ["your-api-key-1", "your-api-key-2"]
+```
+
+Clients send the API key in the header:
+```bash
+curl -H "X-API-Key: your-api-key-1" http://localhost:8080/mcp
+```
+
+#### OAuth2/OIDC Authentication (Generic)
+
+For validating OAuth2 bearer tokens with any OIDC provider:
+
+```toml
+[authentication]
+enabled = true
+providers = ["oauth2"]
+default_provider = "oauth2"
+
+[authentication.oauth2]
+provider = "generic"
+# OIDC issuer URL for auto-discovery of endpoints
+issuer_url = "https://id.example.com"
+
+# Or provide explicit endpoints:
+# userinfo_endpoint = "https://id.example.com/userinfo"
+# introspection_endpoint = "https://id.example.com/oauth/introspect"
+
+# Claim to use for user identification (default: "sub")
+user_id_claim = "sub"
+
+# Optional: Client credentials for token introspection
+# client_id = "your-client-id"
+# client_secret = "your-client-secret"
+
+# Optional: Required scopes
+# required_scopes = ["openid", "profile"]
+```
+
+Clients send bearer tokens:
+```bash
+curl -H "Authorization: Bearer <oauth-token>" http://localhost:8080/mcp
+```
+
+#### Anaconda Authentication
+
+For validating tokens with Anaconda Cloud:
+
+```toml
+[authentication]
+enabled = true
+providers = ["anaconda"]
+default_provider = "anaconda"
+
+[authentication.anaconda]
+domain = "anaconda.com"
+```
+
+See the `examples/anaconda-token/` and `examples/anaconda-oauth/` directories for complete examples.
 
 ## Server Management
 

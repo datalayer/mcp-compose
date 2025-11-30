@@ -3,20 +3,29 @@ Metrics middleware for tracking HTTP requests.
 
 Automatically records metrics for all HTTP requests including
 duration, status codes, and request/response sizes.
+
+Note: This middleware uses a pure ASGI implementation instead of
+BaseHTTPMiddleware to properly support SSE/streaming responses.
 """
 
 import time
 from typing import Callable
 
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Receive, Send, Scope
 
 from ..metrics import metrics_collector
 
 
-class MetricsMiddleware(BaseHTTPMiddleware):
-    """Middleware for collecting HTTP request metrics."""
+class MetricsMiddleware:
+    """
+    Pure ASGI Middleware for collecting HTTP request metrics.
+    
+    This implementation uses raw ASGI instead of BaseHTTPMiddleware
+    to properly support SSE and streaming responses.
+    """
+    
+    # Paths that should skip metrics (streaming endpoints)
+    SKIP_PATHS = {"/sse", "/mcp", "/stream"}
     
     def __init__(self, app: ASGIApp):
         """
@@ -25,52 +34,83 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         Args:
             app: ASGI application.
         """
-        super().__init__(app)
+        self.app = app
     
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """
-        Process request and record metrics.
+        ASGI interface - process request and record metrics.
         
         Args:
-            request: HTTP request.
-            call_next: Next middleware/handler.
-        
-        Returns:
-            HTTP response.
+            scope: ASGI scope.
+            receive: ASGI receive callable.
+            send: ASGI send callable.
         """
+        # Only process HTTP requests
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        
+        # Get request info
+        path = scope.get("path", "/")
+        method = scope.get("method", "GET")
+        
+        # Skip metrics for streaming endpoints (SSE, MCP streaming)
+        # These don't work well with metrics collection due to their streaming nature
+        if any(path.startswith(skip_path) for skip_path in self.SKIP_PATHS):
+            await self.app(scope, receive, send)
+            return
+        
         # Record start time
         start_time = time.time()
         
-        # Get request info
-        method = request.method
-        path = request.url.path
-        
-        # Normalize endpoint (remove IDs and dynamic parts)
+        # Normalize endpoint
         endpoint = self._normalize_endpoint(path)
         
-        # Get request size
-        request_size = int(request.headers.get("content-length", 0))
+        # Get request size from headers
+        request_size = 0
+        for header_name, header_value in scope.get("headers", []):
+            if header_name == b"content-length":
+                try:
+                    request_size = int(header_value.decode())
+                except (ValueError, UnicodeDecodeError):
+                    pass
+                break
         
-        # Process request
-        response = await call_next(request)
+        # Track response info
+        status_code = 200
+        response_size = 0
         
-        # Calculate duration
-        duration = time.time() - start_time
+        async def send_wrapper(message):
+            nonlocal status_code, response_size
+            
+            if message["type"] == "http.response.start":
+                status_code = message.get("status", 200)
+                # Get content-length from response headers
+                for header_name, header_value in message.get("headers", []):
+                    if header_name == b"content-length":
+                        try:
+                            response_size = int(header_value.decode())
+                        except (ValueError, UnicodeDecodeError):
+                            pass
+                        break
+            
+            await send(message)
         
-        # Get response size
-        response_size = int(response.headers.get("content-length", 0))
-        
-        # Record metrics
-        metrics_collector.record_http_request(
-            method=method,
-            endpoint=endpoint,
-            status_code=response.status_code,
-            duration_seconds=duration,
-            request_size_bytes=request_size,
-            response_size_bytes=response_size,
-        )
-        
-        return response
+        try:
+            await self.app(scope, receive, send_wrapper)
+        finally:
+            # Calculate duration
+            duration = time.time() - start_time
+            
+            # Record metrics
+            metrics_collector.record_http_request(
+                method=method,
+                endpoint=endpoint,
+                status_code=status_code,
+                duration_seconds=duration,
+                request_size_bytes=request_size,
+                response_size_bytes=response_size,
+            )
     
     def _normalize_endpoint(self, path: str) -> str:
         """

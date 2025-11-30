@@ -25,9 +25,12 @@ The MCP Compose exposes all the tools of the managed MCP Servers as a single uni
 A `Managed MCP Server` can be:
 
 - **`Embedded`**: Python packages that implement MCP servers using the Python MCP SDK. These are loaded in-process and configured via a manual list in `mcp_compose.toml`.
-- **`Proxied`**: External MCP servers accessible via `STDIO` or `SSE (Server-Sent Events)`. The startup commands and configurations for these proxied servers are defined in `mcp_compose.toml`.
+- **`Proxied`**: External MCP servers accessible via `STDIO`, `Streamable HTTP`, or `SSE (Server-Sent Events, deprecated)`. The startup commands and configurations for these proxied servers are defined in `mcp_compose.toml`.
 
-The supported exposed **transports** are the official MCP transports: `STDIO` and `SSE (Server-Sent Events)`.
+The supported exposed **transports** are the official MCP transports:
+- **STDIO**: For subprocess communication (agent spawns server)
+- **Streamable HTTP**: Modern HTTP-based transport (recommended for production)
+- **SSE (deprecated)**: Server-Sent Events for streaming (use Streamable HTTP instead)
 
 ## Component Architecture
 
@@ -38,7 +41,7 @@ The supported exposed **transports** are the official MCP transports: `STDIO` an
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐   │
 │  │    Authn     │  │    Authz     │  │    Transport       │   │
 │  │  Middleware  │  │  Middleware  │  │  Layer             │   │
-│  │              │  │              │  │  (STDIO/SSE)       │   │
+│  │              │  │              │  │ (STDIO/HTTP/SSE)   │   │
 │  └──────────────┘  └──────────────┘  └────────────────────┘   │
 ├───────────────────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐   │
@@ -50,7 +53,7 @@ The supported exposed **transports** are the official MCP transports: `STDIO` an
 │  Managed MCP Servers                                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐   │
 │  │  Embedded    │  │   Proxied    │  │    Proxied         │   │
-│  │   Python     │  │   (STDIO)    │  │    (SSE)           │   │
+│  │   Python     │  │   (STDIO)    │  │   (HTTP/SSE)       │   │
 │  │  Packages    │  │              │  │                    │   │
 │  └──────────────┘  └──────────────┘  └────────────────────┘   │
 └───────────────────────────────────────────────────────────────┘
@@ -78,16 +81,24 @@ All configuration is managed through a single `mcp_compose.toml` file. The previ
 name = "my-unified-server"
 conflict_resolution = "prefix"  # prefix, suffix, ignore, error, override, custom
 log_level = "INFO"
-port = 8080  # For HTTP/SSE transport and REST API
+port = 8080  # For HTTP transport and REST API
 
 # ============================================================================
 # Transport Configuration
 # ============================================================================
 [transport]
+# STDIO transport - for subprocess communication
 stdio_enabled = true
-sse_enabled = true       # Server-Sent Events for streaming
-sse_path = "/sse"        # SSE endpoint path
-sse_cors_enabled = true  # Enable CORS for SSE
+
+# Streamable HTTP transport (recommended) - modern HTTP-based MCP transport
+streamable_http_enabled = true
+streamable_http_path = "/mcp"
+streamable_http_cors_enabled = true
+
+# SSE transport (deprecated) - use Streamable HTTP instead
+sse_enabled = false
+sse_path = "/sse"
+sse_cors_enabled = true
 
 # ============================================================================
 # Authentication Configuration
@@ -111,11 +122,32 @@ issuer = "mcp-composer"
 audience = "mcp-clients"
 
 # OAuth2/OIDC Authentication
+# Supports two modes:
+# 1. Generic token validation (validates bearer tokens via userinfo/introspection)
+# 2. OAuth2 authorization flow (for known providers like google, github, microsoft)
+
+# Example 1: Generic OAuth2 token validation (recommended for server-side auth)
 [authentication.oauth2]
-provider = "auth0"  # auth0, keycloak, custom
-client_id = "${OAUTH_CLIENT_ID}"
-client_secret = "${OAUTH_CLIENT_SECRET}"
-discovery_url = "${OAUTH_DISCOVERY_URL}"
+provider = "generic"  # Use generic for standard OAuth2/OIDC token validation
+issuer_url = "https://id.example.com"  # OIDC issuer for auto-discovery
+# Or explicit endpoints:
+# userinfo_endpoint = "https://id.example.com/userinfo"
+# introspection_endpoint = "https://id.example.com/oauth/introspect"
+client_id = "${OAUTH_CLIENT_ID}"        # Optional, for introspection
+client_secret = "${OAUTH_CLIENT_SECRET}"  # Optional, for introspection
+user_id_claim = "sub"                   # Claim to use for user identification
+# required_scopes = ["openid", "profile"]  # Optional scope requirements
+
+# Example 2: OAuth2 authorization flow (for client-side auth)
+# [authentication.oauth2]
+# provider = "github"  # google, github, microsoft, auth0
+# client_id = "${OAUTH_CLIENT_ID}"
+# client_secret = "${OAUTH_CLIENT_SECRET}"
+# redirect_uri = "http://localhost:8080/oauth/callback"
+# scopes = ["read:user"]
+
+# Legacy configuration (deprecated, use issuer_url instead)
+# discovery_url = "${OAUTH_DISCOVERY_URL}"
 
 # Mutual TLS Authentication
 [authentication.mtls]

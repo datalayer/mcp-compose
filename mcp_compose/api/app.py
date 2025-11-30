@@ -7,7 +7,7 @@ middleware, and configuration for the REST API server.
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,6 +51,7 @@ def create_app(
     cors_credentials: bool = True,
     cors_methods: Optional[list] = None,
     cors_headers: Optional[list] = None,
+    lifespan: Optional[Any] = None,
 ) -> FastAPI:
     """
     Create and configure FastAPI application.
@@ -63,15 +64,20 @@ def create_app(
         cors_credentials: Whether to allow credentials in CORS.
         cors_methods: List of allowed HTTP methods (default: ["*"]).
         cors_headers: List of allowed HTTP headers (default: ["*"]).
+        lifespan: Optional custom lifespan context manager.
     
     Returns:
         Configured FastAPI application.
     """
+    # Use custom lifespan if provided, otherwise use default
+    from .app import lifespan as default_lifespan
+    app_lifespan = lifespan if lifespan is not None else default_lifespan
+    
     app = FastAPI(
         title=title,
         description=description,
         version=version,
-        lifespan=lifespan,
+        lifespan=app_lifespan,
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",

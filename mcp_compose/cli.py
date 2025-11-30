@@ -204,7 +204,7 @@ def serve_command(args: argparse.Namespace) -> int:
                 print("Create mcp_compose.toml in current directory or use --config", file=sys.stderr)
                 return 1
         
-        print(f"Loading configuration from: {config_path}")
+        print(f"Loading configuration from: {config_path}", file=sys.stderr)
         config = load_config(config_path)
         
         # Run the server
@@ -228,13 +228,31 @@ async def run_server(config, args: argparse.Namespace) -> int:
     from .tool_proxy import ToolProxy
     from .auth import create_authenticator, AuthType
     from .api.dependencies import set_authenticator
+    
+    # Determine transport mode from CLI args or config
+    transport_mode = getattr(args, 'transport', None)
+    if transport_mode is None:
+        # Determine from config
+        if config.transport.stdio_enabled and not config.transport.streamable_http_enabled and not config.transport.sse_enabled:
+            transport_mode = "stdio"
+        elif config.transport.streamable_http_enabled:
+            transport_mode = "streamable-http"
+        elif config.transport.sse_enabled:
+            transport_mode = "sse"
+        else:
+            transport_mode = "streamable-http"  # Default to streamable-http
+    
+    # In STDIO mode, all status output MUST go to stderr
+    # Only JSON-RPC messages should go to stdout
+    out = sys.stderr if transport_mode == "stdio" else sys.stdout
+    
     import uvicorn
     
     # Initialize authenticator if authentication is enabled
     authenticator = None
     if config.authentication.enabled:
-        print(f"\n🔐 Authentication enabled")
-        print(f"   Provider: {config.authentication.default_provider}")
+        print(f"\n🔐 Authentication enabled", file=out)
+        print(f"   Provider: {config.authentication.default_provider}", file=out)
         
         # Create authenticator based on provider
         provider = config.authentication.default_provider
@@ -242,13 +260,13 @@ async def run_server(config, args: argparse.Namespace) -> int:
         if provider == AuthProvider.ANACONDA:
             if config.authentication.anaconda:
                 domain = config.authentication.anaconda.domain
-                print(f"   Domain: {domain}")
+                print(f"   Domain: {domain}", file=out)
                 authenticator = create_authenticator(
                     AuthType.ANACONDA,
                     domain=domain
                 )
             else:
-                print("   ⚠️  Warning: Anaconda auth config missing, using defaults")
+                print("   ⚠️  Warning: Anaconda auth config missing, using defaults", file=out)
                 authenticator = create_authenticator(AuthType.ANACONDA)
         elif provider == AuthProvider.API_KEY:
             if config.authentication.api_key:
@@ -257,14 +275,39 @@ async def run_server(config, args: argparse.Namespace) -> int:
                     api_keys={}  # Would load from config
                 )
             else:
-                print("   ⚠️  Warning: API Key auth config missing")
+                print("   ⚠️  Warning: API Key auth config missing", file=out)
+        elif provider == AuthProvider.OAUTH2:
+            if config.authentication.oauth2:
+                oauth2_config = config.authentication.oauth2
+                print(f"   Provider: {oauth2_config.provider}", file=out)
+                if oauth2_config.issuer_url:
+                    print(f"   Issuer: {oauth2_config.issuer_url}", file=out)
+                if oauth2_config.userinfo_endpoint:
+                    print(f"   UserInfo: {oauth2_config.userinfo_endpoint}", file=out)
+                
+                authenticator = create_authenticator(
+                    AuthType.OAUTH2,
+                    provider=oauth2_config.provider,
+                    issuer_url=oauth2_config.issuer_url,
+                    userinfo_endpoint=oauth2_config.userinfo_endpoint,
+                    introspection_endpoint=oauth2_config.introspection_endpoint,
+                    client_id=oauth2_config.client_id,
+                    client_secret=oauth2_config.client_secret,
+                    audience=oauth2_config.audience,
+                    required_scopes=oauth2_config.required_scopes,
+                    user_id_claim=oauth2_config.user_id_claim,
+                    redirect_uri=oauth2_config.redirect_uri,
+                    scopes=oauth2_config.scopes,
+                )
+            else:
+                print("   ⚠️  Warning: OAuth2 auth config missing", file=out)
         else:
-            print(f"   ⚠️  Warning: Provider {provider} not yet implemented")
+            print(f"   ⚠️  Warning: Provider {provider} not yet implemented", file=out)
         
         if authenticator:
             set_authenticator(authenticator)
-            print(f"   ✓ Authenticator initialized")
-        print()
+            print(f"   ✓ Authenticator initialized", file=out)
+        print(file=out)
     
     # Create process manager
     process_manager = ProcessManager(auto_restart=False)
@@ -290,32 +333,32 @@ async def run_server(config, args: argparse.Namespace) -> int:
         # Start process manager
         await process_manager.start()
         
-        print(f"\n🚀 MCP Compose: {config.composer.name}")
-        print(f"Conflict Resolution: {config.composer.conflict_resolution}")
-        print(f"Log Level: {config.composer.log_level}")
-        print()
+        print(f"\n🚀 MCP Compose: {config.composer.name}", file=out)
+        print(f"Conflict Resolution: {config.composer.conflict_resolution}", file=out)
+        print(f"Log Level: {config.composer.log_level}", file=out)
+        print(file=out)
         
         # Add and start all configured servers
         if hasattr(config, 'servers') and hasattr(config.servers, 'proxied') and hasattr(config.servers.proxied, 'stdio'):
             stdio_servers = config.servers.proxied.stdio
             
             if not stdio_servers:
-                print("⚠️  No servers configured in mcp_compose.toml")
-                print()
+                print("⚠️  No servers configured in mcp_compose.toml", file=out)
+                print(file=out)
                 return 1
             
-            print(f"Starting {len(stdio_servers)} server(s)...")
-            print()
+            print(f"Starting {len(stdio_servers)} server(s)...", file=out)
+            print(file=out)
             
             for server_config in stdio_servers:
                 if isinstance(server_config, StdioProxiedServerConfig):
                     # command is already a List[str] in the config
                     command = server_config.command
                     
-                    print(f"  • {server_config.name}")
-                    print(f"    Command: {' '.join(command)}")
+                    print(f"  • {server_config.name}", file=out)
+                    print(f"    Command: {' '.join(command)}", file=out)
                     if server_config.env:
-                        print(f"    Environment: {list(server_config.env.keys())}")
+                        print(f"    Environment: {list(server_config.env.keys())}", file=out)
                     
                     # Add process
                     process = await process_manager.add_process(
@@ -328,8 +371,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                     # Discover tools from the server
                     await tool_proxy.discover_tools(server_config.name, process)
                     
-                    print(f"    Status: ✓ Started")
-                    print()
+                    print(f"    Status: ✓ Started", file=out)
+                    print(file=out)
         
         # Handle SSE proxied servers
         if hasattr(config, 'servers') and hasattr(config.servers, 'proxied') and hasattr(config.servers.proxied, 'sse'):
@@ -340,13 +383,13 @@ async def run_server(config, args: argparse.Namespace) -> int:
             sse_servers = config.servers.proxied.sse
             
             if sse_servers:
-                print(f"Connecting to {len(sse_servers)} SSE server(s)...")
-                print()
+                print(f"Connecting to {len(sse_servers)} SSE server(s)...", file=out)
+                print(file=out)
                 
                 for server_config in sse_servers:
                     if isinstance(server_config, SseProxiedServerConfig):
-                        print(f"  • {server_config.name}")
-                        print(f"    URL: {server_config.url}")
+                        print(f"  • {server_config.name}", file=out)
+                        print(f"    URL: {server_config.url}", file=out)
                         
                         # Try to discover tools from the SSE server using MCP protocol
                         try:
@@ -428,10 +471,10 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     composer.source_mapping[tool_name] = server_config.name
                                 
                                 logger.info(f"Successfully registered {len(tools)} tools from SSE server {server_config.name}")
-                                print(f"    Tools: {len(tools)} registered")
-                                print(f"    Status: ✓ Connected")
+                                print(f"    Tools: {len(tools)} registered", file=out)
+                                print(f"    Status: ✓ Connected", file=out)
                             else:
-                                print(f"    Status: ❌ No tools discovered")
+                                print(f"    Status: ❌ No tools discovered", file=out)
                         except Exception as e:
                             # Check if it's just a cleanup error (TaskGroup exception after successful operation)
                             error_str = str(e)
@@ -441,18 +484,18 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                 sse_tools_count = sum(1 for name in composer.source_mapping if composer.source_mapping[name] == server_config.name)
                                 if sse_tools_count > 0:
                                     logger.warning(f"SSE server {server_config.name} connected successfully ({sse_tools_count} tools) but had cleanup issues: {e}")
-                                    print(f"    Status: ⚠️  Connected ({sse_tools_count} tools, cleanup warning)")
+                                    print(f"    Status: ⚠️  Connected ({sse_tools_count} tools, cleanup warning)", file=out)
                                 else:
                                     logger.error(f"SSE server {server_config.name} failed during tool registration: {e}")
-                                    print(f"    Status: ❌ Tool registration failed")
+                                    print(f"    Status: ❌ Tool registration failed", file=out)
                             else:
                                 logger.error(f"Failed to connect to SSE server {server_config.name}: {e}")
-                                print(f"    Status: ❌ Connection failed: {e}")
+                                print(f"    Status: ❌ Connection failed: {e}", file=out)
                             # Print detailed traceback for debugging
                             import traceback
                             logger.debug(traceback.format_exc())
                         
-                        print()
+                        print(file=out)
         
         # Handle HTTP streaming proxied servers
         if hasattr(config, 'servers') and hasattr(config.servers, 'proxied') and hasattr(config.servers.proxied, 'http'):
@@ -463,14 +506,14 @@ async def run_server(config, args: argparse.Namespace) -> int:
             http_servers = config.servers.proxied.http
             
             if http_servers:
-                print(f"Connecting to {len(http_servers)} HTTP streaming server(s)...")
-                print()
+                print(f"Connecting to {len(http_servers)} HTTP streaming server(s)...", file=out)
+                print(file=out)
                 
                 for server_config in http_servers:
                     if isinstance(server_config, HttpProxiedServerConfig):
-                        print(f"  • {server_config.name}")
-                        print(f"    URL: {server_config.url}")
-                        print(f"    Protocol: {server_config.protocol}")
+                        print(f"  • {server_config.name}", file=out)
+                        print(f"    URL: {server_config.url}", file=out)
+                        print(f"    Protocol: {server_config.protocol}", file=out)
                         
                         # Try to discover tools from the HTTP server using MCP protocol
                         try:
@@ -568,49 +611,131 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     composer.composed_server._tool_manager._tools[tool_name] = tool_obj
                                     composer.source_mapping[tool_name] = server_config.name
                                 
-                                print(f"    Tools: {len(tools)} discovered")
-                                print(f"    Status: ✓ Connected")
+                                print(f"    Tools: {len(tools)} discovered", file=out)
+                                print(f"    Status: ✓ Connected", file=out)
                                 
                             await transport.disconnect()
                             
                         except Exception as e:
                             logger.error(f"Failed to connect to HTTP server {server_config.name}: {e}")
-                            print(f"    Status: ❌ Connection failed: {e}")
+                            print(f"    Status: ❌ Connection failed: {e}", file=out)
                         
-                        print()
+                        print(file=out)
         
-        print("✓ All servers started successfully!")
-        print()
+        print("✓ All servers started successfully!", file=out)
+        print(file=out)
         
+        # Handle transport mode
+        if transport_mode == "stdio":
+            # Run in STDIO mode - read from stdin, write to stdout
+            print("=" * 70, file=out)
+            print("📡 MCP Server Mode: STDIO", file=out)
+            print("=" * 70, file=out)
+            print(f"✓ Unified MCP server is ready!", file=out)
+            print(f"  Total tools: {len(composer.composed_tools)}", file=out)
+            print(file=out)
+            
+            # List all available tools
+            if composer.composed_tools:
+                print("🔧 Available Tools:", file=out)
+                for tool_name in sorted(composer.composed_tools.keys()):
+                    tool_def = composer.composed_tools[tool_name]
+                    params = []
+                    if "inputSchema" in tool_def:
+                        schema = tool_def["inputSchema"]
+                        if "properties" in schema:
+                            params = list(schema["properties"].keys())
+                    params_str = f"({', '.join(params)})" if params else "()"
+                    print(f"  • {tool_name}{params_str}", file=out)
+            
+            print(file=out)
+            print("Running in STDIO mode - awaiting JSON-RPC messages on stdin...", file=out)
+            
+            # Run the composed server in STDIO mode
+            # Use run_stdio_async() directly since we're already in an async context
+            try:
+                await composer.composed_server.run_stdio_async()
+            except KeyboardInterrupt:
+                print("\n⏹  Shutting down...", file=out)
+            
+            return 0
+        
+        # HTTP-based transport modes (streamable-http or sse)
         # Create the FastAPI REST API app
         from .api import create_app
         from .api.dependencies import set_composer
+        from contextlib import asynccontextmanager
         
         # Set the composer instance for dependency injection
         set_composer(composer)
         
-        # Create the main FastAPI app with REST API routes
-        app = create_app()
+        # For streamable-http, we need to run the session manager in the lifespan
+        session_manager = None
+        if transport_mode == "streamable-http":
+            # Trigger creation of the streamable HTTP app to initialize session manager
+            _ = composer.composed_server.streamable_http_app()
+            session_manager = composer.composed_server.session_manager
         
-        # Get the FastMCP SSE app and include its routes directly
-        try:
-            sse_app = composer.composed_server.sse_app()
+        # Create a custom lifespan that also runs the session manager
+        @asynccontextmanager
+        async def custom_lifespan(app):
+            """Custom lifespan that runs the streamable HTTP session manager"""
+            from .api.routes.translators import shutdown_translators
             
-            # Debug: Check if sse_app has routes
-            if hasattr(sse_app, 'routes'):
-                logger.info(f"SSE app has {len(sse_app.routes)} routes")
-                for route in sse_app.routes:
-                    logger.info(f"  Route: {route}")
+            logger.info("Starting MCP Compose API")
+            
+            if session_manager is not None:
+                # Run the session manager for streamable HTTP
+                async with session_manager.run():
+                    logger.info("Streamable HTTP session manager started")
+                    yield
+                    logger.info("Streamable HTTP session manager stopping")
+            else:
+                yield
+            
+            # Shutdown
+            logger.info("Shutting down MCP Compose API")
+            await shutdown_translators()
+        
+        # Create the main FastAPI app with our custom lifespan
+        app = create_app(lifespan=custom_lifespan)
+        
+        if transport_mode == "streamable-http":
+            # Get the Streamable HTTP app and add its routes
+            try:
+                streamable_app = composer.composed_server.streamable_http_app()
                 
-                # Add SSE app routes directly to the main app instead of mounting
-                # This way /sse goes to /sse instead of /sse/sse
-                for route in sse_app.routes:
-                    app.routes.append(route)
-                
-                logger.info("SSE routes added successfully to main app")
-        except Exception as e:
-            logger.error(f"Failed to add SSE routes: {e}")
-            print(f"⚠️  Warning: SSE endpoint not available: {e}")
+                # Add the routes from the streamable app to our main app
+                if hasattr(streamable_app, 'routes'):
+                    logger.info(f"Streamable HTTP app has {len(streamable_app.routes)} routes")
+                    for route in streamable_app.routes:
+                        app.routes.append(route)
+                    
+                    logger.info("Streamable HTTP routes added successfully to main app")
+            except Exception as e:
+                logger.error(f"Failed to add Streamable HTTP routes: {e}")
+                print(f"⚠️  Warning: Streamable HTTP endpoint not available: {e}", file=out)
+        else:
+            # SSE transport (deprecated)
+            # Get the FastMCP SSE app and include its routes directly
+            try:
+                sse_app = composer.composed_server.sse_app()
+            
+                # Debug: Check if sse_app has routes
+                if hasattr(sse_app, 'routes'):
+                    logger.info(f"SSE app has {len(sse_app.routes)} routes")
+                    for route in sse_app.routes:
+                        logger.info(f"  Route: {route}")
+                    
+                    # Add SSE app routes directly to the main app instead of mounting
+                    # This way /sse goes to /sse instead of /sse/sse
+                    for route in sse_app.routes:
+                        app.routes.append(route)
+                    
+                    logger.info("SSE routes added successfully to main app")
+            except Exception as e:
+                logger.error(f"Failed to add SSE routes: {e}")
+                print(f"⚠️  Warning: SSE endpoint not available: {e}", file=out)
         
         # Add a /tools endpoint to list all available tools
         from fastapi import APIRouter
@@ -636,21 +761,48 @@ async def run_server(config, args: argparse.Namespace) -> int:
         # Include the tools router
         app.include_router(tools_router)
         
-        print("=" * 70)
-        print("📡 MCP Server Endpoints")
-        print("=" * 70)
-        print(f"  SSE Endpoint:  http://localhost:{config.composer.port}/sse")
-        print(f"  Tools List:    http://localhost:{config.composer.port}/tools")
-        print(f"  REST API:      http://localhost:{config.composer.port}/api/v1")
-        print(f"  Health Check:  http://localhost:{config.composer.port}/api/v1/health")
-        print()
-        print(f"✓ Unified MCP server is now running!")
-        print(f"  Total tools: {len(composer.composed_tools)}")
-        print()
+        # Add OAuth routes if OAuth2 authentication is enabled
+        if config.authentication and config.authentication.enabled:
+            oauth2_config = config.authentication.oauth2
+            if oauth2_config and oauth2_config.client_id and oauth2_config.client_secret:
+                from .api.routes.oauth import router as oauth_router, configure_oauth
+                
+                # Configure OAuth with server details
+                # Always use localhost for OAuth callback URLs (GitHub requires exact match)
+                oauth_host = "localhost" if args.host == "0.0.0.0" else args.host
+                server_url = f"http://{oauth_host}:{config.composer.port}"
+                configure_oauth(
+                    provider=oauth2_config.provider,
+                    client_id=oauth2_config.client_id,
+                    client_secret=oauth2_config.client_secret,
+                    server_url=server_url,
+                    userinfo_endpoint=oauth2_config.userinfo_endpoint,
+                    scopes=oauth2_config.scopes,
+                )
+                
+                # Include OAuth routes
+                app.include_router(oauth_router)
+                print(f"  OAuth Callback: http://localhost:{config.composer.port}/oauth/callback", file=out)
+                print(f"  Authorize:      http://localhost:{config.composer.port}/authorize", file=out)
+        
+        print("=" * 70, file=out)
+        print(f"📡 MCP Server Mode: {transport_mode.upper()}", file=out)
+        print("=" * 70, file=out)
+        if transport_mode == "streamable-http":
+            print(f"  MCP Endpoint:  http://localhost:{config.composer.port}/mcp", file=out)
+        else:
+            print(f"  SSE Endpoint:  http://localhost:{config.composer.port}/sse (deprecated)", file=out)
+        print(f"  Tools List:    http://localhost:{config.composer.port}/tools", file=out)
+        print(f"  REST API:      http://localhost:{config.composer.port}/api/v1", file=out)
+        print(f"  Health Check:  http://localhost:{config.composer.port}/api/v1/health", file=out)
+        print(file=out)
+        print(f"✓ Unified MCP server is now running!", file=out)
+        print(f"  Total tools: {len(composer.composed_tools)}", file=out)
+        print(file=out)
         
         # List all available tools
         if composer.composed_tools:
-            print("🔧 Available Tools:")
+            print("🔧 Available Tools:", file=out)
             for tool_name in sorted(composer.composed_tools.keys()):
                 tool_def = composer.composed_tools[tool_name]
                 # Extract parameter names from inputSchema
@@ -662,13 +814,13 @@ async def run_server(config, args: argparse.Namespace) -> int:
                 
                 # Format parameters
                 params_str = f"({', '.join(params)})" if params else "()"
-                print(f"  • {tool_name}{params_str}")
+                print(f"  • {tool_name}{params_str}", file=out)
         
-        print()
-        print("=" * 70)
-        print()
-        print("Press Ctrl+C to stop all servers...")
-        print()
+        print(file=out)
+        print("=" * 70, file=out)
+        print(file=out)
+        print("Press Ctrl+C to stop all servers...", file=out)
+        print(file=out)
         
         # Run uvicorn in background
         server_config_uvicorn = uvicorn.Config(
@@ -683,14 +835,14 @@ async def run_server(config, args: argparse.Namespace) -> int:
         try:
             await server.serve()
         except KeyboardInterrupt:
-            print("\n\n⏹  Shutting down...")
+            print("\n\n⏹  Shutting down...", file=out)
         
         return 0
         
     finally:
         # Clean shutdown
         await process_manager.stop()
-        print("✓ All servers stopped")
+        print("✓ All servers stopped", file=out)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -729,6 +881,13 @@ def create_parser() -> argparse.ArgumentParser:
         type=int,
         default=8000,
         help="Port to bind to (default: 8000)",
+    )
+    serve_parser.add_argument(
+        "-t", "--transport",
+        type=str,
+        choices=["stdio", "sse", "streamable-http"],
+        default=None,
+        help="Transport mode: stdio (subprocess), sse (deprecated), or streamable-http (recommended HTTP transport). If not specified, uses config file settings.",
     )
 
     # Compose command

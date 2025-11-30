@@ -85,8 +85,16 @@ class ComposerConfig(BaseModel):
 
 class TransportConfig(BaseModel):
     """Transport layer configuration."""
+    # STDIO transport
     stdio_enabled: bool = Field(default=True, description="Enable STDIO transport")
-    sse_enabled: bool = Field(default=True, description="Enable SSE transport")
+    
+    # Streamable HTTP transport (recommended)
+    streamable_http_enabled: bool = Field(default=True, description="Enable Streamable HTTP transport")
+    streamable_http_path: str = Field(default="/mcp", description="Streamable HTTP endpoint path")
+    streamable_http_cors_enabled: bool = Field(default=True, description="Enable CORS for Streamable HTTP")
+    
+    # SSE transport (deprecated, use streamable_http instead)
+    sse_enabled: bool = Field(default=False, description="Enable SSE transport (deprecated)")
     sse_path: str = Field(default="/sse", description="SSE endpoint path")
     sse_cors_enabled: bool = Field(default=True, description="Enable CORS for SSE")
 
@@ -110,11 +118,74 @@ class JwtAuthConfig(BaseModel):
 
 
 class OAuth2AuthConfig(BaseModel):
-    """OAuth2/OIDC authentication configuration."""
-    provider: str = Field(default="auth0", description="OAuth2 provider")
-    client_id: str = Field(..., description="OAuth2 client ID")
-    client_secret: str = Field(..., description="OAuth2 client secret")
-    discovery_url: str = Field(..., description="OAuth2 discovery URL")
+    """
+    OAuth2/OIDC authentication configuration.
+    
+    Supports two modes:
+    1. OAuth2 authorization flow (for client-side auth) - uses provider, client_id, 
+       client_secret, discovery_url
+    2. Token validation (for server-side validation) - uses issuer_url, userinfo_endpoint,
+       or introspection_endpoint
+    
+    For token validation (recommended for mcp-compose):
+    
+        [authentication.oauth2]
+        provider = "generic"
+        issuer_url = "https://id.anaconda.com"  # OIDC issuer for auto-discovery
+        # Or explicit endpoints:
+        # userinfo_endpoint = "https://id.anaconda.com/userinfo"
+        # introspection_endpoint = "https://id.anaconda.com/oauth/introspect"
+        client_id = "optional-for-introspection"
+        client_secret = "optional-for-introspection"
+        user_id_claim = "sub"  # Claim to extract user ID from
+    """
+    # Provider name: "generic", "google", "github", "microsoft", "auth0", etc.
+    provider: str = Field(default="generic", description="OAuth2 provider name")
+    
+    # Client credentials (optional for generic token validation)
+    client_id: Optional[str] = Field(default=None, description="OAuth2 client ID")
+    client_secret: Optional[str] = Field(default=None, description="OAuth2 client secret")
+    
+    # OIDC discovery (for auto-discovering endpoints)
+    issuer_url: Optional[str] = Field(
+        default=None, 
+        description="OIDC issuer URL for auto-discovery (e.g., https://id.anaconda.com)"
+    )
+    discovery_url: Optional[str] = Field(
+        default=None, 
+        description="OAuth2 discovery URL (deprecated, use issuer_url)"
+    )
+    
+    # Explicit endpoints (alternative to issuer_url auto-discovery)
+    userinfo_endpoint: Optional[str] = Field(
+        default=None, 
+        description="UserInfo endpoint URL for token validation"
+    )
+    introspection_endpoint: Optional[str] = Field(
+        default=None, 
+        description="Token introspection endpoint URL (RFC 7662)"
+    )
+    
+    # Token validation options
+    audience: Optional[str] = Field(default=None, description="Expected audience claim")
+    required_scopes: Optional[List[str]] = Field(
+        default=None, 
+        description="Required scopes for access"
+    )
+    user_id_claim: str = Field(
+        default="sub", 
+        description="Claim to use for user ID extraction"
+    )
+    
+    # OAuth2 authorization flow options (for client-side auth)
+    redirect_uri: Optional[str] = Field(
+        default=None, 
+        description="Redirect URI for OAuth2 authorization flow"
+    )
+    scopes: Optional[List[str]] = Field(
+        default=None, 
+        description="OAuth2 scopes to request during authorization"
+    )
 
 
 class MtlsAuthConfig(BaseModel):

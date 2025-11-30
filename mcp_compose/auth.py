@@ -343,6 +343,18 @@ def create_authenticator(auth_type: AuthType, **kwargs) -> Authenticator:
     Args:
         auth_type: Type of authenticator to create.
         **kwargs: Additional arguments for the authenticator.
+            For API_KEY: api_keys - dict of key hashes to user info
+            For ANACONDA: domain - Anaconda domain (default: "anaconda.com")
+            For OAUTH2: 
+                - provider - OAuth2 provider name ("generic", "google", etc.)
+                - issuer_url - OIDC issuer URL for auto-discovery
+                - userinfo_endpoint - UserInfo endpoint URL
+                - introspection_endpoint - Token introspection endpoint URL
+                - client_id - Client ID for introspection
+                - client_secret - Client secret for introspection
+                - user_id_claim - Claim to use for user ID (default: "sub")
+                - audience - Expected audience claim
+                - required_scopes - List of required scopes
     
     Returns:
         Authenticator instance.
@@ -355,6 +367,44 @@ def create_authenticator(auth_type: AuthType, **kwargs) -> Authenticator:
     elif auth_type == AuthType.ANACONDA:
         from .providers.auth_anaconda import AnacondaAuthenticator
         return AnacondaAuthenticator(domain=kwargs.get("domain", "anaconda.com"))
+    elif auth_type == AuthType.OAUTH2:
+        from .auth_oauth2 import (
+            create_generic_oauth2_authenticator,
+            create_oauth2_authenticator,
+        )
+        
+        provider = kwargs.get("provider", "generic").lower()
+        
+        # Check if this is a generic token validation setup
+        if provider == "generic" or kwargs.get("issuer_url") or kwargs.get("userinfo_endpoint"):
+            return create_generic_oauth2_authenticator(
+                issuer_url=kwargs.get("issuer_url"),
+                userinfo_endpoint=kwargs.get("userinfo_endpoint"),
+                introspection_endpoint=kwargs.get("introspection_endpoint"),
+                client_id=kwargs.get("client_id"),
+                client_secret=kwargs.get("client_secret"),
+                audience=kwargs.get("audience"),
+                required_scopes=kwargs.get("required_scopes"),
+                user_id_claim=kwargs.get("user_id_claim", "sub"),
+            )
+        else:
+            # OAuth2 authorization flow for known providers
+            if not kwargs.get("client_id") or not kwargs.get("client_secret"):
+                raise ValueError(
+                    f"OAuth2 provider '{provider}' requires client_id and client_secret"
+                )
+            if not kwargs.get("redirect_uri"):
+                raise ValueError(
+                    f"OAuth2 provider '{provider}' requires redirect_uri for authorization flow"
+                )
+            return create_oauth2_authenticator(
+                provider=provider,
+                client_id=kwargs["client_id"],
+                client_secret=kwargs["client_secret"],
+                redirect_uri=kwargs["redirect_uri"],
+                scopes=kwargs.get("scopes"),
+                tenant=kwargs.get("tenant"),
+            )
     elif auth_type == AuthType.NONE:
         return NoAuthenticator()
     else:
