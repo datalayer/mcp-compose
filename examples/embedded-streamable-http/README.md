@@ -8,17 +8,18 @@
 
 [![Become a Sponsor](https://img.shields.io/static/v1?label=Become%20a%20Sponsor&message=%E2%9D%A4&logo=GitHub&style=flat&color=1ABC9C)](https://github.com/sponsors/datalayer)
 
-# Streamable HTTP Transport Example
+# Embedded MCP Servers with Streamable HTTP Transport
 
-This example demonstrates how to use MCP Compose with **Streamable HTTP transport**. This is the modern, recommended HTTP transport for MCP that replaces the deprecated SSE transport.
+This example demonstrates how to use **embedded MCP servers** with MCP Compose over **Streamable HTTP transport**. This is the most efficient approach for local servers that can run in the same process.
 
 ## 🎯 Overview
 
 This example shows:
 
-1. **Two MCP Servers**: Calculator and Echo servers (`mcp1.py`, `mcp2.py`)
+1. **Embedded MCP Servers**: Calculator and Echo servers imported as Python modules
 2. **Streamable HTTP Transport**: Modern HTTP-based MCP communication
-3. **Unified Access**: Single interface to all tools from multiple servers
+3. **In-Process Execution**: Servers run in the same process as the composer (no STDIO overhead)
+4. **Unified Access**: Single interface to all tools from multiple servers
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -35,27 +36,46 @@ This example shows:
 │                   MCP Compose Server                         │
 │              (http://localhost:8080/mcp)                     │
 │                                                              │
-│  ┌─────────────────┐         ┌─────────────────┐            │
-│  │   Calculator    │         │      Echo       │            │
-│  │    (mcp1.py)    │         │    (mcp2.py)    │            │
-│  │                 │         │                 │            │
-│  │ • add           │         │ • ping          │            │
-│  │ • subtract      │         │ • echo          │            │
-│  │ • multiply      │         │ • reverse       │            │
-│  │ • divide        │         │ • uppercase     │            │
-│  │                 │         │ • lowercase     │            │
-│  │                 │         │ • count_words   │            │
-│  └─────────────────┘         └─────────────────┘            │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │         EMBEDDED SERVERS (in-process)               │    │
+│  │                                                      │    │
+│  │  ┌──────────────────┐    ┌──────────────────┐      │    │
+│  │  │   Calculator     │    │      Echo        │      │    │
+│  │  │ (imported module)│    │ (imported module)│      │    │
+│  │  │                  │    │                  │      │    │
+│  │  │ • add            │    │ • ping           │      │    │
+│  │  │ • subtract       │    │ • echo           │      │    │
+│  │  │ • multiply       │    │ • reverse        │      │    │
+│  │  │ • divide         │    │ • uppercase      │      │    │
+│  │  │                  │    │ • lowercase      │      │    │
+│  │  │                  │    │ • count_words    │      │    │
+│  │  └──────────────────┘    └──────────────────┘      │    │
+│  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## 📋 Features
 
+- **Embedded Servers**: Servers run in the same process as the composer (no subprocess overhead)
 - **Streamable HTTP Transport**: Modern, recommended MCP transport (SSE is deprecated)
-- **Server Mode**: MCP Compose runs as a persistent server
+- **High Performance**: Direct function calls without STDIO serialization
+- **Simple Deployment**: Single process to manage and monitor
 - **Multiple Clients**: Multiple agents can connect simultaneously
-- **REST-like**: Standard HTTP semantics for easier integration
 - **Unified Interface**: All tools accessible through a single endpoint
+
+## 🔄 Embedded vs Proxied Servers
+
+**Embedded Servers** (this example):
+- Run in the same process as the composer
+- Imported as Python modules
+- No subprocess overhead or STDIO communication
+- Best for: Local servers, development, simple deployments
+
+**Proxied STDIO Servers** (see `../stdio-streamable-http/`):
+- Run as separate subprocesses
+- Communication via STDIO
+- Process isolation and independent restarts
+- Best for: External tools, isolation requirements, language diversity
 
 ## 🚀 Quick Start
 
@@ -152,32 +172,35 @@ async with agent:
 
 | File | Description |
 |------|-------------|
-| `mcp_compose.toml` | Configuration for the MCP servers |
-| `mcp1.py` | Calculator MCP server (add, subtract, multiply, divide) |
-| `mcp2.py` | Echo MCP server (ping, echo, reverse, uppercase, etc.) |
+| `mcp_compose.toml` | Configuration with embedded server definitions |
+| `calculator_server.py` | Calculator MCP server module (add, subtract, multiply, divide) |
+| `echo_server.py` | Echo MCP server module (ping, echo, reverse, uppercase, etc.) |
 | `agent.py` | Pydantic AI agent using Streamable HTTP transport |
 | `Makefile` | Convenience commands |
 
 ## ⚙️ Configuration
 
-The `mcp_compose.toml` defines the managed MCP servers:
+The `mcp_compose.toml` defines the embedded MCP servers:
 
 ```toml
 [composer]
 name = "demo-composer"
-conflict_resolution = "prefix"  # Tools become calculator:add, echo:ping, etc.
+conflict_resolution = "prefix"  # Tools become calculator_add, echo_ping, etc.
 log_level = "INFO"
 
-[[servers.proxied.stdio]]
+# Embedded servers - imported as Python modules
+[[servers.embedded.servers]]
 name = "calculator"
-command = ["python", "mcp1.py"]
-restart_policy = "never"
+package = "calculator_server"
+enabled = true
 
-[[servers.proxied.stdio]]
+[[servers.embedded.servers]]
 name = "echo"
-command = ["python", "mcp2.py"]
-restart_policy = "never"
+package = "echo_server"
+enabled = true
 ```
+
+The servers must be importable Python modules with an `mcp` object exported.
 
 ## 🛠️ Makefile Commands
 

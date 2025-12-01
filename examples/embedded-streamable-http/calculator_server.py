@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-MCP Server 1 - Calculator Tools
+Calculator MCP Server - Embedded Module
 
 Simple MCP server providing calculator operations.
+This module is designed to be imported by mcp-compose as an embedded server.
 """
 
 from mcp.server.fastmcp import FastMCP
 
-# Create MCP server
+# Create MCP server - this 'mcp' object will be imported by the composer
 mcp = FastMCP("calculator-server")
 
 
@@ -72,6 +73,8 @@ def divide(a: float, b: float) -> float:
     return a / b
 
 
+# Note: When used as an embedded server, the composer imports the 'mcp' object directly.
+# The __main__ block below is only for standalone testing.
 if __name__ == "__main__":
-    # Run as STDIO server
+    # Run as standalone STDIO server for testing
     mcp.run(transport="stdio")

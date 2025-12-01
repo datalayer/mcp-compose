@@ -157,6 +157,14 @@ class OAuth2AuthConfig(BaseModel):
     )
     
     # Explicit endpoints (alternative to issuer_url auto-discovery)
+    authorization_endpoint: Optional[str] = Field(
+        default=None,
+        description="Authorization endpoint for upstream OAuth2 provider"
+    )
+    token_endpoint: Optional[str] = Field(
+        default=None,
+        description="Token endpoint for upstream OAuth2 provider"
+    )
     userinfo_endpoint: Optional[str] = Field(
         default=None, 
         description="UserInfo endpoint URL for token validation"

@@ -115,7 +115,10 @@ Then edit `config.json`:
 
 ```json
 {
-  "github": {
+  "oauth": {
+    "authorization_endpoint": "https://github.com/login/oauth/authorize",
+    "token_endpoint": "https://github.com/login/oauth/access_token",
+    "userinfo_endpoint": "https://api.github.com/user",
     "client_id": "YOUR_GITHUB_CLIENT_ID",
     "client_secret": "YOUR_GITHUB_CLIENT_SECRET"
   },
@@ -125,6 +128,11 @@ Then edit `config.json`:
   }
 }
 ```
+
+When `client_id` and `client_secret` are omitted from `mcp_compose.toml`, the
+CLI now reads them from this `config.json` file automatically, keeping secrets
+out of version-controlled configs. You can still hard-code them in the TOML if
+you prefer.
 
 ## 🚀 Quick Start
 
@@ -210,10 +218,19 @@ providers = ["oauth2"]
 default_provider = "oauth2"
 
 [authentication.oauth2]
-provider = "generic"
+provider = "github"
+# client_id/client_secret are optional; they'll be loaded from config.json when omitted
+# client_id = "..."
+# client_secret = "..."
+authorization_endpoint = "https://github.com/login/oauth/authorize"
+token_endpoint = "https://github.com/login/oauth/access_token"
 userinfo_endpoint = "https://api.github.com/user"
 user_id_claim = "login"  # GitHub username
 ```
+
+The additional `authorization_endpoint` and `token_endpoint` values make the
+OAuth relay generic: swap them (and `userinfo_endpoint`) to point at any other
+OAuth2/OIDC provider without touching the Python code.
 
 ### Environment Variables
 

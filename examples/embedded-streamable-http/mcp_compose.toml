@@ -1,5 +1,5 @@
 # MCP Compose Configuration
-# Calculator and Echo MCP Servers Example - Streamable HTTP Transport
+# Calculator and Echo MCP Servers Example - Embedded Servers with Streamable HTTP Transport
 
 [composer]
 name = "demo-composer"
@@ -18,19 +18,19 @@ streamable_http_cors_enabled = true
 sse_enabled = false
 
 # ============================================================================
-# Calculator MCP Server (Proxied via STDIO, exposed via Streamable HTTP)
+# Embedded MCP Servers
 # ============================================================================
-[[servers.proxied.stdio]]
+# These servers are imported as Python modules and run in the same process
+# as the composer. This is more efficient than STDIO proxying for local servers.
+
+[[servers.embedded.servers]]
 name = "calculator"
-command = ["python", "mcp1.py"]
-restart_policy = "never"
+package = "calculator_server"
+enabled = true
 # Calculator tools: add, subtract, multiply, divide
 
-# ============================================================================
-# Echo MCP Server (Proxied via STDIO, exposed via Streamable HTTP)
-# ============================================================================
-[[servers.proxied.stdio]]
+[[servers.embedded.servers]]
 name = "echo"
-command = ["python", "mcp2.py"]
-restart_policy = "never"
+package = "echo_server"
+enabled = true
 # Echo tools: ping, echo, reverse, uppercase, lowercase, count_words

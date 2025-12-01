@@ -46,10 +46,14 @@ keys = ["${MCP_API_KEY_1}", "${MCP_API_KEY_2}"]
 # audience = "mcp-clients"
 
 # [authentication.oauth2]
-# provider = "auth0"
-# client_id = "${OAUTH_CLIENT_ID}"
-# client_secret = "${OAUTH_CLIENT_SECRET}"
-# discovery_url = "${OAUTH_DISCOVERY_URL}"
+# provider = "generic"  # e.g. github, auth0, okta
+# authorization_endpoint = "https://id.example.com/oauth2/authorize"
+# token_endpoint = "https://id.example.com/oauth2/token"
+# userinfo_endpoint = "https://id.example.com/oauth2/userinfo"
+# scopes = ["openid", "profile"]
+# client_id = "${OAUTH_CLIENT_ID}"        # optional: omit to load from neighbor config.json
+# client_secret = "${OAUTH_CLIENT_SECRET}" # optional: omit to load from neighbor config.json
+# discovery_url = "${OAUTH_DISCOVERY_URL}"  # optional OIDC discovery
 
 # [authentication.mtls]
 # ca_cert = "/path/to/ca.crt"
