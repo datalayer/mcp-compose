@@ -383,6 +383,12 @@ async def run_server(config, args: argparse.Namespace) -> int:
     # Create process manager
     process_manager = ProcessManager(auto_restart=False)
     
+    # Create discovery with config directory as project root for embedded server imports
+    from .discovery import MCPServerDiscovery
+    from pathlib import Path
+    config_dir = Path(args.config_path).parent
+    discovery = MCPServerDiscovery(project_root=config_dir)
+    
     # Create composer
     conflict_strategy = ConflictResolution.PREFIX
     if hasattr(config.composer, 'conflict_resolution'):
@@ -393,6 +399,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
     composer = MCPServerComposer(
         composed_server_name=config.composer.name,
         conflict_resolution=conflict_strategy,
+        discovery=discovery,
         use_process_manager=True,
     )
     composer.process_manager = process_manager
@@ -409,14 +416,31 @@ async def run_server(config, args: argparse.Namespace) -> int:
         print(f"Log Level: {config.composer.log_level}", file=out)
         print(file=out)
         
-        # Add and start all configured servers
-        if hasattr(config, 'servers') and hasattr(config.servers, 'proxied') and hasattr(config.servers.proxied, 'stdio'):
+        # Check if any servers are configured
+        has_embedded = (hasattr(config, 'servers') and 
+                       hasattr(config.servers, 'embedded') and 
+                       hasattr(config.servers.embedded, 'servers') and 
+                       config.servers.embedded.servers)
+        has_stdio = (hasattr(config, 'servers') and 
+                    hasattr(config.servers, 'proxied') and 
+                    hasattr(config.servers.proxied, 'stdio') and 
+                    config.servers.proxied.stdio)
+        
+        if not has_embedded and not has_stdio:
+            print("⚠️  No servers configured in mcp_compose.toml", file=out)
+            print(file=out)
+            return 1
+        
+        # Handle embedded servers using compose_from_config
+        if has_embedded:
+            print(f"📦 Composing {len(config.servers.embedded.servers)} embedded servers...", file=out)
+            await composer.compose_from_config(config)
+            print(f"   ✓ Embedded servers composed", file=out)
+            print(file=out)
+        
+        # Add and start all configured STDIO servers
+        if has_stdio:
             stdio_servers = config.servers.proxied.stdio
-            
-            if not stdio_servers:
-                print("⚠️  No servers configured in mcp_compose.toml", file=out)
-                print(file=out)
-                return 1
             
             print(f"Starting {len(stdio_servers)} server(s)...", file=out)
             print(file=out)
@@ -819,11 +843,29 @@ async def run_server(config, args: argparse.Namespace) -> int:
             """List all available tools with their schemas."""
             tools = []
             for tool_name, tool_def in composer.composed_tools.items():
-                tools.append({
-                    "name": tool_name,
-                    "description": tool_def.get("description", ""),
-                    "inputSchema": tool_def.get("inputSchema", {}),
-                })
+                # Handle both dict and Tool object
+                if hasattr(tool_def, 'model_dump'):
+                    # It's a Pydantic model (Tool object)
+                    tool_dict = tool_def.model_dump()
+                    tools.append({
+                        "name": tool_name,
+                        "description": tool_dict.get("description", ""),
+                        "inputSchema": tool_dict.get("inputSchema", {}),
+                    })
+                elif isinstance(tool_def, dict):
+                    # It's already a dict
+                    tools.append({
+                        "name": tool_name,
+                        "description": tool_def.get("description", ""),
+                        "inputSchema": tool_def.get("inputSchema", {}),
+                    })
+                else:
+                    # Fallback: try to access as attributes
+                    tools.append({
+                        "name": tool_name,
+                        "description": getattr(tool_def, 'description', ''),
+                        "inputSchema": getattr(tool_def, 'inputSchema', {}),
+                    })
             return JSONResponse({
                 "tools": tools,
                 "total": len(tools)

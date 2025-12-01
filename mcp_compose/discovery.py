@@ -300,6 +300,14 @@ class MCPServerDiscovery:
         logger.debug(f"Analyzing package: {package_name}")
 
         try:
+            # Add project_root to sys.path for importing local modules
+            project_root_str = str(self.project_root)
+            added_to_path = False
+            if project_root_str not in sys.path:
+                sys.path.insert(0, project_root_str)
+                added_to_path = True
+                logger.debug(f"Added {project_root_str} to sys.path for local imports")
+            
             # Try different import patterns
             import_patterns = [
                 package_name,
@@ -318,8 +326,13 @@ class MCPServerDiscovery:
                     server_module = importlib.import_module(pattern)
                     module_path = pattern
                     break
-                except ImportError:
+                except ImportError as ie:
+                    logger.debug(f"Failed to import {pattern}: {ie}")
                     continue
+            
+            # Clean up sys.path if we added to it
+            if added_to_path and project_root_str in sys.path:
+                sys.path.remove(project_root_str)
 
             if not server_module:
                 logger.debug(f"Could not import any module for package: {package_name}")
