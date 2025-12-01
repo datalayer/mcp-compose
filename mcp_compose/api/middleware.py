@@ -1,19 +1,119 @@
 """
-Metrics middleware for tracking HTTP requests.
+Middleware for MCP Compose API.
 
-Automatically records metrics for all HTTP requests including
-duration, status codes, and request/response sizes.
+Provides authentication and metrics tracking middleware.
 
-Note: This middleware uses a pure ASGI implementation instead of
+Note: These middlewares use pure ASGI implementations instead of
 BaseHTTPMiddleware to properly support SSE/streaming responses.
 """
 
+import logging
 import time
 from typing import Callable
 
 from starlette.types import ASGIApp, Receive, Send, Scope
+from starlette.responses import JSONResponse
 
 from ..metrics import metrics_collector
+
+logger = logging.getLogger(__name__)
+
+
+class AuthenticationMiddleware:
+    """
+    Pure ASGI Middleware for authentication.
+    
+    Validates authentication for protected endpoints.
+    """
+    
+    # Paths that don't require authentication
+    PUBLIC_PATHS = {"/docs", "/redoc", "/openapi.json", "/api/v1/health"}
+    
+    def __init__(self, app: ASGIApp):
+        """
+        Initialize authentication middleware.
+        
+        Args:
+            app: ASGI application.
+        """
+        self.app = app
+        self._authenticator = None
+    
+    def set_authenticator(self, authenticator):
+        """Set the authenticator instance."""
+        self._authenticator = authenticator
+    
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """
+        ASGI interface - validate authentication.
+        
+        Args:
+            scope: ASGI scope.
+            receive: ASGI receive callable.
+            send: ASGI send callable.
+        """
+        # Only process HTTP requests
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        
+        # If no authenticator is configured, allow all requests
+        from .dependencies import _authenticator
+        if _authenticator is None:
+            await self.app(scope, receive, send)
+            return
+        
+        # Get request path
+        path = scope.get("path", "/")
+        
+        # Check if path is public
+        if any(path.startswith(public_path) for public_path in self.PUBLIC_PATHS):
+            await self.app(scope, receive, send)
+            return
+        
+        # Extract authentication from headers
+        headers = dict(scope.get("headers", []))
+        authorization = headers.get(b"authorization")
+        x_api_key = headers.get(b"x-api-key")
+        
+        credentials = {}
+        if x_api_key:
+            credentials["api_key"] = x_api_key.decode()
+        elif authorization:
+            auth_str = authorization.decode()
+            if auth_str.startswith("Bearer "):
+                token = auth_str[7:]
+                credentials["token"] = token
+        
+        # If no credentials provided, return 401
+        if not credentials:
+            logger.warning(f"No credentials provided for path: {path}")
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": "Authentication required"},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            await response(scope, receive, send)
+            return
+        
+        # Authenticate
+        try:
+            context = await _authenticator.authenticate(credentials)
+            # Authentication succeeded - continue to app
+            await self.app(scope, receive, send)
+        except Exception as e:
+            # Authentication failed
+            logger.warning(f"Authentication failed for path {path}: {e}")
+            from ..auth import InvalidCredentialsError
+            
+            error_detail = str(e) if isinstance(e, InvalidCredentialsError) else "Authentication failed"
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": error_detail},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            await response(scope, receive, send)
+            return
 
 
 class MetricsMiddleware:
@@ -179,4 +279,4 @@ class MetricsMiddleware:
         return False
 
 
-__all__ = ["MetricsMiddleware"]
+__all__ = ["AuthenticationMiddleware", "MetricsMiddleware"]
