@@ -29,6 +29,7 @@ dependencies = [
     "httpx>=0.25.0",
     "importlib-metadata>=4.8.0",
     "mcp[cli]>=1.2.1",
+    "prometheus_client",
     "psutil>=5.9.0",
     "PyJWT>=2.8.0",
     "pydantic>=2.0.0",
