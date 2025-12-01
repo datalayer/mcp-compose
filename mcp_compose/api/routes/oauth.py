@@ -68,6 +68,16 @@ def gen_random(length: int = 32) -> str:
     return secrets.token_urlsafe(length)
 
 
+PROVIDER_DEFAULTS = {
+    "github": {
+        "authorization_endpoint": "https://github.com/login/oauth/authorize",
+        "token_endpoint": "https://github.com/login/oauth/access_token",
+        "userinfo_endpoint": "https://api.github.com/user",
+        "scopes": ["read:user"],
+    }
+}
+
+
 def configure_oauth(
     provider: str,
     client_id: str,
@@ -99,29 +109,43 @@ def configure_oauth(
     if parsed.hostname == "0.0.0.0":
         server_url = server_url.replace("0.0.0.0", "localhost")
     
-    # Set defaults based on provider
-    if provider.lower() == "github":
-        _oauth_config = {
-            "provider": "github",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "server_url": server_url,
-            "authorization_endpoint": authorization_endpoint or "https://github.com/login/oauth/authorize",
-            "token_endpoint": token_endpoint or "https://github.com/login/oauth/access_token",
-            "userinfo_endpoint": userinfo_endpoint or "https://api.github.com/user",
-            "scopes": scopes or ["read:user"],
-        }
-    else:
-        _oauth_config = {
-            "provider": provider,
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "server_url": server_url,
-            "authorization_endpoint": authorization_endpoint,
-            "token_endpoint": token_endpoint,
-            "userinfo_endpoint": userinfo_endpoint,
-            "scopes": scopes or [],
-        }
+    provider_key = provider.lower()
+    defaults = PROVIDER_DEFAULTS.get(provider_key, {})
+    resolved_authorization = authorization_endpoint or defaults.get("authorization_endpoint")
+    resolved_token = token_endpoint or defaults.get("token_endpoint")
+    resolved_userinfo = userinfo_endpoint or defaults.get("userinfo_endpoint")
+    resolved_scopes = scopes or defaults.get("scopes") or []
+
+    missing_fields = []
+    if not resolved_authorization:
+        missing_fields.append("authorization_endpoint")
+    if not resolved_token:
+        missing_fields.append("token_endpoint")
+    if not resolved_userinfo:
+        missing_fields.append("userinfo_endpoint")
+
+    if missing_fields:
+        logger.error(
+            "OAuth configuration missing %s for provider %s",
+            ", ".join(missing_fields),
+            provider,
+        )
+        raise ValueError(
+            "Missing OAuth configuration values: "
+            + ", ".join(missing_fields)
+            + f" for provider '{provider}'. Provide them in authentication.oauth2"
+        )
+    
+    _oauth_config = {
+        "provider": provider,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "server_url": server_url,
+        "authorization_endpoint": resolved_authorization,
+        "token_endpoint": resolved_token,
+        "userinfo_endpoint": resolved_userinfo,
+        "scopes": resolved_scopes,
+    }
     
     logger.info(f"OAuth configured for provider: {provider}")
     logger.info(f"  Server URL: {server_url}")

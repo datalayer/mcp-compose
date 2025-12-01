@@ -10,6 +10,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Optional
 
 from .composer import ConflictResolution, MCPServerComposer
 from .config_loader import load_config, find_config_file
@@ -191,6 +192,47 @@ def save_composed_server(server, output_path: str) -> None:
     output_file.write_text(json.dumps(server_info, indent=2))
 
 
+def _load_oauth_overrides_from_config_json(config_path: Optional[str]) -> dict:
+    """Load OAuth secrets/endpoints from config.json next to the TOML config."""
+    overrides: dict = {}
+    if not config_path:
+        return overrides
+    try:
+        config_dir = Path(config_path).resolve().parent
+    except Exception:
+        return overrides
+    json_path = config_dir / "config.json"
+    if not json_path.exists():
+        return overrides
+    try:
+        with json_path.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception as exc:
+        logger.warning("Failed to read %s: %s", json_path, exc)
+        return overrides
+    provider_block = {}
+    if isinstance(data, dict):
+        if isinstance(data.get("oauth"), dict):
+            provider_block = data["oauth"]
+        elif isinstance(data.get("github"), dict):
+            provider_block = data["github"]
+        else:
+            provider_block = data
+    if not isinstance(provider_block, dict):
+        return overrides
+    for key in (
+        "client_id",
+        "client_secret",
+        "authorization_endpoint",
+        "token_endpoint",
+        "userinfo_endpoint",
+    ):
+        value = provider_block.get(key)
+        if value:
+            overrides[key] = value
+    return overrides
+
+
 def serve_command(args: argparse.Namespace) -> int:
     """Handle the serve command."""
     try:
@@ -206,6 +248,7 @@ def serve_command(args: argparse.Namespace) -> int:
         
         print(f"Loading configuration from: {config_path}", file=sys.stderr)
         config = load_config(config_path)
+        args.config_path = str(config_path)
         
         # Run the server
         return asyncio.run(run_server(config, args))
@@ -250,6 +293,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
     
     # Initialize authenticator if authentication is enabled
     authenticator = None
+    resolved_oauth_config = None
     if config.authentication.enabled:
         print(f"\n🔐 Authentication enabled", file=out)
         print(f"   Provider: {config.authentication.default_provider}", file=out)
@@ -279,6 +323,32 @@ async def run_server(config, args: argparse.Namespace) -> int:
         elif provider == AuthProvider.OAUTH2:
             if config.authentication.oauth2:
                 oauth2_config = config.authentication.oauth2
+                overrides = _load_oauth_overrides_from_config_json(
+                    getattr(args, "config_path", None)
+                )
+                applied_updates = {}
+                for field in (
+                    "client_id",
+                    "client_secret",
+                    "authorization_endpoint",
+                    "token_endpoint",
+                    "userinfo_endpoint",
+                ):
+                    current = getattr(oauth2_config, field, None)
+                    if current:
+                        continue
+                    override_value = overrides.get(field)
+                    if override_value:
+                        applied_updates[field] = override_value
+                if applied_updates:
+                    oauth2_config = oauth2_config.model_copy(update=applied_updates)
+                    config_path_str = getattr(args, "config_path", None)
+                    if config_path_str:
+                        json_path = Path(config_path_str).resolve().parent / "config.json"
+                        print(
+                            f"   Loaded OAuth secrets from {json_path}",
+                            file=out,
+                        )
                 print(f"   Provider: {oauth2_config.provider}", file=out)
                 if oauth2_config.issuer_url:
                     print(f"   Issuer: {oauth2_config.issuer_url}", file=out)
@@ -299,6 +369,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                     redirect_uri=oauth2_config.redirect_uri,
                     scopes=oauth2_config.scopes,
                 )
+                resolved_oauth_config = oauth2_config
             else:
                 print("   ⚠️  Warning: OAuth2 auth config missing", file=out)
         else:
@@ -763,7 +834,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
         
         # Add OAuth routes if OAuth2 authentication is enabled
         if config.authentication and config.authentication.enabled:
-            oauth2_config = config.authentication.oauth2
+            oauth2_config = resolved_oauth_config or config.authentication.oauth2
             if oauth2_config and oauth2_config.client_id and oauth2_config.client_secret:
                 from .api.routes.oauth import router as oauth_router, configure_oauth
                 
@@ -776,6 +847,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                     client_id=oauth2_config.client_id,
                     client_secret=oauth2_config.client_secret,
                     server_url=server_url,
+                    authorization_endpoint=oauth2_config.authorization_endpoint,
+                    token_endpoint=oauth2_config.token_endpoint,
                     userinfo_endpoint=oauth2_config.userinfo_endpoint,
                     scopes=oauth2_config.scopes,
                 )

@@ -1,6 +1,9 @@
 {
   "_comment": "Create OAuth App at https://github.com/settings/developers with callback URL: http://localhost:8080/oauth/callback",
-  "github": {
+  "oauth": {
+    "authorization_endpoint": "https://github.com/login/oauth/authorize",
+    "token_endpoint": "https://github.com/login/oauth/access_token",
+    "userinfo_endpoint": "https://api.github.com/user",
     "client_id": "YOUR_GITHUB_CLIENT_ID",
     "client_secret": "YOUR_GITHUB_CLIENT_SECRET"
   },
