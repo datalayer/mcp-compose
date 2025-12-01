@@ -92,6 +92,10 @@ def create_app(
         allow_headers=cors_headers or ["*"],
     )
     
+    # Add authentication middleware (before metrics)
+    from .middleware import AuthenticationMiddleware
+    app.add_middleware(AuthenticationMiddleware)
+    
     # Add metrics middleware
     from .middleware import MetricsMiddleware
     app.add_middleware(MetricsMiddleware)

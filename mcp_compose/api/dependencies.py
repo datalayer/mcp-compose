@@ -128,10 +128,18 @@ async def get_auth_context(
         context = await _authenticator.authenticate(credentials)
         return context
     except Exception as e:
-        # Log the error but don't expose details to client
+        # Log the error and raise 401
         import logging
-        logging.getLogger(__name__).error(f"Authentication failed: {e}")
-        return None
+        from ..auth import InvalidCredentialsError
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Authentication failed: {e}")
+        
+        # Raise 401 Unauthorized for invalid credentials
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e) if isinstance(e, InvalidCredentialsError) else "Authentication failed",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 async def require_auth(

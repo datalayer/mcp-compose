@@ -61,21 +61,28 @@ class AnacondaAuthenticator(Authenticator):
         # Extract token from credentials
         token = credentials.get("api_key") or credentials.get("token")
         if not token:
+            logger.warning("Anaconda token not provided in credentials")
             raise InvalidCredentialsError("Anaconda token not provided")
         
         try:
             # Validate with anaconda-auth
-            logger.debug(f"Validating Anaconda token with domain: {self.domain}")
+            logger.info(f"Validating Anaconda token with domain: {self.domain}")
             token_info = self._token_info_class(
                 domain=self.domain,
                 api_key=token
             )
             
-            # Get access token - this validates the token
+            # Get access token - this validates the token with Anaconda servers
             access_token = token_info.get_access_token()
             
             if not access_token:
-                raise InvalidCredentialsError("Invalid Anaconda token")
+                logger.warning("Anaconda token validation returned no access token")
+                raise InvalidCredentialsError("Invalid Anaconda token - validation failed")
+            
+            # Verify the access token is not empty
+            if not access_token.strip():
+                logger.warning("Anaconda token validation returned empty access token")
+                raise InvalidCredentialsError("Invalid Anaconda token - empty access token")
             
             # Extract user information from token
             user_id = self._get_user_from_token(token_info)
@@ -96,8 +103,14 @@ class AnacondaAuthenticator(Authenticator):
             # Re-raise our own exceptions
             raise
         except Exception as e:
-            logger.error(f"Anaconda authentication failed: {e}")
-            raise InvalidCredentialsError(f"Anaconda authentication failed: {e}")
+            logger.error(f"Anaconda authentication failed: {type(e).__name__}: {e}")
+            # Be more specific about the failure
+            if "unauthorized" in str(e).lower() or "401" in str(e):
+                raise InvalidCredentialsError("Invalid Anaconda token - unauthorized")
+            elif "forbidden" in str(e).lower() or "403" in str(e):
+                raise InvalidCredentialsError("Invalid Anaconda token - access forbidden")
+            else:
+                raise InvalidCredentialsError(f"Anaconda authentication failed: {e}")
     
     async def validate(self, context: AuthContext) -> bool:
         """
