@@ -27,7 +27,18 @@ class AuthenticationMiddleware:
     """
     
     # Paths that don't require authentication
-    PUBLIC_PATHS = {"/docs", "/redoc", "/openapi.json", "/api/v1/health"}
+    PUBLIC_PATHS = {
+        "/docs", 
+        "/redoc", 
+        "/openapi.json", 
+        "/api/v1/health",
+        "/authorize",
+        "/oauth/callback",
+        "/token",
+        "/register",
+        "/.well-known/oauth-authorization-server",
+        "/.well-known/oauth-protected-resource",
+    }
     
     def __init__(self, app: ASGIApp):
         """

@@ -207,7 +207,8 @@ def get_github_token(server_url: str = "http://localhost:8080") -> str:
         # Open browser
         webbrowser.open(auth_url)
         
-        # Wait for callback
+        # Wait for callback - enable address reuse to avoid "Address already in use" errors
+        socketserver.TCPServer.allow_reuse_address = True
         with socketserver.TCPServer(("", callback_port), CallbackHandler) as httpd:
             httpd.timeout = 120  # 2 minute timeout
             httpd.handle_request()
