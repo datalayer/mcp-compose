@@ -2,9 +2,12 @@
   "_comment_1": "Configuration Template",
   "_comment_2": "Copy this file to config.json and fill in your GitHub OAuth credentials",
   "_comment_3": "Get credentials from: https://github.com/settings/developers",
-  "_comment_4": "Create OAuth App with callback URL: http://localhost:8080/callback",
+  "_comment_4": "Create OAuth App with callback URL: http://localhost:8080/oauth/callback",
   
-  "github": {
+  "oauth": {
+    "authorization_endpoint": "https://github.com/login/oauth/authorize",
+    "token_endpoint": "https://github.com/login/oauth/access_token",
+    "userinfo_endpoint": "https://api.github.com/user",
     "client_id": "Iv1.YOUR_CLIENT_ID_HERE",
     "client_secret": "YOUR_CLIENT_SECRET_HERE"
   },

@@ -44,11 +44,23 @@ class Config:
     
     @property
     def github_client_id(self) -> str:
-        return self.config["github"]["client_id"]
+        return self.config["oauth"]["client_id"]
     
     @property
     def github_client_secret(self) -> str:
-        return self.config["github"]["client_secret"]
+        return self.config["oauth"]["client_secret"]
+    
+    @property
+    def authorization_endpoint(self) -> str:
+        return self.config["oauth"]["authorization_endpoint"]
+    
+    @property
+    def token_endpoint(self) -> str:
+        return self.config["oauth"]["token_endpoint"]
+    
+    @property
+    def userinfo_endpoint(self) -> str:
+        return self.config["oauth"]["userinfo_endpoint"]
     
     @property
     def server_url(self) -> str:

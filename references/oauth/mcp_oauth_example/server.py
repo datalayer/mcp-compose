@@ -49,11 +49,23 @@ class Config:
     
     @property
     def github_client_id(self) -> str:
-        return self.config["github"]["client_id"]
+        return self.config["oauth"]["client_id"]
     
     @property
     def github_client_secret(self) -> str:
-        return self.config["github"]["client_secret"]
+        return self.config["oauth"]["client_secret"]
+    
+    @property
+    def authorization_endpoint(self) -> str:
+        return self.config["oauth"]["authorization_endpoint"]
+    
+    @property
+    def token_endpoint(self) -> str:
+        return self.config["oauth"]["token_endpoint"]
+    
+    @property
+    def userinfo_endpoint(self) -> str:
+        return self.config["oauth"]["userinfo_endpoint"]
     
     @property
     def server_host(self) -> str:
@@ -93,7 +105,7 @@ class TokenValidator:
         # Validate with GitHub
         try:
             response = requests.get(
-                "https://api.github.com/user",
+                config.userinfo_endpoint,
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Accept": "application/vnd.github.v3+json"
@@ -709,7 +721,7 @@ async def authorize(request: Request):
         "allow_signup": "false"
     }
     
-    github_auth_url = "https://github.com/login/oauth/authorize?" + urlencode(github_params)
+    github_auth_url = config.authorization_endpoint + "?" + urlencode(github_params)
     return RedirectResponse(url=github_auth_url)
 
 
@@ -752,7 +764,7 @@ async def oauth_callback_github(request: Request):
     try:
         logger.info(f"Exchanging GitHub code for access token...")
         token_resp = requests.post(
-            "https://github.com/login/oauth/access_token",
+            config.token_endpoint,
             headers={"Accept": "application/json"},
             json={
                 "client_id": config.github_client_id,
@@ -773,7 +785,7 @@ async def oauth_callback_github(request: Request):
         # Fetch user info from GitHub
         logger.info(f"Fetching user info from GitHub...")
         user_resp = requests.get(
-            "https://api.github.com/user",
+            config.userinfo_endpoint,
             headers={
                 "Authorization": f"Bearer {gh_token}",
                 "Accept": "application/json"
