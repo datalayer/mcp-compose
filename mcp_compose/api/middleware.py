@@ -96,18 +96,8 @@ class AuthenticationMiddleware:
                 token = auth_str[7:]
                 credentials["token"] = token
         
-        # If no credentials provided, return 401
-        if not credentials:
-            logger.warning(f"No credentials provided for path: {path}")
-            response = JSONResponse(
-                status_code=401,
-                content={"detail": "Authentication required"},
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-            await response(scope, receive, send)
-            return
-        
-        # Authenticate
+        # Authenticate - pass empty credentials to authenticator
+        # (fallback mode authenticators can handle empty credentials)
         try:
             context = await _authenticator.authenticate(credentials)
             # Authentication succeeded - continue to app

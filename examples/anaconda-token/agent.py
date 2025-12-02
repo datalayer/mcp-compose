@@ -31,6 +31,7 @@ Servers:
 
 import sys
 import io
+import os
 import asyncio
 
 # Pydantic AI imports
@@ -45,37 +46,55 @@ except ImportError:
     sys.exit(1)
 
 
-def get_anaconda_token() -> str:
+def get_anaconda_token() -> str | None:
     """
-    Get Anaconda access token using login() method.
+    Get Anaconda access token.
+    
+    If MCP_COMPOSE_ANACONDA_TOKEN="fallback", returns None to allow
+    the server to use its local anaconda_auth token.
     
     Returns:
-        Access token string
+        Access token string, or None if fallback mode is enabled
     """
-    print("\n🔐 Authenticating with Anaconda...")
+    # Check if server is in fallback mode
+    fallback_env = os.environ.get("MCP_COMPOSE_ANACONDA_TOKEN", "")
+    if fallback_env == "fallback":
+        print("\n🔐 Server fallback mode enabled")
+        print("   Server will use its local anaconda_auth token")
+        print("   No Bearer token will be sent from client")
+        return None
+    
+    print("\n🔐 Getting Anaconda token...")
     try:
-        from anaconda_auth import login
-        from anaconda_auth.token import TokenInfo
+        import subprocess
         
-        # Use interactive login (opens browser)
-        login()
+        # Use anaconda CLI to get token without triggering any browser flows
+        result = subprocess.run(
+            ["anaconda", "auth", "token"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
         
-        # Get access token
-        token_info = TokenInfo(domain="anaconda.com")
-        access_token = token_info.get_access_token()
+        if result.returncode == 0 and result.stdout.strip():
+            access_token = result.stdout.strip()
+            print("✅ Using existing Anaconda authentication")
+            return access_token
+        else:
+            print("❌ No Anaconda token found")
+            print("   Please authenticate first: anaconda auth login")
+            print("   Or set MCP_COMPOSE_ANACONDA_TOKEN=fallback to use server-side auth")
+            sys.exit(1)
         
-        if not access_token:
-            raise Exception("Failed to get access token after login")
-        
-        print("✅ Successfully authenticated with Anaconda")
-        return access_token
-        
-    except ImportError:
-        print("❌ Error: anaconda-auth not installed")
-        print("   Install with: pip install anaconda-auth")
+    except FileNotFoundError:
+        print("❌ Error: anaconda CLI not found")
+        print("   Install with: pip install anaconda-client")
+        sys.exit(1)
+    except subprocess.TimeoutExpired:
+        print("❌ Error: anaconda auth token command timed out")
         sys.exit(1)
     except Exception as e:
-        print(f"❌ Authentication failed: {e}")
+        print(f"❌ Error getting token: {e}")
         sys.exit(1)
 
 
@@ -101,19 +120,24 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
     print("🤖 Pydantic AI Agent with MCP Compose")
     print("=" * 70)
     
-    # Get Anaconda access token
+    # Get Anaconda access token (None if fallback mode)
     access_token = get_anaconda_token()
     
     print(f"\n📡 Connecting to MCP Compose: {server_url}/mcp")
     print("   Unified access to Calculator and Echo servers")
-    print("   Using Anaconda bearer token authentication")
     
-    # Create MCP server connection with Streamable HTTP transport and authentication
+    # Build headers - only add Authorization if we have a token
+    headers = {}
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+        print("   Using Anaconda bearer token authentication")
+    else:
+        print("   Using server-side fallback authentication")
+    
+    # Create MCP server connection with Streamable HTTP transport
     mcp_server = MCPServerStreamableHTTP(
         url=f"{server_url}/mcp",
-        headers={
-            "Authorization": f"Bearer {access_token}"
-        },
+        headers=headers if headers else None,
         # Increase timeout for long-running tool calls
         timeout=300.0,  # 5 minutes
     )
@@ -176,17 +200,22 @@ def main():
         agent, access_token = create_agent(model=model)
         
         # List all available tools from the server using MCP SDK
-        async def list_tools(access_token: str):
+        async def list_tools(access_token: str | None):
             """List all tools available from the MCP server"""
             try:
                 # Import MCP SDK client for streamable HTTP
                 from mcp import ClientSession
                 from mcp.client.streamable_http import streamablehttp_client
                 
-                # Connect using Streamable HTTP client with authentication
+                # Build headers - only add Authorization if we have a token
+                headers = {}
+                if access_token:
+                    headers["Authorization"] = f"Bearer {access_token}"
+                
+                # Connect using Streamable HTTP client
                 async with streamablehttp_client(
                     "http://localhost:8080/mcp",
-                    headers={"Authorization": f"Bearer {access_token}"}
+                    headers=headers if headers else None
                 ) as (read, write, _):
                     async with ClientSession(read, write) as session:
                         # Initialize the session

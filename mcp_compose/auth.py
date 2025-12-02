@@ -366,7 +366,10 @@ def create_authenticator(auth_type: AuthType, **kwargs) -> Authenticator:
         return APIKeyAuthenticator(api_keys=kwargs.get("api_keys"))
     elif auth_type == AuthType.ANACONDA:
         from .providers.auth_anaconda import AnacondaAuthenticator
-        return AnacondaAuthenticator(domain=kwargs.get("domain", "anaconda.com"))
+        return AnacondaAuthenticator(
+            domain=kwargs.get("domain", "anaconda.com"),
+            fallback_mode=kwargs.get("fallback_mode", False)
+        )
     elif auth_type == AuthType.OAUTH2:
         from .auth_oauth2 import (
             create_generic_oauth2_authenticator,
