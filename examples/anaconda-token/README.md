@@ -226,9 +226,51 @@ Press `Ctrl+C` in both terminals:
 - **Stateless**: No session storage, each request must include the token
 - **Backend servers unaware**: STDIO servers don't handle authentication
 
+### Fallback Mode
+
+MCP Compose supports a **fallback mode** for Anaconda authentication. This mode is useful for local development and testing where you want the server to automatically retrieve the Anaconda token from your local environment.
+
+**To enable fallback mode:**
+
+```bash
+# On the server side:
+export MCP_COMPOSE_ANACONDA_TOKEN="fallback"
+make start
+
+# On the client side (agent):
+export MCP_COMPOSE_ANACONDA_TOKEN="fallback"
+make agent
+```
+
+**How it works:**
+
+1. **Server Side**: When `MCP_COMPOSE_ANACONDA_TOKEN="fallback"`, the server will:
+   - Accept requests with `Authorization: Bearer <token>` headers and validate them (normal mode)
+   - Accept requests **without** Bearer tokens and attempt to retrieve a token from its local `anaconda_auth` library:
+     ```python
+     from anaconda_auth.token import TokenInfo
+     token = TokenInfo(domain="anaconda.com").get_access_token()
+     ```
+   - Reject requests if neither a valid Bearer token is provided nor a local token can be retrieved
+
+2. **Client Side**: When `MCP_COMPOSE_ANACONDA_TOKEN="fallback"`, the agent will:
+   - **Not send** an `Authorization: Bearer <token>` header
+   - Let the server use its local `anaconda_auth` token
+   - Skip the interactive login/authentication flow
+
+3. **Validation**: If a token is found (either from request or local), it's validated. If no token can be obtained, the request is rejected with 401 Unauthorized.
+
+**Use Cases:**
+
+- **Local Development**: Run the MCP Compose locally and have it use your authenticated Anaconda session
+- **Testing**: Test the server without manually passing tokens in every request
+- **Desktop Applications**: Desktop apps can rely on the user's local Anaconda authentication
+
+**Security Note**: Fallback mode should only be used in development environments. In production, always require explicit Bearer tokens.
+
 ### Implementation Snippet
 
-The validation logic needed in the composer:
+The validation logic in the composer:
 
 ```python
 from anaconda_auth.token import TokenInfo
@@ -254,12 +296,22 @@ def validate_bearer_token(bearer_token: str) -> bool:
     except Exception:
         return False
 
-# In request handler:
+# In request handler with fallback support:
 # auth_header = request.headers.get("Authorization")
+# token = None
+# 
 # if auth_header and auth_header.startswith("Bearer "):
-#     token = auth_header[7:]  # Remove "Bearer " prefix
-#     if not validate_bearer_token(token):
-#         raise HTTPException(status_code=401, detail="Invalid token")
+#     token = auth_header[7:]  # Extract token from Bearer header
+# elif MCP_COMPOSE_ANACONDA_TOKEN == "fallback":
+#     # Fallback: try to get token from local anaconda_auth
+#     try:
+#         token_info = TokenInfo(domain="anaconda.com")
+#         token = token_info.get_access_token()
+#     except:
+#         pass
+# 
+# if not token or not validate_bearer_token(token):
+#     raise HTTPException(status_code=401, detail="Invalid or missing token")
 ```
 
 ## 📖 Testing the Servers

@@ -5,7 +5,8 @@ This module provides authentication using Anaconda bearer tokens.
 """
 
 import logging
-from typing import Any, Dict
+import os
+from typing import Any, Dict, Optional
 
 from ..auth import (
     AuthContext,
@@ -22,18 +23,32 @@ class AnacondaAuthenticator(Authenticator):
     Anaconda authentication using anaconda-auth library.
     
     Validates bearer tokens by calling the Anaconda API.
+    
+    Supports fallback mode: If MCP_COMPOSE_ANACONDA_TOKEN="fallback",
+    the authenticator will try to use a provided Bearer token first,
+    and if not provided, will attempt to retrieve the token from the
+    local anaconda_auth library.
     """
     
-    def __init__(self, domain: str = "anaconda.com"):
+    def __init__(self, domain: str = "anaconda.com", fallback_mode: bool = False):
         """
         Initialize Anaconda authenticator.
         
         Args:
             domain: Anaconda domain (default: "anaconda.com").
                 For enterprise, use your custom domain.
+            fallback_mode: If True, allows fallback to local anaconda_auth
+                token retrieval when no Bearer token is provided.
         """
         super().__init__(AuthType.API_KEY)  # Using API_KEY type for bearer tokens
         self.domain = domain
+        
+        # Check environment variable for fallback mode
+        env_token = os.environ.get("MCP_COMPOSE_ANACONDA_TOKEN")
+        self.fallback_mode = fallback_mode or (env_token == "fallback")
+        
+        if self.fallback_mode:
+            logger.info("Anaconda authenticator initialized in fallback mode")
         
         # Try to import anaconda_auth
         try:
@@ -49,8 +64,13 @@ class AnacondaAuthenticator(Authenticator):
         """
         Authenticate using Anaconda bearer token.
         
+        In fallback mode (MCP_COMPOSE_ANACONDA_TOKEN="fallback"):
+        1. First tries to use provided Bearer token if present
+        2. If no token provided, attempts to retrieve from local anaconda_auth
+        3. If neither works, raises InvalidCredentialsError
+        
         Args:
-            credentials: Must contain "api_key" or "token" field with the bearer token.
+            credentials: May contain "api_key" or "token" field with the bearer token.
         
         Returns:
             AuthContext for the authenticated user.
@@ -60,6 +80,14 @@ class AnacondaAuthenticator(Authenticator):
         """
         # Extract token from credentials
         token = credentials.get("api_key") or credentials.get("token")
+        
+        # If no token provided and we're in fallback mode, try to get from anaconda_auth
+        if not token and self.fallback_mode:
+            logger.info("No token provided, attempting fallback to local anaconda_auth")
+            token = self._get_local_token()
+            if token:
+                logger.info("Successfully retrieved token from local anaconda_auth")
+        
         if not token:
             logger.warning("Anaconda token not provided in credentials")
             raise InvalidCredentialsError("Anaconda token not provided")
@@ -136,6 +164,22 @@ class AnacondaAuthenticator(Authenticator):
             logger.debug(f"Token validation failed for user: {context.user_id}")
             return False
     
+    def _get_local_token(self) -> Optional[str]:
+        """
+        Attempt to retrieve token from local anaconda_auth.
+        
+        Returns:
+            Token string if found, None otherwise.
+        """
+        try:
+            token_info = self._token_info_class(domain=self.domain)
+            access_token = token_info.get_access_token()
+            if access_token and access_token.strip():
+                return access_token
+        except Exception as e:
+            logger.debug(f"Failed to retrieve local anaconda_auth token: {e}")
+        return None
+    
     def _get_user_from_token(self, token_info) -> str:
         """
         Extract user ID from token info.
@@ -161,6 +205,7 @@ class AnacondaAuthenticator(Authenticator):
 
 def create_anaconda_authenticator(
     domain: str = "anaconda.com",
+    fallback_mode: bool = False,
     **kwargs
 ) -> AnacondaAuthenticator:
     """
@@ -168,9 +213,11 @@ def create_anaconda_authenticator(
     
     Args:
         domain: Anaconda domain (default: "anaconda.com").
+        fallback_mode: If True, allows fallback to local anaconda_auth
+            token retrieval when no Bearer token is provided.
         **kwargs: Additional arguments (for compatibility).
     
     Returns:
         AnacondaAuthenticator instance.
     """
-    return AnacondaAuthenticator(domain=domain)
+    return AnacondaAuthenticator(domain=domain, fallback_mode=fallback_mode)

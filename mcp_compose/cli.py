@@ -385,7 +385,6 @@ async def run_server(config, args: argparse.Namespace) -> int:
     
     # Create discovery with config directory as project root for embedded server imports
     from .discovery import MCPServerDiscovery
-    from pathlib import Path
     config_dir = Path(args.config_path).parent
     discovery = MCPServerDiscovery(project_root=config_dir)
     
