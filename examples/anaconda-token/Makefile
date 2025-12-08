@@ -133,17 +133,15 @@ agent:
 	@echo ""
 	@echo "⚠️  Prerequisites:"
 	@echo "   1. MCP Compose must be running (make start)"
-	@echo "   2. Anaconda account credentials (will use login() if needed)"
+	@echo "   2. Anaconda account credentials (run 'make login' first if needed)"
 	@echo ""
-	@echo "The agent will authenticate using anaconda_auth.login() if needed."
-	@echo "This will open your browser for authentication."
-	@echo ""
-	@echo "Usage: python agent.py [model]"
+	@echo "Usage: python agent.py [model] [--auto-login]"
 	@echo "  Default: anthropic:claude-sonnet-4-0"
 	@echo "  Examples:"
 	@echo "    python agent.py openai:gpt-4o"
 	@echo "    python agent.py anthropic:claude-sonnet-4-0"
 	@echo "    python agent.py azure-openai:gpt-4o-mini"
+	@echo "    python agent.py azure-openai:gpt-4o-mini --auto-login"
 	@echo ""
 	@echo "Note: For Azure OpenAI, set these environment variables:"
 	@echo "  - AZURE_OPENAI_API_KEY"
@@ -151,6 +149,17 @@ agent:
 	@echo "  - AZURE_OPENAI_API_VERSION (optional)"
 	@echo ""
 	python agent.py azure-openai:gpt-4o-mini
+
+# Run the AI agent with auto-login (opens browser for authentication if needed)
+agent-auto-login:
+	@echo "Starting AI Agent with Anaconda authentication (auto-login enabled)..."
+	@echo ""
+	@echo "⚠️  Prerequisites:"
+	@echo "   1. MCP Compose must be running (make start)"
+	@echo ""
+	@echo "If not authenticated, a browser window will open for Anaconda login."
+	@echo ""
+	python agent.py azure-openai:gpt-4o-mini --auto-login
 
 # Stop the composer (use Ctrl+C in the terminal where it's running)
 stop:
