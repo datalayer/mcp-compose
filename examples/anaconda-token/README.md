@@ -134,7 +134,7 @@ You'll see output like:
    Domain: anaconda.com
    ✓ Authenticator initialized
 
-🚀 MCP Compose: anaconda-composer
+🚀 MCP Compose: anaconda-compose
 Starting 1 server(s)...
 
   • calculator
@@ -352,7 +352,7 @@ The configuration file `mcp_compose.toml` defines:
 
 ```toml
 [composer]
-name = "anaconda-composer"
+name = "anaconda-compose"
 conflict_resolution = "prefix"
 log_level = "INFO"
 

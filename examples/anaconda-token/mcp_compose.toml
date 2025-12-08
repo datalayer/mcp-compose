@@ -2,7 +2,7 @@
 # Anaconda Authentication Example
 
 [composer]
-name = "anaconda-composer"
+name = "anaconda-compose"
 conflict_resolution = "prefix"  # Prefix tool names with server name
 log_level = "INFO"
 
@@ -29,6 +29,12 @@ domain = "anaconda.com"
 # Backend MCP Servers (No auth - accessed via composer only)
 # ============================================================================
 
+# Environments MCP Server (Proxied via STDIO)
+[[servers.proxied.stdio]]
+name = "environments"
+command = ["python", "-m", "environments_mcp_server", "start", "--transport", "stdio"]
+restart_policy = "never"
+
 # Calculator MCP Server (Proxied via STDIO)
 [[servers.proxied.stdio]]
 name = "calculator"
@@ -49,8 +55,7 @@ health_check_enabled = false
 mode = "proxy"
 # Echo tools: ping, echo, reverse, uppercase, lowercase, count_words
 
-# Alternative: Echo MCP Server via HTTP Streaming (JSON Lines)
-# Uncomment to use HTTP streaming instead of SSE
+# Echo MCP Server via HTTP Streaming (JSON Lines)
 # [[servers.proxied.http]]
 # name = "echo"
 # url = "http://localhost:8082/stream"
@@ -63,3 +68,17 @@ mode = "proxy"
 # health_check_enabled = false
 # mode = "proxy"
 # Note: Start the HTTP server with: python mcp2_http.py
+
+# Jupyter MCP Server (Proxied via Streamable HTTP)
+# Uses native MCP Streamable HTTP transport
+# Start JupyterLab first: make jupyterlab
+[[servers.proxied.http]]
+name = "jupyter"
+url = "http://localhost:8888/mcp"
+protocol = "streamable-http"
+timeout = 30
+keep_alive = true
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+health_check_enabled = false
+mode = "proxy"

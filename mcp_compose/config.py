@@ -62,6 +62,7 @@ class HttpStreamProtocol(str, Enum):
     CHUNKED = "chunked"      # HTTP chunked transfer encoding
     LINES = "lines"          # Newline-delimited JSON
     POLL = "poll"            # Long-polling
+    STREAMABLE_HTTP = "streamable-http"  # MCP native Streamable HTTP transport
 
 
 # ============================================================================

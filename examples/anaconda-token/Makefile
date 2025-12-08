@@ -156,6 +156,25 @@ agent:
 stop:
 	@echo "To stop the composer, press Ctrl+C in the terminal where it's running"
 
+login:
+	@echo "Logging in to Anaconda..."
+	@echo ""
+	@anaconda auth login
+	@echo ""
+	@echo "✓ Logged in to Anaconda"
+
+logout:
+	@echo "Logging out of Anaconda..."
+	@echo ""
+	@anaconda auth logout
+	@echo ""
+	@echo "✓ Logged out of Anaconda"
+
+jupyterlab:
+	@echo "Starting JupyterLab..."
+	@echo ""
+	jupyter lab --port 8888 --IdentityProvider.token="" --ip 0.0.0.0 --no-browser
+
 # Clean up
 clean:
 	@echo "Cleaning up..."

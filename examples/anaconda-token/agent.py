@@ -53,6 +53,8 @@ def get_anaconda_token() -> str | None:
     If MCP_COMPOSE_ANACONDA_TOKEN="fallback", returns None to allow
     the server to use its local anaconda_auth token.
     
+    If no token is found, initiates the login process via browser.
+    
     Returns:
         Access token string, or None if fallback mode is enabled
     """
@@ -66,32 +68,34 @@ def get_anaconda_token() -> str | None:
     
     print("\n🔐 Getting Anaconda token...")
     try:
-        import subprocess
+        from anaconda_auth.token import TokenInfo
+        from anaconda_auth import login
         
-        # Use anaconda CLI to get token without triggering any browser flows
-        result = subprocess.run(
-            ["anaconda", "auth", "token"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        # Use anaconda_auth Python API to get the token
+        token_info = TokenInfo().load()
         
-        if result.returncode == 0 and result.stdout.strip():
-            access_token = result.stdout.strip()
+        if token_info.api_key:
             print("✅ Using existing Anaconda authentication")
-            return access_token
+            return token_info.api_key
         else:
-            print("❌ No Anaconda token found")
-            print("   Please authenticate first: anaconda auth login")
-            print("   Or set MCP_COMPOSE_ANACONDA_TOKEN=fallback to use server-side auth")
-            sys.exit(1)
+            # No token found, initiate login process
+            print("⚠️  No Anaconda token found, initiating login...")
+            print("   A browser window will open for authentication.")
+            login()
+            
+            # Try to get token again after login
+            token_info = TokenInfo().load()
+            if token_info.api_key:
+                print("✅ Login successful!")
+                return token_info.api_key
+            else:
+                print("❌ Login failed - no token received")
+                print("   Please try again or set MCP_COMPOSE_ANACONDA_TOKEN=fallback")
+                sys.exit(1)
         
-    except FileNotFoundError:
-        print("❌ Error: anaconda CLI not found")
-        print("   Install with: pip install anaconda-client")
-        sys.exit(1)
-    except subprocess.TimeoutExpired:
-        print("❌ Error: anaconda auth token command timed out")
+    except ImportError:
+        print("❌ Error: anaconda-auth not installed")
+        print("   Install with: pip install anaconda-auth")
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error getting token: {e}")
@@ -157,17 +161,12 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
     agent = Agent(
         model=model_obj,
         toolsets=[mcp_server],
-        system_prompt="""You are a helpful AI assistant with access to Calculator and Echo MCP server tools.
+        system_prompt="""You are a helpful AI assistant with access to MCP server tools provided by the MCP Compose.
 
-The tools are provided by two MCP servers managed by the composer:
-- Calculator server: Math operations (calculator:add, calculator:subtract, calculator:multiply, calculator:divide)
-- Echo server: String operations (echo:ping, echo:echo, echo:reverse, echo:uppercase, echo:lowercase, echo:count_words)
+When the user asks about your tools or capabilities, use the actual tools available to you from the MCP server.
+Do NOT make up or assume tool names - only report tools that are actually available.
 
-Tool names are prefixed with their server name to avoid conflicts.
-
-When the user first connects, greet them and list all the available tools you have access to with a brief description of each.
-
-When users ask you to perform calculations or string operations, use the appropriate tools.
+When users ask you to perform operations, use the appropriate tools.
 Be friendly and explain what you're doing."""
     )
     
