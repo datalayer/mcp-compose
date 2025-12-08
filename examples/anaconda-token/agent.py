@@ -71,12 +71,18 @@ def get_anaconda_token() -> str | None:
         from anaconda_auth.token import TokenInfo
         from anaconda_auth import login
         
-        # Use anaconda_auth Python API to get the token
-        token_info = TokenInfo().load()
+        # Try to get existing token
+        api_key = None
+        try:
+            token_info = TokenInfo().load()
+            api_key = token_info.api_key if token_info else None
+        except Exception:
+            # No token stored yet, api_key remains None
+            pass
         
-        if token_info.api_key:
+        if api_key:
             print("✅ Using existing Anaconda authentication")
-            return token_info.api_key
+            return api_key
         else:
             # No token found, initiate login process
             print("⚠️  No Anaconda token found, initiating login...")
@@ -84,10 +90,15 @@ def get_anaconda_token() -> str | None:
             login()
             
             # Try to get token again after login
-            token_info = TokenInfo().load()
-            if token_info.api_key:
+            try:
+                token_info = TokenInfo().load()
+                api_key = token_info.api_key if token_info else None
+            except Exception:
+                api_key = None
+            
+            if api_key:
                 print("✅ Login successful!")
-                return token_info.api_key
+                return api_key
             else:
                 print("❌ Login failed - no token received")
                 print("   Please try again or set MCP_COMPOSE_ANACONDA_TOKEN=fallback")
