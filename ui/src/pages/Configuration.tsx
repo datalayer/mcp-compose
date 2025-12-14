@@ -1,57 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/client'
-import { CheckIcon, SyncIcon, CheckCircleIcon, AlertIcon, FileCodeIcon } from '@primer/octicons-react'
-import { useState, useEffect } from 'react'
-import { Box, Heading, Text, Button, Textarea, Flash, Spinner } from '@primer/react'
+import { SyncIcon, CheckCircleIcon, AlertIcon } from '@primer/octicons-react'
+import { Box, Heading, Text, Button, Flash, Spinner } from '@primer/react'
 
 export default function Configuration() {
   const queryClient = useQueryClient()
-  const [config, setConfig] = useState('')
-  const [hasChanges, setHasChanges] = useState(false)
-  const [validationError, setValidationError] = useState<string | null>(null)
 
   const { data: configData, isLoading } = useQuery({
     queryKey: ['config'],
     queryFn: () => api.getConfig().then(res => res.data),
   })
 
-  useEffect(() => {
-    if (configData) {
-      setConfig(JSON.stringify(configData, null, 2))
-    }
-  }, [configData])
-
-  const validateMutation = useMutation({
-    mutationFn: (configText: string) => {
-      try {
-        const parsedConfig = JSON.parse(configText)
-        return api.validateConfig(parsedConfig)
-      } catch (e) {
-        throw new Error('Invalid JSON format')
-      }
-    },
-    onSuccess: () => {
-      setValidationError(null)
-    },
-    onError: (error: any) => {
-      setValidationError(error.response?.data?.message || error.message || 'Validation failed')
-    },
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: (configText: string) => {
-      const parsedConfig = JSON.parse(configText)
-      return api.updateConfig(parsedConfig)
-    },
-    onSuccess: () => {
-      setHasChanges(false)
-      setValidationError(null)
-      queryClient.invalidateQueries({ queryKey: ['config'] })
-    },
-    onError: (error: any) => {
-      setValidationError(error.response?.data?.message || error.message || 'Save failed')
-    },
-  })
+  const config = configData ? JSON.stringify(configData, null, 2) : ''
 
   const reloadMutation = useMutation({
     mutationFn: () => api.reloadConfig(),
@@ -61,27 +21,8 @@ export default function Configuration() {
     },
   })
 
-  const handleConfigChange = (value: string) => {
-    setConfig(value)
-    setHasChanges(true)
-    setValidationError(null)
-  }
-
-  const handleValidate = () => {
-    validateMutation.mutate(config)
-  }
-
-  const handleSave = () => {
-    try {
-      JSON.parse(config)
-      saveMutation.mutate(config)
-    } catch (e) {
-      setValidationError('Invalid JSON format')
-    }
-  }
-
   const handleReload = () => {
-    if (confirm('Reload configuration from file? This will restart all servers.')) {
+    if (confirm('Reload configuration from mcp_compose.toml? This will restart all servers.')) {
       reloadMutation.mutate()
     }
   }
@@ -91,81 +32,39 @@ export default function Configuration() {
       <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <Box>
           <Heading style={{ fontSize: '32px', marginBottom: '8px' }}>Configuration</Heading>
-          <Text style={{ color: '#656d76' }}>Edit composer configuration</Text>
+          <Text style={{ color: '#656d76' }}>View current runtime configuration</Text>
         </Box>
         
         <Box style={{ display: 'flex', gap: '8px' }}>
-          <Button
-            onClick={handleValidate}
-            disabled={validateMutation.isPending || !hasChanges}
-            leadingVisual={validateMutation.isPending ? SyncIcon : CheckCircleIcon}
-          >
-            Validate
-          </Button>
-          
-          <Button
-            onClick={handleSave}
-            disabled={saveMutation.isPending || !hasChanges}
-            variant="primary"
-            leadingVisual={saveMutation.isPending ? SyncIcon : CheckIcon}
-          >
-            Save
-          </Button>
-          
           <Button
             onClick={handleReload}
             disabled={reloadMutation.isPending}
             leadingVisual={SyncIcon}
           >
-            Reload from File
+            Reload from mcp_compose.toml
           </Button>
         </Box>
       </Box>
-
-      {hasChanges && !validationError && (
-        <Flash variant="warning" style={{ marginBottom: '16px' }}>
-          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileCodeIcon size={16} />
-            <Text>You have unsaved changes</Text>
-          </Box>
-        </Flash>
-      )}
-
-      {validationError && (
-        <Flash variant="danger" style={{ marginBottom: '16px' }}>
-          <Box style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-            <AlertIcon size={20} />
-            <Box>
-              <Text style={{ fontWeight: 'bold', display: 'block' }}>Validation Error</Text>
-              <Text style={{ fontSize: '14px', marginTop: '4px', display: 'block' }}>{validationError}</Text>
-            </Box>
-          </Box>
-        </Flash>
-      )}
-
-      {validateMutation.isSuccess && !validationError && (
-        <Flash variant="success" style={{ marginBottom: '16px' }}>
-          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CheckCircleIcon size={16} />
-            <Text>Configuration is valid</Text>
-          </Box>
-        </Flash>
-      )}
-
-      {saveMutation.isSuccess && (
-        <Flash variant="success" style={{ marginBottom: '16px' }}>
-          <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CheckCircleIcon size={16} />
-            <Text>Configuration saved successfully</Text>
-          </Box>
-        </Flash>
-      )}
 
       {reloadMutation.isSuccess && (
         <Flash variant="success" style={{ marginBottom: '16px' }}>
           <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <CheckCircleIcon size={16} />
-            <Text>Configuration reloaded from file</Text>
+            <Text>Configuration reloaded from mcp_compose.toml</Text>
+          </Box>
+        </Flash>
+      )}
+
+      {reloadMutation.isError && (
+        <Flash variant="danger" style={{ marginBottom: '16px' }}>
+          <Box style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+            <AlertIcon size={20} />
+            <Box>
+              <Text style={{ fontWeight: 'bold', display: 'block' }}>Reload Error</Text>
+              <Text style={{ fontSize: '14px', marginTop: '4px', display: 'block' }}>
+                {(reloadMutation.error as any)?.response?.data?.message || 'Failed to reload configuration'}
+              </Text>
+            </Box>
           </Box>
         </Flash>
       )}
@@ -192,15 +91,14 @@ export default function Configuration() {
               }}
             >
               <Text style={{ fontSize: '14px', fontWeight: 'bold', display: 'block' }}>
-                Configuration (JSON format)
+                Runtime Configuration (Read-Only)
               </Text>
               <Text style={{ fontSize: '12px', color: '#656d76', marginTop: '4px', display: 'block' }}>
-                Edit the configuration below. Remember to validate before saving.
+                This is the current parsed configuration. To edit, modify mcp_compose.toml and reload.
               </Text>
             </Box>
-            <Textarea
-              value={config}
-              onChange={(e) => handleConfigChange(e.target.value)}
+            <Box
+              as="pre"
               style={{
                 width: '100%',
                 height: '600px',
@@ -208,10 +106,13 @@ export default function Configuration() {
                 fontFamily: 'monospace',
                 fontSize: '14px',
                 border: 'none',
-                resize: 'none',
+                margin: 0,
+                overflow: 'auto',
+                backgroundColor: '#ffffff',
               }}
-              placeholder="Loading configuration..."
-            />
+            >
+              {config || 'Loading configuration...'}
+            </Box>
           </Box>
         )}
       </Box>
@@ -229,11 +130,11 @@ export default function Configuration() {
           Configuration Guide
         </Heading>
         <Box as="ul" style={{ fontSize: '14px', color: '#656d76', listStyle: 'disc', paddingLeft: '20px' }}>
-          <li>Edit configuration in JSON format</li>
-          <li>Click "Validate" to check for errors before saving</li>
-          <li>Click "Save" to update the configuration</li>
-          <li>Click "Reload from File" to discard changes and reload from disk</li>
-          <li>Changes to server configuration may require server restarts</li>
+          <li>Configuration is stored in <code style={{ backgroundColor: '#ffffff', padding: '2px 4px', borderRadius: '3px' }}>mcp_compose.toml</code> file</li>
+          <li>This view shows the current runtime configuration in JSON format (read-only)</li>
+          <li>To edit configuration, modify the <code style={{ backgroundColor: '#ffffff', padding: '2px 4px', borderRadius: '3px' }}>mcp_compose.toml</code> file directly</li>
+          <li>Click "Reload from mcp_compose.toml" to apply changes from the file</li>
+          <li>Changes to server configuration will restart affected servers</li>
         </Box>
       </Box>
     </Box>

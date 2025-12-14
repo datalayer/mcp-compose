@@ -42,24 +42,8 @@ async def get_config(
     Returns:
         ConfigResponse with current configuration.
     """
-    # Get configuration from composer
-    config_dict = composer.config.to_dict() if hasattr(composer.config, 'to_dict') else {}
-    
-    # If config doesn't have to_dict, manually build dict
-    if not config_dict:
-        config_dict = {
-            "servers": {
-                server_id: {
-                    "name": server_config.name,
-                    "command": getattr(server_config, 'command', None),
-                    "args": getattr(server_config, 'args', []),
-                    "env": getattr(server_config, 'env', {}),
-                    "transport": getattr(server_config.transport, 'value', 'stdio') if hasattr(server_config, 'transport') else 'stdio',
-                    "auto_start": getattr(server_config, 'auto_start', True),
-                }
-                for server_id, server_config in composer.config.servers.items()
-            }
-        }
+    # Convert Pydantic config to dict
+    config_dict = composer.config.model_dump() if composer.config else {}
     
     return ConfigResponse(config=config_dict)
 
