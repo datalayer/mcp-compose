@@ -19,6 +19,7 @@ import secrets
 class AuthType(str, Enum):
     """Types of authentication methods."""
     API_KEY = "api_key"
+    BASIC = "basic"
     JWT = "jwt"
     OAUTH2 = "oauth2"
     MTLS = "mtls"
@@ -294,6 +295,109 @@ class APIKeyAuthenticator(Authenticator):
         
         key_hash = self.hash_api_key(context.token)
         return key_hash in self.api_keys
+
+
+class BasicAuthenticator(Authenticator):
+    """
+    Basic (username/password) authentication.
+    
+    Simple authentication using username and password credentials.
+    """
+    
+    def __init__(self, username: str, password: str):
+        """
+        Initialize basic authenticator.
+        
+        Args:
+            username: The valid username.
+            password: The valid password (will be hashed).
+        """
+        super().__init__(AuthType.BASIC)
+        self.username = username
+        self.password_hash = hashlib.sha256(password.encode()).hexdigest()
+    
+    @staticmethod
+    def hash_password(password: str) -> str:
+        """
+        Hash a password for secure storage.
+        
+        Args:
+            password: Plain text password.
+        
+        Returns:
+            Hashed password.
+        """
+        return hashlib.sha256(password.encode()).hexdigest()
+    
+    def verify_credentials(self, username: str, password: str) -> bool:
+        """
+        Verify username and password.
+        
+        Args:
+            username: Username to verify.
+            password: Password to verify.
+        
+        Returns:
+            True if credentials are valid, False otherwise.
+        """
+        password_hash = self.hash_password(password)
+        return (
+            hmac.compare_digest(username, self.username) and
+            hmac.compare_digest(password_hash, self.password_hash)
+        )
+    
+    async def authenticate(self, credentials: Dict[str, Any]) -> AuthContext:
+        """
+        Authenticate using username and password.
+        
+        Args:
+            credentials: Must contain "username" and "password" fields.
+        
+        Returns:
+            AuthContext for the authenticated user.
+        
+        Raises:
+            InvalidCredentialsError: If credentials are invalid.
+        """
+        username = credentials.get("username")
+        password = credentials.get("password")
+        
+        if not username or not password:
+            raise InvalidCredentialsError("Username and password required")
+        
+        if not self.verify_credentials(username, password):
+            raise InvalidCredentialsError("Invalid username or password")
+        
+        # Generate a session token
+        session_token = secrets.token_urlsafe(32)
+        
+        return AuthContext(
+            user_id=username,
+            auth_type=AuthType.BASIC,
+            token=session_token,
+            scopes=["admin"],  # Basic auth users get admin access
+            metadata={"username": username},
+            expires_at=datetime.utcnow() + timedelta(hours=24),  # 24-hour session
+        )
+    
+    async def validate(self, context: AuthContext) -> bool:
+        """
+        Validate a basic auth context.
+        
+        Args:
+            context: Authentication context to validate.
+        
+        Returns:
+            True if valid, False otherwise.
+        """
+        if context.auth_type != AuthType.BASIC:
+            return False
+        
+        # Check if token has expired
+        if context.is_expired():
+            return False
+        
+        return True
 
 
 class NoAuthenticator(Authenticator):

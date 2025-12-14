@@ -35,6 +35,20 @@ name = "environments"
 command = ["python", "-m", "environments_mcp_server", "start", "--transport", "stdio"]
 restart_policy = "never"
 
+# Jupyter MCP Server (Proxied via Streamable HTTP)
+# Uses native MCP Streamable HTTP transport
+# Start JupyterLab first: make jupyterlab
+[[servers.proxied.http]]
+name = "jupyter"
+url = "http://localhost:8888/mcp"
+protocol = "streamable-http"
+timeout = 30
+keep_alive = true
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+health_check_enabled = false
+mode = "proxy"
+
 # Calculator MCP Server (Proxied via STDIO)
 [[servers.proxied.stdio]]
 name = "calculator"
@@ -68,17 +82,3 @@ mode = "proxy"
 # health_check_enabled = false
 # mode = "proxy"
 # Note: Start the HTTP server with: python mcp2_http.py
-
-# Jupyter MCP Server (Proxied via Streamable HTTP)
-# Uses native MCP Streamable HTTP transport
-# Start JupyterLab first: make jupyterlab
-[[servers.proxied.http]]
-name = "jupyter"
-url = "http://localhost:8888/mcp"
-protocol = "streamable-http"
-timeout = 30
-keep_alive = true
-reconnect_on_failure = true
-max_reconnect_attempts = 10
-health_check_enabled = false
-mode = "proxy"

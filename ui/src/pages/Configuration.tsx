@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/client'
-import { Save, RotateCw, CheckCircle, AlertCircle, Loader2, FileCode } from 'lucide-react'
+import { CheckIcon, SyncIcon, CheckCircleIcon, AlertIcon, FileCodeIcon } from '@primer/octicons-react'
 import { useState, useEffect } from 'react'
 
 export default function Configuration() {
@@ -109,9 +109,9 @@ export default function Configuration() {
             className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-md hover:bg-accent transition-colors disabled:opacity-50"
           >
             {validateMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <SyncIcon size={16} className="animate-spin" />
             ) : (
-              <CheckCircle className="h-4 w-4" />
+              <CheckCircleIcon size={16} />
             )}
             Validate
           </button>
@@ -122,9 +122,9 @@ export default function Configuration() {
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {saveMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <SyncIcon size={16} className="animate-spin" />
             ) : (
-              <Save className="h-4 w-4" />
+              <CheckIcon size={16} />
             )}
             Save
           </button>
@@ -135,9 +135,9 @@ export default function Configuration() {
             className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-md hover:bg-accent transition-colors disabled:opacity-50"
           >
             {reloadMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <SyncIcon size={16} className="animate-spin" />
             ) : (
-              <RotateCw className="h-4 w-4" />
+              <SyncIcon size={16} />
             )}
             Reload from File
           </button>
@@ -148,7 +148,7 @@ export default function Configuration() {
       {hasChanges && !validationError && (
         <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
           <p className="text-sm text-blue-900 dark:text-blue-100">
-            <FileCode className="inline h-4 w-4 mr-2" />
+            <FileCodeIcon size={16} className="inline mr-2" />
             You have unsaved changes
           </p>
         </div>
@@ -157,7 +157,7 @@ export default function Configuration() {
       {validationError && (
         <div className="p-4 bg-destructive/10 border border-destructive rounded-md">
           <div className="flex items-start gap-2">
-            <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <AlertIcon size={20} className="text-destructive flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-destructive">Validation Error</p>
               <p className="text-sm text-destructive/80 mt-1">{validationError}</p>
@@ -169,7 +169,7 @@ export default function Configuration() {
       {validateMutation.isSuccess && !validationError && (
         <div className="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
           <p className="text-sm text-green-900 dark:text-green-100">
-            <CheckCircle className="inline h-4 w-4 mr-2" />
+            <CheckCircleIcon size={16} className="inline mr-2" />
             Configuration is valid
           </p>
         </div>
@@ -178,7 +178,7 @@ export default function Configuration() {
       {saveMutation.isSuccess && (
         <div className="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
           <p className="text-sm text-green-900 dark:text-green-100">
-            <CheckCircle className="inline h-4 w-4 mr-2" />
+            <CheckCircleIcon size={16} className="inline mr-2" />
             Configuration saved successfully
           </p>
         </div>
@@ -187,7 +187,7 @@ export default function Configuration() {
       {reloadMutation.isSuccess && (
         <div className="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
           <p className="text-sm text-green-900 dark:text-green-100">
-            <CheckCircle className="inline h-4 w-4 mr-2" />
+            <CheckCircleIcon size={16} className="inline mr-2" />
             Configuration reloaded from file
           </p>
         </div>
@@ -197,7 +197,7 @@ export default function Configuration() {
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <SyncIcon size={32} className="animate-spin text-muted-foreground" />
           </div>
         ) : (
           <div>

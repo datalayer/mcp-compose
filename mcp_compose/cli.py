@@ -868,6 +868,13 @@ async def run_server(config, args: argparse.Namespace) -> int:
         from .api.dependencies import set_composer
         from contextlib import asynccontextmanager
         
+        # Determine port: CLI arg > UI config > composer config
+        server_port = args.port
+        if config.ui and config.ui.enabled and config.ui.port:
+            server_port = config.ui.port
+        if hasattr(args, 'port') and args.port != 8000:  # 8000 is the serve command default
+            server_port = args.port
+        
         # Set the composer instance for dependency injection
         set_composer(composer)
         
@@ -990,7 +997,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                 # Configure OAuth with server details
                 # Always use localhost for OAuth callback URLs (GitHub requires exact match)
                 oauth_host = "localhost" if args.host == "0.0.0.0" else args.host
-                server_url = f"http://{oauth_host}:{config.composer.port}"
+                server_url = f"http://{oauth_host}:{server_port}"
                 configure_oauth(
                     provider=oauth2_config.provider,
                     client_id=oauth2_config.client_id,
@@ -1004,19 +1011,19 @@ async def run_server(config, args: argparse.Namespace) -> int:
                 
                 # Include OAuth routes
                 app.include_router(oauth_router)
-                print(f"  OAuth Callback: http://localhost:{config.composer.port}/oauth/callback", file=out)
-                print(f"  Authorize:      http://localhost:{config.composer.port}/authorize", file=out)
+                print(f"  OAuth Callback: http://localhost:{server_port}/oauth/callback", file=out)
+                print(f"  Authorize:      http://localhost:{server_port}/authorize", file=out)
         
         print("=" * 70, file=out)
         print(f"📡 MCP Server Mode: {transport_mode.upper()}", file=out)
         print("=" * 70, file=out)
         if transport_mode == "streamable-http":
-            print(f"  MCP Endpoint:  http://localhost:{config.composer.port}/mcp", file=out)
+            print(f"  MCP Endpoint:  http://localhost:{server_port}/mcp", file=out)
         else:
-            print(f"  SSE Endpoint:  http://localhost:{config.composer.port}/sse (deprecated)", file=out)
-        print(f"  Tools List:    http://localhost:{config.composer.port}/tools", file=out)
-        print(f"  REST API:      http://localhost:{config.composer.port}/api/v1", file=out)
-        print(f"  Health Check:  http://localhost:{config.composer.port}/api/v1/health", file=out)
+            print(f"  SSE Endpoint:  http://localhost:{server_port}/sse (deprecated)", file=out)
+        print(f"  Tools List:    http://localhost:{server_port}/tools", file=out)
+        print(f"  REST API:      http://localhost:{server_port}/api/v1", file=out)
+        print(f"  Health Check:  http://localhost:{server_port}/api/v1/health", file=out)
         print(file=out)
         print(f"✓ Unified MCP server is now running!", file=out)
         print(f"  Total tools: {len(composer.composed_tools)}", file=out)
@@ -1048,7 +1055,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
         server_config_uvicorn = uvicorn.Config(
             app=app,
             host=args.host,
-            port=config.composer.port,
+            port=server_port,
             log_level="info",
         )
         server = uvicorn.Server(server_config_uvicorn)

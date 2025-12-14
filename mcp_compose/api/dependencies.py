@@ -13,10 +13,12 @@ from ..auth import AuthContext, AuthType, create_authenticator
 from ..authz import AuthorizationMiddleware, RoleManager
 from ..composer import MCPServerComposer
 from ..tool_authz import ToolPermissionManager
+from ..config import MCPComposerConfig
 
 
 # Global instances (to be initialized by application)
 _composer: Optional[MCPServerComposer] = None
+_config: Optional[MCPComposerConfig] = None
 _role_manager: Optional[RoleManager] = None
 _authz_middleware: Optional[AuthorizationMiddleware] = None
 _tool_permission_manager: Optional[ToolPermissionManager] = None
@@ -27,6 +29,12 @@ def set_composer(composer: MCPServerComposer) -> None:
     """Set the global composer instance."""
     global _composer
     _composer = composer
+
+
+def set_config(config: MCPComposerConfig) -> None:
+    """Set the global config instance."""
+    global _config
+    _config = config
 
 
 def set_role_manager(role_manager: RoleManager) -> None:
@@ -69,6 +77,27 @@ async def get_composer() -> MCPServerComposer:
             detail="Composer not initialized"
         )
     return _composer
+
+
+async def get_config() -> MCPComposerConfig:
+    """
+    Get the MCPComposerConfig instance.
+    
+    Returns:
+        MCPComposerConfig instance.
+    
+    Raises:
+        HTTPException: If config is not initialized.
+    """
+    if _config is None:
+        # Fallback to getting config from composer if available
+        if _composer is not None:
+            return _composer.config
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Config not initialized"
+        )
+    return _config
 
 
 async def get_role_manager() -> Optional[RoleManager]:

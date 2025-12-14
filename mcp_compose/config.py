@@ -40,6 +40,7 @@ class HealthCheckMethod(str, Enum):
 class AuthProvider(str, Enum):
     """Authentication providers."""
     API_KEY = "api_key"
+    BASIC = "basic"
     JWT = "jwt"
     OAUTH2 = "oauth2"
     MTLS = "mtls"
@@ -108,6 +109,12 @@ class ApiKeyAuthConfig(BaseModel):
     """API Key authentication configuration."""
     header_name: str = Field(default="X-API-Key", description="HTTP header name for API key")
     keys: List[str] = Field(default_factory=list, description="List of valid API keys")
+
+
+class BasicAuthConfig(BaseModel):
+    """Basic (username/password) authentication configuration."""
+    username: str = Field(..., description="Username for basic authentication")
+    password: str = Field(..., description="Password for basic authentication")
 
 
 class JwtAuthConfig(BaseModel):
@@ -215,6 +222,7 @@ class AuthenticationConfig(BaseModel):
     providers: List[AuthProvider] = Field(default_factory=lambda: [AuthProvider.API_KEY])
     default_provider: AuthProvider = Field(default=AuthProvider.API_KEY)
     api_key: Optional[ApiKeyAuthConfig] = Field(default=None)
+    basic: Optional[BasicAuthConfig] = Field(default=None)
     jwt: Optional[JwtAuthConfig] = Field(default=None)
     oauth2: Optional[OAuth2AuthConfig] = Field(default=None)
     mtls: Optional[MtlsAuthConfig] = Field(default=None)
@@ -408,6 +416,7 @@ class UiConfig(BaseModel):
     framework: str = Field(default="react", description="UI framework")
     mode: str = Field(default="embedded", description="UI mode (embedded or separate)")
     path: str = Field(default="/ui", description="UI path")
+    port: int = Field(default=9456, description="UI port (when mode is 'separate')")
     static_dir: Optional[str] = Field(default=None, description="Static files directory")
     features: List[str] = Field(
         default_factory=lambda: [

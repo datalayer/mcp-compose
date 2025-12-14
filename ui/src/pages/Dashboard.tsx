@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import api from '../api/client'
 import { Activity, Server, Wrench, AlertCircle, TrendingUp, CheckCircle, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../api/client'
 
 export default function Dashboard() {
   const navigate = useNavigate()

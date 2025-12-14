@@ -30,8 +30,18 @@ build:
 	pip install build
 	python -m build .
 
+build-ui: ## build the UI artifacts
+	@echo "Building UI..."
+	cd ui && npm install && npm run build
+	@echo "✓ UI built successfully in ui/dist/"
+
+build-all: build-ui build ## build UI and Python package
+
 clean: ## clean
 	git clean -fdx
+
+clean-ui: ## clean UI build artifacts
+	rm -rf ui/dist ui/node_modules
 
 build-docker: ## build the docker image
 	docker buildx build --platform linux/amd64,linux/arm64 --push -t datalayer/mcp-compose:${VERSION} .

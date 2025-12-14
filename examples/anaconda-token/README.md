@@ -42,18 +42,18 @@ Both servers:
 │  │ Authentication      │    │ ← Anaconda auth here
 │  │ Middleware          │    │
 │  └─────────┬───────────┘    │
-│            │                 │
+│            │                │
 │  ┌─────────┴───────────┐    │
 │  │  Tool Manager       │    │
 │  └─────────┬───────────┘    │
-└────────────┼─────────────────┘
-             │ STDIO (no auth)
-       ┌─────┴─────┐
-       ▼           ▼
-┌────────────┐ ┌────────────┐
-│ Calculator │ │   Echo     │
-│   Server   │ │   Server   │
-└────────────┘ └────────────┘
+└────────────┼────────────────┘
+             │ STDIO / STREAMABLE-HTTP
+       ┌─────┴─────┐────────────────┐───────────────┐
+       ▼           ▼                ▼               ▼   
+┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐
+│ Calculator │ │   Echo     │ │   Env      │ │   Jupyter  │
+│   Server   │ │   Server   │ │   Server   │ │   Server   │
+└────────────┘ └────────────┘ └────────────┘ └────────────┘
 ```
 
 **Key Point**: Authentication happens at the **MCP Compose level**, not in the individual servers. The servers are simple STDIO processes without authentication logic.

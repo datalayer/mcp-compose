@@ -7,11 +7,13 @@ middleware, and configuration for the REST API server.
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from ..auth import AuthenticationError, InsufficientScopesError
 from ..exceptions import (
@@ -231,9 +233,10 @@ def register_routes(app: FastAPI) -> None:
     Args:
         app: FastAPI application.
     """
-    from .routes import config, health, servers, status, tools, translators, version
+    from .routes import auth, config, health, servers, status, tools, translators, version
     
     # Register route modules
+    app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
     app.include_router(servers.router, prefix="/api/v1", tags=["servers"])
     app.include_router(tools.router, prefix="/api/v1", tags=["tools", "prompts", "resources"])
@@ -241,6 +244,14 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(status.router, prefix="/api/v1", tags=["status", "composition", "metrics"])
     app.include_router(translators.router, prefix="/api/v1", tags=["translators"])
     app.include_router(version.router, prefix="/api/v1", tags=["version"])
+    
+    # Serve UI static files if available
+    ui_dist_path = Path(__file__).parent.parent.parent / "ui" / "dist"
+    if ui_dist_path.exists() and ui_dist_path.is_dir():
+        logger.info(f"Serving UI from {ui_dist_path}")
+        app.mount("/ui", StaticFiles(directory=str(ui_dist_path), html=True), name="ui")
+    else:
+        logger.warning(f"UI dist folder not found at {ui_dist_path}")
     
     # Root endpoint
     @app.get("/", include_in_schema=False)

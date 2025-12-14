@@ -38,6 +38,12 @@ apiClient.interceptors.response.use(
 
 // API methods
 export const api = {
+  // Auth
+  login: (username: string, password: string) => 
+    apiClient.post('/auth/login', { username, password }),
+  logout: () => apiClient.post('/auth/logout'),
+  getCurrentUser: () => apiClient.get('/auth/me'),
+  
   // Health
   getHealth: () => apiClient.get('/health'),
   
