@@ -865,7 +865,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
         # HTTP-based transport modes (streamable-http or sse)
         # Create the FastAPI REST API app
         from .api import create_app
-        from .api.dependencies import set_composer
+        from .api.dependencies import set_composer, set_config
         from contextlib import asynccontextmanager
         
         # Determine port: CLI arg > UI config > composer config
@@ -875,8 +875,9 @@ async def run_server(config, args: argparse.Namespace) -> int:
         if hasattr(args, 'port') and args.port != 8000:  # 8000 is the serve command default
             server_port = args.port
         
-        # Set the composer instance for dependency injection
+        # Set the composer and config instances for dependency injection
         set_composer(composer)
+        set_config(config)
         
         # For streamable-http, we need to run the session manager in the lifespan
         session_manager = None

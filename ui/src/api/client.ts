@@ -30,7 +30,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Handle unauthorized
       localStorage.removeItem('auth_token')
-      window.location.href = '/login'
+      window.location.href = '/ui/login'
     }
     return Promise.reject(error)
   }

@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, Response
 
-from ..dependencies import get_composer, require_auth
+from ..dependencies import get_composer, get_config, require_auth
 from ..models import (
     CompositionResponse,
     DetailedHealthResponse,
@@ -20,6 +20,7 @@ from ..models import (
 )
 from ...auth import AuthContext
 from ...composer import MCPServerComposer
+from ...config import MCPComposerConfig
 from ...metrics import metrics_collector
 
 router = APIRouter(tags=["status"])
@@ -28,6 +29,7 @@ router = APIRouter(tags=["status"])
 @router.get("/status")
 async def get_status(
     composer: MCPServerComposer = Depends(get_composer),
+    config: MCPComposerConfig = Depends(get_config),
     auth: AuthContext = Depends(require_auth),
 ) -> Dict[str, Any]:
     """
@@ -38,13 +40,14 @@ async def get_status(
     
     Args:
         composer: MCPServerComposer instance.
+        config: MCPComposerConfig instance.
         auth: Authentication context.
     
     Returns:
         Dictionary with composition status information.
     """
     # Count servers by status
-    total_servers = len(composer.config.servers)
+    total_servers = len(config.servers)
     running_servers = len(composer.discovered_servers)
     stopped_servers = total_servers - running_servers
     
@@ -55,7 +58,7 @@ async def get_status(
     
     # Get server statuses
     server_statuses = {}
-    for server_id in composer.config.servers.keys():
+    for server_id in config.servers.keys():
         if server_id in composer.discovered_servers:
             server_statuses[server_id] = ServerStatus.RUNNING
         else:
@@ -82,6 +85,7 @@ async def get_status(
 @router.get("/composition", response_model=CompositionResponse)
 async def get_composition(
     composer: MCPServerComposer = Depends(get_composer),
+    config: MCPComposerConfig = Depends(get_config),
     auth: AuthContext = Depends(require_auth),
 ) -> CompositionResponse:
     """
@@ -92,6 +96,7 @@ async def get_composition(
     
     Args:
         composer: MCPServerComposer instance.
+        config: MCPComposerConfig instance.
         auth: Authentication context.
     
     Returns:
@@ -99,7 +104,7 @@ async def get_composition(
     """
     # Get all servers
     servers: List[ServerInfo] = []
-    for server_id, server_config in composer.config.servers.items():
+    for server_id, server_config in config.servers.items():
         # Determine status
         if server_id in composer.discovered_servers:
             server_status = ServerStatus.RUNNING

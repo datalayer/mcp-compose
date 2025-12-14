@@ -236,7 +236,7 @@ def register_routes(app: FastAPI) -> None:
     from .routes import auth, config, health, servers, status, tools, translators, version
     
     # Register route modules
-    app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
+    app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
     app.include_router(servers.router, prefix="/api/v1", tags=["servers"])
     app.include_router(tools.router, prefix="/api/v1", tags=["tools", "prompts", "resources"])

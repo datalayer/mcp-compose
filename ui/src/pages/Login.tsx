@@ -30,6 +30,7 @@ export default function Login() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!username || !password) return
     setError('')
     loginMutation.mutate()
   }
