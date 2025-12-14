@@ -47,7 +47,13 @@ async def get_status(
         Dictionary with composition status information.
     """
     # Count servers by status
-    total_servers = len(config.servers)
+    all_servers = (
+        config.servers.embedded.servers +
+        config.servers.proxied.stdio +
+        config.servers.proxied.sse +
+        config.servers.proxied.http
+    )
+    total_servers = len(all_servers)
     running_servers = len(composer.discovered_servers)
     stopped_servers = total_servers - running_servers
     
@@ -58,7 +64,8 @@ async def get_status(
     
     # Get server statuses
     server_statuses = {}
-    for server_id in config.servers.keys():
+    for server in all_servers:
+        server_id = server.name
         if server_id in composer.discovered_servers:
             server_statuses[server_id] = ServerStatus.RUNNING
         else:
@@ -104,15 +111,28 @@ async def get_composition(
     """
     # Get all servers
     servers: List[ServerInfo] = []
-    for server_id, server_config in config.servers.items():
+    all_servers = (
+        config.servers.embedded.servers +
+        config.servers.proxied.stdio +
+        config.servers.proxied.sse +
+        config.servers.proxied.http
+    )
+    
+    for server_config in all_servers:
         # Determine status
+        server_id = server_config.name
         if server_id in composer.discovered_servers:
             server_status = ServerStatus.RUNNING
         else:
             server_status = ServerStatus.STOPPED
         
         # Get server type
-        transport = getattr(server_config.transport, 'value', 'stdio') if hasattr(server_config, 'transport') else 'stdio'
+        if hasattr(server_config, 'url'):
+            transport = 'sse' if hasattr(server_config, 'mode') else 'http'
+        elif hasattr(server_config, 'command'):
+            transport = 'stdio'
+        else:
+            transport = 'embedded'
         
         # Create server info
         server_info = ServerInfo(

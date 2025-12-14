@@ -128,7 +128,7 @@ export default function Layout() {
       </Box>
 
       {/* Main content */}
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, overflow: 'auto', bg: 'canvas.default' }}>
         <Box sx={{ p: 4 }}>
           <Outlet />
         </Box>

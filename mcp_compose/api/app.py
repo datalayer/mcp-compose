@@ -249,7 +249,36 @@ def register_routes(app: FastAPI) -> None:
     ui_dist_path = Path(__file__).parent.parent.parent / "ui" / "dist"
     if ui_dist_path.exists() and ui_dist_path.is_dir():
         logger.info(f"Serving UI from {ui_dist_path}")
-        app.mount("/ui", StaticFiles(directory=str(ui_dist_path), html=True), name="ui")
+        
+        from starlette.responses import FileResponse
+        
+        # Serve static assets (js, css, images, etc.)
+        @app.get("/ui/assets/{file_path:path}", include_in_schema=False)
+        async def serve_ui_assets(file_path: str):
+            """Serve UI static assets."""
+            full_path = ui_dist_path / "assets" / file_path
+            if full_path.is_file():
+                return FileResponse(full_path)
+            return {"detail": "Not Found"}
+        
+        # Catch-all route for SPA - serves index.html for all other /ui paths
+        @app.get("/ui/{full_path:path}", include_in_schema=False)
+        async def serve_spa(full_path: str):
+            """Serve index.html for all UI routes to support SPA routing."""
+            # Check if it's a specific file request (like vite.svg)
+            if full_path and not full_path.endswith('/'):
+                file_path = ui_dist_path / full_path
+                if file_path.is_file():
+                    return FileResponse(file_path)
+            # Otherwise serve index.html for SPA routing
+            return FileResponse(ui_dist_path / "index.html")
+        
+        # Root UI path
+        @app.get("/ui", include_in_schema=False)
+        @app.get("/ui/", include_in_schema=False)
+        async def serve_ui_root():
+            """Serve UI root."""
+            return FileResponse(ui_dist_path / "index.html")
     else:
         logger.warning(f"UI dist folder not found at {ui_dist_path}")
     

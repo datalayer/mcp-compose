@@ -1,7 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
-import { Activity, Server, Wrench, AlertCircle, TrendingUp, CheckCircle, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { 
+  Heading, 
+  Text, 
+  Button,
+  Box,
+} from '@primer/react'
+import {
+  ServerIcon,
+  ToolsIcon,
+  CheckCircleIcon,
+  GraphIcon,
+  AlertIcon,
+} from '@primer/octicons-react'
 import { api } from '../api/client'
+
+// NOTE: This file demonstrates Primer React migration patterns using proper CSS properties
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -30,218 +44,301 @@ export default function Dashboard() {
     refetchInterval: 10000,
   })
 
-  const stats = [
-    {
-      name: 'Active Servers',
-      value: status?.servers_running || 0,
-      total: status?.servers_total || 0,
-      icon: Server,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50 dark:bg-blue-950',
-    },
-    {
-      name: 'Total Tools',
-      value: status?.total_tools || 0,
-      icon: Wrench,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50 dark:bg-green-950',
-    },
-    {
-      name: 'System Health',
-      value: health?.status || 'unknown',
-      icon: health?.status === 'healthy' ? Activity : AlertCircle,
-      color: health?.status === 'healthy' ? 'text-green-600' : 'text-red-600',
-      bgColor: health?.status === 'healthy' ? 'bg-green-50 dark:bg-green-950' : 'bg-red-50 dark:bg-red-950',
-    },
-    {
-      name: 'API Requests',
-      value: metrics?.http_requests_total || 0,
-      icon: TrendingUp,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50 dark:bg-purple-950',
-    },
-  ]
+  const isHealthy = health?.status === 'healthy'
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="mt-2 text-muted-foreground">
+    <Box>
+      {/* Header */}
+      <Box style={{ marginBottom: '32px' }}>
+        <Heading style={{ fontSize: '32px', marginBottom: '16px' }}>Dashboard</Heading>
+        <Text style={{ color: '#656d76' }}>
           Overview of your MCP Compose
-        </p>
-      </div>
+        </Text>
+      </Box>
 
-      {/* Stats */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <div
-              key={stat.name}
-              className={`bg-card border border-border rounded-lg p-6 hover:shadow-md transition-shadow`}
+      {/* Stats Grid */}
+      <Box
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: '24px',
+          marginBottom: '32px',
+        }}
+      >
+        {/* Active Servers */}
+        <Box
+          style={{
+            backgroundColor: '#f6f8fa',
+            border: '1px solid #d0d7de',
+            borderRadius: '6px',
+            padding: '24px',
+            transition: 'box-shadow 0.2s',
+          }}
+        >
+          <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Text style={{ fontSize: '12px', color: '#656d76', display: 'block', marginBottom: '8px' }}>
+                Active Servers
+              </Text>
+              <Heading style={{ fontSize: '24px' }}>
+                {status?.servers_running || 0}
+                <Text style={{ fontSize: '16px', color: '#656d76', marginLeft: '8px' }}>
+                  / {status?.servers_total || 0}
+                </Text>
+              </Heading>
+            </Box>
+            <Box
+              style={{
+                backgroundColor: '#ddf4ff',
+                padding: '8px',
+                borderRadius: '50%',
+              }}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {stat.name}
-                  </p>
-                  <p className="mt-2 text-3xl font-bold text-foreground">
-                    {stat.value}
-                    {stat.total !== undefined && (
-                      <span className="text-lg text-muted-foreground ml-1">
-                        / {stat.total}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className={`p-3 rounded-full ${stat.bgColor}`}>
-                  <Icon className={`h-6 w-6 ${stat.color}`} />
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+              <ServerIcon size={24} />
+            </Box>
+          </Box>
+        </Box>
 
-      {/* Quick Info & Actions */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            System Information
-          </h2>
-          <dl className="space-y-3">
-            <div className="flex justify-between items-center">
-              <dt className="text-sm text-muted-foreground">Version</dt>
-              <dd className="font-medium text-sm">{status?.version || 'N/A'}</dd>
-            </div>
-            <div className="flex justify-between items-center">
-              <dt className="text-sm text-muted-foreground">Uptime</dt>
-              <dd className="font-medium text-sm">{status?.uptime || 'N/A'}</dd>
-            </div>
-            <div className="flex justify-between items-center">
-              <dt className="text-sm text-muted-foreground">Platform</dt>
-              <dd className="font-medium text-sm">{status?.platform || 'N/A'}</dd>
-            </div>
-            <div className="flex justify-between items-center">
-              <dt className="text-sm text-muted-foreground">Total Prompts</dt>
-              <dd className="font-medium text-sm">{status?.total_prompts || 0}</dd>
-            </div>
-            <div className="flex justify-between items-center">
-              <dt className="text-sm text-muted-foreground">Total Resources</dt>
-              <dd className="font-medium text-sm">{status?.total_resources || 0}</dd>
-            </div>
-          </dl>
-        </div>
+        {/* Total Tools */}
+        <Box
+          style={{
+            backgroundColor: '#f6f8fa',
+            border: '1px solid #d0d7de',
+            borderRadius: '6px',
+            padding: '24px',
+            transition: 'box-shadow 0.2s',
+          }}
+        >
+          <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Text style={{ fontSize: '12px', color: '#656d76', display: 'block', marginBottom: '8px' }}>
+                Total Tools
+              </Text>
+              <Heading style={{ fontSize: '24px' }}>
+                {status?.total_tools || 0}
+              </Heading>
+            </Box>
+            <Box
+              style={{
+                backgroundColor: '#dafbe1',
+                padding: '8px',
+                borderRadius: '50%',
+              }}
+            >
+              <ToolsIcon size={24} />
+            </Box>
+          </Box>
+        </Box>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            Quick Actions
-          </h2>
-          <div className="space-y-2">
-            <button
+        {/* System Health */}
+        <Box
+          style={{
+            backgroundColor: '#f6f8fa',
+            border: '1px solid #d0d7de',
+            borderRadius: '6px',
+            padding: '24px',
+            transition: 'box-shadow 0.2s',
+          }}
+        >
+          <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Text style={{ fontSize: '12px', color: '#656d76', display: 'block', marginBottom: '8px' }}>
+                System Health
+              </Text>
+              <Heading style={{ fontSize: '24px', textTransform: 'capitalize' }}>
+                {health?.status || 'unknown'}
+              </Heading>
+            </Box>
+            <Box
+              style={{
+                backgroundColor: isHealthy ? '#dafbe1' : '#ffebe9',
+                padding: '8px',
+                borderRadius: '50%',
+              }}
+            >
+              {isHealthy ? <CheckCircleIcon size={24} /> : <AlertIcon size={24} />}
+            </Box>
+          </Box>
+        </Box>
+
+        {/* API Requests */}
+        <Box
+          style={{
+            backgroundColor: '#f6f8fa',
+            border: '1px solid #d0d7de',
+            borderRadius: '6px',
+            padding: '24px',
+            transition: 'box-shadow 0.2s',
+          }}
+        >
+          <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Text style={{ fontSize: '12px', color: '#656d76', display: 'block', marginBottom: '8px' }}>
+                API Requests
+              </Text>
+              <Heading style={{ fontSize: '24px' }}>
+                {metrics?.http_requests_total || 0}
+              </Heading>
+            </Box>
+            <Box
+              style={{
+                backgroundColor: '#ddf4ff',
+                padding: '8px',
+                borderRadius: '50%',
+              }}
+            >
+              <GraphIcon size={24} />
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Info and Actions Grid */}
+      <Box
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: '24px',
+        }}
+      >
+        {/* System Information */}
+        <Box
+          style={{
+            backgroundColor: '#f6f8fa',
+            border: '1px solid #d0d7de',
+            borderRadius: '6px',
+            padding: '24px',
+          }}
+        >
+          <Heading style={{ fontSize: '16px', marginBottom: '16px' }}>System Information</Heading>
+          <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: '14px', color: '#656d76' }}>Version</Text>
+              <Text style={{ fontSize: '14px', fontWeight: '600' }}>{status?.version || 'N/A'}</Text>
+            </Box>
+            <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: '14px', color: '#656d76' }}>Uptime</Text>
+              <Text style={{ fontSize: '14px', fontWeight: '600' }}>{status?.uptime || 'N/A'}</Text>
+            </Box>
+            <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: '14px', color: '#656d76' }}>Platform</Text>
+              <Text style={{ fontSize: '14px', fontWeight: '600' }}>{status?.platform || 'N/A'}</Text>
+            </Box>
+            <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: '14px', color: '#656d76' }}>Total Prompts</Text>
+              <Text style={{ fontSize: '14px', fontWeight: '600' }}>{status?.total_prompts || 0}</Text>
+            </Box>
+            <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: '14px', color: '#656d76' }}>Total Resources</Text>
+              <Text style={{ fontSize: '14px', fontWeight: '600' }}>{status?.total_resources || 0}</Text>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Quick Actions */}
+        <Box
+          style={{
+            backgroundColor: '#f6f8fa',
+            border: '1px solid #d0d7de',
+            borderRadius: '6px',
+            padding: '24px',
+          }}
+        >
+          <Heading style={{ fontSize: '16px', marginBottom: '16px' }}>Quick Actions</Heading>
+          <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Button
               onClick={() => navigate('/servers')}
-              className="w-full px-4 py-3 text-left rounded-md hover:bg-accent transition-colors flex items-center justify-between group"
+              block
+              style={{ justifyContent: 'space-between' }}
             >
-              <span className="text-foreground">View All Servers</span>
-              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                →
-              </span>
-            </button>
-            <button
+              View All Servers
+              <Text>→</Text>
+            </Button>
+            <Button
               onClick={() => navigate('/tools')}
-              className="w-full px-4 py-3 text-left rounded-md hover:bg-accent transition-colors flex items-center justify-between group"
+              block
+              style={{ justifyContent: 'space-between' }}
             >
-              <span className="text-foreground">Browse Tools</span>
-              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                →
-              </span>
-            </button>
-            <button
-              onClick={() => navigate('/metrics')}
-              className="w-full px-4 py-3 text-left rounded-md hover:bg-accent transition-colors flex items-center justify-between group"
+              Browse Tools
+              <Text>→</Text>
+            </Button>
+            <Button
+              onClick={() => navigate('/configuration')}
+              block
+              style={{ justifyContent: 'space-between' }}
             >
-              <span className="text-foreground">View Metrics</span>
-              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                →
-              </span>
-            </button>
-            <button
+              Edit Configuration
+              <Text>→</Text>
+            </Button>
+            <Button
               onClick={() => navigate('/logs')}
-              className="w-full px-4 py-3 text-left rounded-md hover:bg-accent transition-colors flex items-center justify-between group"
+              block
+              style={{ justifyContent: 'space-between' }}
             >
-              <span className="text-foreground">Check Logs</span>
-              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                →
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
+              View Logs
+              <Text>→</Text>
+            </Button>
+          </Box>
+        </Box>
+      </Box>
 
-      {/* Server Status Overview */}
+      {/* Server Status List */}
       {composition?.servers && composition.servers.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            Server Status
-          </h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {composition.servers.map((server: any) => (
-              <div
+        <Box style={{ marginTop: '32px' }}>
+          <Heading style={{ fontSize: '16px', marginBottom: '16px' }}>Server Status</Heading>
+          <Box
+            style={{
+              backgroundColor: '#f6f8fa',
+              border: '1px solid #d0d7de',
+              borderRadius: '6px',
+              overflow: 'hidden',
+            }}
+          >
+            {composition.servers.map((server: any, index: number) => (
+              <Box
                 key={server.name}
-                className="p-4 rounded-lg border border-border hover:border-muted-foreground transition-colors"
+                style={{
+                  padding: '16px',
+                  borderBottom: index < composition.servers.length - 1 ? '1px solid #d0d7de' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium text-foreground">{server.name}</h3>
-                  {server.status === 'running' ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-600" />
-                  )}
-                </div>
-                <div className="space-y-1 text-sm text-muted-foreground">
-                  <p>Tools: {server.tool_count || 0}</p>
-                  <p>Status: {server.status || 'unknown'}</p>
-                </div>
-              </div>
+                <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ServerIcon size={20} />
+                  <Box>
+                    <Text style={{ fontWeight: '600', display: 'block' }}>
+                      {server.name}
+                    </Text>
+                    <Text style={{ fontSize: '12px', color: '#656d76' }}>
+                      {server.type} • {server.tools_count || 0} tools
+                    </Text>
+                  </Box>
+                </Box>
+                <Box
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    paddingLeft: '8px',
+                    paddingRight: '8px',
+                    paddingTop: '4px',
+                    paddingBottom: '4px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    backgroundColor: server.status === 'running' ? '#dafbe1' : '#ffebe9',
+                    color: server.status === 'running' ? '#1a7f37' : '#d1242f',
+                  }}
+                >
+                  {server.status === 'running' ? <CheckCircleIcon size={12} /> : <AlertIcon size={12} />}
+                  {server.status}
+                </Box>
+              </Box>
             ))}
-          </div>
-        </div>
+          </Box>
+        </Box>
       )}
-
-      {/* Recent Activity / Metrics Summary */}
-      {metrics && (
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            Performance Metrics
-          </h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="p-4 rounded-lg bg-muted">
-              <p className="text-sm text-muted-foreground">HTTP Requests</p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                {metrics.http_requests_total || 0}
-              </p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted">
-              <p className="text-sm text-muted-foreground">Tool Invocations</p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                {metrics.tool_invocations_total || 0}
-              </p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted">
-              <p className="text-sm text-muted-foreground">Auth Attempts</p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                {metrics.auth_attempts_total || 0}
-              </p>
-            </div>
-            <div className="p-4 rounded-lg bg-muted">
-              <p className="text-sm text-muted-foreground">Server Restarts</p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                {metrics.server_restarts_total || 0}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </Box>
   )
 }
