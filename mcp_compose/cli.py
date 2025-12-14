@@ -399,6 +399,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
         composed_server_name=config.composer.name,
         conflict_resolution=conflict_strategy,
         discovery=discovery,
+        config=config,
         use_process_manager=True,
     )
     composer.process_manager = process_manager

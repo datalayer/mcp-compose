@@ -102,7 +102,7 @@ export default function Servers() {
       {/* Header */}
       <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <Box>
-          <Heading style={{ fontSize: '32px', marginBottom: '8px' }}>Servers</Heading>
+          <Heading style={{ fontSize: '32px', marginBottom: '8px' }}>MCP Servers</Heading>
           <Text style={{ color: '#656d76' }}>Manage your MCP servers</Text>
         </Box>
         <Button onClick={() => setShowAddDialog(true)} leadingVisual={PlusIcon}>

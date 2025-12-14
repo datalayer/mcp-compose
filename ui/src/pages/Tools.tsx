@@ -27,9 +27,9 @@ export default function Tools() {
   const { data: toolsData, isLoading } = useQuery({
     queryKey: ['tools', selectedServer, page],
     queryFn: () => api.listTools({ 
-      server_name: selectedServer || undefined,
-      page,
-      page_size: pageSize,
+      server_id: selectedServer || undefined,
+      offset: (page - 1) * pageSize,
+      limit: pageSize,
     }).then(res => res.data),
   })
 
@@ -178,7 +178,7 @@ export default function Tools() {
             </Box>
 
             {/* Pagination */}
-            {toolsData?.total && toolsData.total > pageSize && (
+            {toolsData && toolsData.total > pageSize && (
               <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px' }}>
                 <Button
                   onClick={() => setPage(p => Math.max(1, p - 1))}

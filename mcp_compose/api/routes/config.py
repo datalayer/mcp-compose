@@ -196,11 +196,16 @@ async def reload_config(
         HTTPException: If reload fails.
     """
     try:
-        # Stop all running servers
-        running_servers = list(composer.discovered_servers.keys())
+        # Stop all running proxied servers
+        process_info = composer.get_proxied_servers_info() if composer.process_manager else {}
+        running_servers = [
+            server_id for server_id, info in process_info.items()
+            if info.get('state') == 'running'
+        ]
+        
         for server_id in running_servers:
             try:
-                await composer.stop_server(server_id)
+                await composer.process_manager.stop_process(server_id)
             except Exception:
                 pass  # Continue even if stop fails
         

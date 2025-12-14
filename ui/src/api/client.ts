@@ -61,7 +61,7 @@ export const api = {
     apiClient.get(`/servers/${id}/logs`, { params }),
   
   // Tools
-  listTools: (params?: { server_name?: string; page?: number; page_size?: number }) => 
+  listTools: (params?: { server_id?: string; offset?: number; limit?: number }) => 
     apiClient.get('/tools', { params }),
   getTool: (name: string) => apiClient.get(`/tools/${encodeURIComponent(name)}`),
   invokeTool: (name: string, arguments_: Record<string, unknown>) => 
@@ -112,6 +112,17 @@ export const api = {
   deleteTranslator: (name: string) => apiClient.delete(`/translators/${name}`),
   translateMessage: (name: string, message: unknown) => 
     apiClient.post(`/translators/${name}/translate`, message),
+  
+  // Settings
+  getSettings: () => apiClient.get('/settings'),
+  updateSettings: (settings: {
+    api_endpoint?: string
+    refresh_interval?: number
+    enable_notifications?: boolean
+    enable_sounds?: boolean
+    max_log_lines?: number
+  }) => apiClient.put('/settings', settings),
+  resetSettings: () => apiClient.post('/settings/reset'),
 }
 
 export default api

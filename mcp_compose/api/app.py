@@ -233,7 +233,7 @@ def register_routes(app: FastAPI) -> None:
     Args:
         app: FastAPI application.
     """
-    from .routes import auth, config, health, servers, status, tools, translators, version
+    from .routes import auth, config, health, servers, settings, status, tools, translators, version
     
     # Register route modules
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
@@ -244,6 +244,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(status.router, prefix="/api/v1", tags=["status", "composition", "metrics"])
     app.include_router(translators.router, prefix="/api/v1", tags=["translators"])
     app.include_router(version.router, prefix="/api/v1", tags=["version"])
+    app.include_router(settings.router, prefix="/api/v1", tags=["settings"])
     
     # Serve UI static files if available
     ui_dist_path = Path(__file__).parent.parent.parent / "ui" / "dist"

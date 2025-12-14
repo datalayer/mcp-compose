@@ -567,11 +567,23 @@ class MCPServerComposer:
         """Get list of all composed tool names."""
         return list(self.composed_tools.keys())
 
+    def get_tool(self, tool_name: str) -> Optional[Dict[str, Any]]:
+        """Get tool definition by name."""
+        return self.composed_tools.get(tool_name)
+
     def list_prompts(self) -> List[str]:
         """Get list of all composed prompt names."""
         return list(self.composed_prompts.keys())
 
-    def list_resources(self) -> List[str]:
+    def get_prompt(self, prompt_name: str) -> Optional[Dict[str, Any]]:
+        """Get prompt definition by name."""
+        return self.composed_prompts.get(prompt_name)
+
+    def listresource(self, resource_name: str) -> Optional[Dict[str, Any]]:
+        """Get resource definition by name."""
+        return self.composed_resources.get(resource_name)
+
+    def get__resources(self) -> List[str]:
         """Get list of all composed resource names."""
         return list(self.composed_resources.keys())
 

@@ -1,29 +1,84 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../api/client'
 import { useThemeStore } from '../store/theme'
-import { MoonIcon, SunIcon, BellIcon, CheckIcon } from '@primer/octicons-react'
-import { Box, Heading, Text, Button, TextInput, FormControl, Checkbox, Select, Link } from '@primer/react'
+import { MoonIcon, SunIcon, BellIcon, CheckIcon, AlertIcon } from '@primer/octicons-react'
+import { Box, Heading, Text, Button, TextInput, FormControl, Checkbox, Select, Link, Spinner } from '@primer/react'
+
+interface SettingsData {
+  api_endpoint: string
+  refresh_interval: number
+  enable_notifications: boolean
+  enable_sounds: boolean
+  max_log_lines: number
+}
 
 export default function Settings() {
+  const queryClient = useQueryClient()
   const { theme, setTheme } = useThemeStore()
-  const [apiEndpoint, setApiEndpoint] = useState('http://localhost:8000')
+  const [apiEndpoint, setApiEndpoint] = useState('http://localhost:9456')
   const [refreshInterval, setRefreshInterval] = useState(5)
   const [enableNotifications, setEnableNotifications] = useState(true)
   const [enableSounds, setEnableSounds] = useState(false)
   const [maxLogLines, setMaxLogLines] = useState(500)
   const [saved, setSaved] = useState(false)
 
+  // Fetch settings from backend
+  const { data: settings, isLoading, error } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.getSettings().then(res => res.data),
+  })
+
+  // Update settings mutation
+  const updateMutation = useMutation({
+    mutationFn: (data: Partial<SettingsData>) => api.updateSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    },
+  })
+
+  // Load settings into form when data is fetched
+  useEffect(() => {
+    if (settings) {
+      setApiEndpoint(settings.api_endpoint || 'http://localhost:9456')
+      setRefreshInterval(settings.refresh_interval || 5)
+      setEnableNotifications(settings.enable_notifications ?? true)
+      setEnableSounds(settings.enable_sounds ?? false)
+      setMaxLogLines(settings.max_log_lines || 500)
+    }
+  }, [settings])
+
   const handleSave = () => {
-    // In a real app, these would be persisted to localStorage or backend
-    localStorage.setItem('settings', JSON.stringify({
-      apiEndpoint,
-      refreshInterval,
-      enableNotifications,
-      enableSounds,
-      maxLogLines,
-    }))
-    
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    updateMutation.mutate({
+      api_endpoint: apiEndpoint,
+      refresh_interval: refreshInterval,
+      enable_notifications: enableNotifications,
+      enable_sounds: enableSounds,
+      max_log_lines: maxLogLines,
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '384px' }}>
+        <Spinner size="large" />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '384px' }}>
+        <Box style={{ textAlign: 'center' }}>
+          <Box style={{ color: '#cf222e', marginBottom: '16px' }}>
+            <AlertIcon size={48} />
+          </Box>
+          <Text style={{ color: '#cf222e' }}>Failed to load settings</Text>
+        </Box>
+      </Box>
+    )
   }
 
   return (
