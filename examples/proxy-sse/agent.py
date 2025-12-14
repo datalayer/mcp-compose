@@ -95,17 +95,12 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
     agent = Agent(
         model=model_obj,
         toolsets=[mcp_server],
-        system_prompt="""You are a helpful AI assistant with access to Calculator and Echo MCP server tools.
+        system_prompt="""You are a helpful AI assistant with access to MCP server tools provided by the MCP Compose.
 
-The tools are provided by two MCP servers managed by the composer:
-- Calculator server: Math operations (calculator:add, calculator:subtract, calculator:multiply, calculator:divide)
-- Echo server: String operations (echo:ping, echo:echo, echo:reverse, echo:uppercase, echo:lowercase, echo:count_words)
+When the user asks about your tools or capabilities, use the actual tools available to you from the MCP server.
+Do NOT make up or assume tool names - only report tools that are actually available.
 
-Tool names are prefixed with their server name to avoid conflicts.
-
-When the user first connects, greet them and list all the available tools you have access to with a brief description of each.
-
-When users ask you to perform calculations or string operations, use the appropriate tools.
+When users ask you to perform operations, use the appropriate tools.
 Be friendly and explain what you're doing."""
     )
     

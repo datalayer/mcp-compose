@@ -46,15 +46,21 @@ except ImportError:
     sys.exit(1)
 
 
-def get_anaconda_token() -> str | None:
+def get_anaconda_token(auto_login: bool = False) -> str | None:
     """
     Get Anaconda access token.
     
     If MCP_COMPOSE_ANACONDA_TOKEN="fallback", returns None to allow
     the server to use its local anaconda_auth token.
     
+    If no token is found and auto_login is True, initiates the login process via browser.
+    If no token is found and auto_login is False, returns None (no auth header will be sent).
+    
+    Args:
+        auto_login: If True, automatically trigger browser login when no token found.
+    
     Returns:
-        Access token string, or None if fallback mode is enabled
+        Access token string, or None if no token available
     """
     # Check if server is in fallback mode
     fallback_env = os.environ.get("MCP_COMPOSE_ANACONDA_TOKEN", "")
@@ -66,39 +72,58 @@ def get_anaconda_token() -> str | None:
     
     print("\n🔐 Getting Anaconda token...")
     try:
-        import subprocess
+        from anaconda_auth.token import TokenInfo
+        from anaconda_auth import login
         
-        # Use anaconda CLI to get token without triggering any browser flows
-        result = subprocess.run(
-            ["anaconda", "auth", "token"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        # Try to get existing token
+        api_key = None
+        try:
+            token_info = TokenInfo().load()
+            api_key = token_info.api_key if token_info else None
+        except Exception:
+            # No token stored yet, api_key remains None
+            pass
         
-        if result.returncode == 0 and result.stdout.strip():
-            access_token = result.stdout.strip()
+        if api_key:
             print("✅ Using existing Anaconda authentication")
-            return access_token
+            return api_key
         else:
-            print("❌ No Anaconda token found")
-            print("   Please authenticate first: anaconda auth login")
-            print("   Or set MCP_COMPOSE_ANACONDA_TOKEN=fallback to use server-side auth")
-            sys.exit(1)
+            if auto_login:
+                # No token found, initiate login process
+                print("⚠️  No Anaconda token found, initiating login...")
+                print("   A browser window will open for authentication.")
+                login()
+                
+                # Try to get token again after login
+                try:
+                    token_info = TokenInfo().load()
+                    api_key = token_info.api_key if token_info else None
+                except Exception:
+                    api_key = None
+                
+                if api_key:
+                    print("✅ Login successful!")
+                    return api_key
+                else:
+                    print("⚠️  Login did not complete - continuing without authentication")
+                    print("   No Authorization header will be sent")
+                    return None
+            else:
+                print("⚠️  No Anaconda token found - continuing without authentication")
+                print("   To authenticate: anaconda auth login")
+                print("   Or run with --auto-login flag to automatically open browser")
+                return None
         
-    except FileNotFoundError:
-        print("❌ Error: anaconda CLI not found")
-        print("   Install with: pip install anaconda-client")
-        sys.exit(1)
-    except subprocess.TimeoutExpired:
-        print("❌ Error: anaconda auth token command timed out")
-        sys.exit(1)
+    except ImportError:
+        print("⚠️  anaconda-auth not installed - continuing without authentication")
+        print("   Install with: pip install anaconda-auth")
+        return None
     except Exception as e:
-        print(f"❌ Error getting token: {e}")
-        sys.exit(1)
+        print(f"⚠️  Could not get token: {e} - continuing without authentication")
+        return None
 
 
-def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "http://localhost:8080") -> tuple[Agent, str]:
+def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "http://localhost:8080", auto_login: bool = False) -> tuple[Agent, str]:
     """
     Create a pydantic-ai Agent connected to the MCP Compose
     
@@ -106,6 +131,7 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
         model: Model string in format 'provider:model-name' (e.g., 'anthropic:claude-sonnet-4-0', 'openai:gpt-4o')
                For Azure OpenAI, use 'azure-openai:deployment-name'
         server_url: MCP Compose base URL
+        auto_login: If True, automatically trigger browser login when no token found
     
     Returns:
         Tuple of (configured pydantic-ai Agent, access token)
@@ -121,7 +147,7 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
     print("=" * 70)
     
     # Get Anaconda access token (None if fallback mode)
-    access_token = get_anaconda_token()
+    access_token = get_anaconda_token(auto_login=auto_login)
     
     print(f"\n📡 Connecting to MCP Compose: {server_url}/mcp")
     print("   Unified access to Calculator and Echo servers")
@@ -157,17 +183,12 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "
     agent = Agent(
         model=model_obj,
         toolsets=[mcp_server],
-        system_prompt="""You are a helpful AI assistant with access to Calculator and Echo MCP server tools.
+        system_prompt="""You are a helpful AI assistant with access to MCP server tools provided by the MCP Compose.
 
-The tools are provided by two MCP servers managed by the composer:
-- Calculator server: Math operations (calculator:add, calculator:subtract, calculator:multiply, calculator:divide)
-- Echo server: String operations (echo:ping, echo:echo, echo:reverse, echo:uppercase, echo:lowercase, echo:count_words)
+When the user asks about your tools or capabilities, use the actual tools available to you from the MCP server.
+Do NOT make up or assume tool names - only report tools that are actually available.
 
-Tool names are prefixed with their server name to avoid conflicts.
-
-When the user first connects, greet them and list all the available tools you have access to with a brief description of each.
-
-When users ask you to perform calculations or string operations, use the appropriate tools.
+When users ask you to perform operations, use the appropriate tools.
 Be friendly and explain what you're doing."""
     )
     
@@ -183,9 +204,16 @@ def main():
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     
     # Parse command-line arguments
-    model = "anthropic:claude-sonnet-4-0"  # Default model
-    if len(sys.argv) > 1:
-        model = sys.argv[1]
+    import argparse
+    parser = argparse.ArgumentParser(description="MCP Compose Agent with Anaconda authentication")
+    parser.add_argument("model", nargs="?", default="anthropic:claude-sonnet-4-0",
+                        help="Model to use (e.g., 'anthropic:claude-sonnet-4-0', 'openai:gpt-4o', 'azure-openai:gpt-4o-mini')")
+    parser.add_argument("--auto-login", action="store_true",
+                        help="Automatically open browser for Anaconda login if not authenticated")
+    args = parser.parse_args()
+    
+    model = args.model
+    auto_login = args.auto_login
     
     try:
         print("\n" + "=" * 70)
@@ -197,7 +225,7 @@ def main():
         print("\nConnecting to server at http://localhost:8080...")
         
         # Create agent with MCP server connection
-        agent, access_token = create_agent(model=model)
+        agent, access_token = create_agent(model=model, auto_login=auto_login)
         
         # List all available tools from the server using MCP SDK
         async def list_tools(access_token: str | None):
@@ -271,8 +299,32 @@ def main():
         # Launch the CLI interface
         async def _run_cli() -> None:
             assert agent is not None
-            async with agent:
-                await agent.to_cli(prog_name='anaconda-token-agent')
+            try:
+                async with agent:
+                    await agent.to_cli(prog_name='anaconda-token-agent')
+            except BaseExceptionGroup as exc:
+                # Check if this is an authentication error
+                auth_error = False
+                for sub_exc in exc.exceptions:
+                    exc_str = str(sub_exc).lower()
+                    if any(term in exc_str for term in ['401', 'unauthorized', 'authentication', 'forbidden', '403']):
+                        auth_error = True
+                        break
+                
+                if auth_error or access_token is None:
+                    print("\n" + "=" * 70)
+                    print("🔐 AUTHENTICATION REQUIRED")
+                    print("=" * 70)
+                    print("\nThe MCP Compose server requires authentication.")
+                    print("\nTo authenticate:")
+                    print("  1. Run: anaconda auth login")
+                    print("  2. Or use: make agent-auto-login (to auto-open browser)")
+                    print("\nAlternatively, if the server supports fallback mode:")
+                    print("  export MCP_COMPOSE_ANACONDA_TOKEN=fallback")
+                    print("=" * 70)
+                else:
+                    # Re-raise for other errors
+                    raise
 
         asyncio.run(_run_cli())
     

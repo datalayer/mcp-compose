@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, Response
 
-from ..dependencies import get_composer, require_auth
+from ..dependencies import get_composer, get_config, require_auth
 from ..models import (
     CompositionResponse,
     DetailedHealthResponse,
@@ -20,6 +20,7 @@ from ..models import (
 )
 from ...auth import AuthContext
 from ...composer import MCPServerComposer
+from ...config import MCPComposerConfig
 from ...metrics import metrics_collector
 
 router = APIRouter(tags=["status"])
@@ -28,6 +29,7 @@ router = APIRouter(tags=["status"])
 @router.get("/status")
 async def get_status(
     composer: MCPServerComposer = Depends(get_composer),
+    config: MCPComposerConfig = Depends(get_config),
     auth: AuthContext = Depends(require_auth),
 ) -> Dict[str, Any]:
     """
@@ -38,14 +40,30 @@ async def get_status(
     
     Args:
         composer: MCPServerComposer instance.
+        config: MCPComposerConfig instance.
         auth: Authentication context.
     
     Returns:
         Dictionary with composition status information.
     """
     # Count servers by status
-    total_servers = len(composer.config.servers)
-    running_servers = len(composer.discovered_servers)
+    all_servers = []
+    if config.servers:
+        if config.servers.embedded and config.servers.embedded.servers:
+            all_servers.extend(config.servers.embedded.servers)
+        if config.servers.proxied:
+            if config.servers.proxied.stdio:
+                all_servers.extend(config.servers.proxied.stdio)
+            if config.servers.proxied.sse:
+                all_servers.extend(config.servers.proxied.sse)
+            if config.servers.proxied.http:
+                all_servers.extend(config.servers.proxied.http)
+    
+    total_servers = len(all_servers)
+    
+    # Get process info to determine running servers
+    process_info = composer.get_proxied_servers_info() if composer.process_manager else {}
+    running_servers = sum(1 for info in process_info.values() if info.get('state') == 'running')
     stopped_servers = total_servers - running_servers
     
     # Count capabilities
@@ -55,9 +73,20 @@ async def get_status(
     
     # Get server statuses
     server_statuses = {}
-    for server_id in composer.config.servers.keys():
-        if server_id in composer.discovered_servers:
-            server_statuses[server_id] = ServerStatus.RUNNING
+    for server in all_servers:
+        server_id = server.name
+        if server_id in process_info:
+            state = process_info[server_id].get('state', 'stopped')
+            if state == 'running':
+                server_statuses[server_id] = ServerStatus.RUNNING
+            elif state == 'crashed':
+                server_statuses[server_id] = ServerStatus.CRASHED
+            elif state == 'starting':
+                server_statuses[server_id] = ServerStatus.STARTING
+            elif state == 'stopping':
+                server_statuses[server_id] = ServerStatus.STOPPING
+            else:
+                server_statuses[server_id] = ServerStatus.STOPPED
         else:
             server_statuses[server_id] = ServerStatus.STOPPED
     
@@ -82,6 +111,7 @@ async def get_status(
 @router.get("/composition", response_model=CompositionResponse)
 async def get_composition(
     composer: MCPServerComposer = Depends(get_composer),
+    config: MCPComposerConfig = Depends(get_config),
     auth: AuthContext = Depends(require_auth),
 ) -> CompositionResponse:
     """
@@ -92,6 +122,7 @@ async def get_composition(
     
     Args:
         composer: MCPServerComposer instance.
+        config: MCPComposerConfig instance.
         auth: Authentication context.
     
     Returns:
@@ -99,15 +130,44 @@ async def get_composition(
     """
     # Get all servers
     servers: List[ServerInfo] = []
-    for server_id, server_config in composer.config.servers.items():
+    all_servers = []
+    if config.servers:
+        if config.servers.embedded and config.servers.embedded.servers:
+            all_servers.extend(config.servers.embedded.servers)
+        if config.servers.proxied:
+            if config.servers.proxied.stdio:
+                all_servers.extend(config.servers.proxied.stdio)
+            if config.servers.proxied.sse:
+                all_servers.extend(config.servers.proxied.sse)
+            if config.servers.proxied.http:
+                all_servers.extend(config.servers.proxied.http)
+    
+    # Get process info for server states
+    process_info = composer.get_proxied_servers_info() if composer.process_manager else {}
+    
+    for server_config in all_servers:
         # Determine status
-        if server_id in composer.discovered_servers:
-            server_status = ServerStatus.RUNNING
+        server_id = server_config.name
+        if server_id in process_info:
+            state = process_info[server_id].get('state', 'stopped')
+            if state == 'running':
+                server_status = ServerStatus.RUNNING
+            elif state == 'crashed':
+                server_status = ServerStatus.CRASHED
+            elif state in ['starting', 'stopping']:
+                server_status = ServerStatus.STARTING if state == 'starting' else ServerStatus.STOPPING
+            else:
+                server_status = ServerStatus.STOPPED
         else:
             server_status = ServerStatus.STOPPED
         
         # Get server type
-        transport = getattr(server_config.transport, 'value', 'stdio') if hasattr(server_config, 'transport') else 'stdio'
+        if hasattr(server_config, 'url'):
+            transport = 'sse' if hasattr(server_config, 'mode') else 'http'
+        elif hasattr(server_config, 'command'):
+            transport = 'stdio'
+        else:
+            transport = 'embedded'
         
         # Create server info
         server_info = ServerInfo(
@@ -180,16 +240,42 @@ async def get_detailed_health(
     """
     from ...__version__ import __version__
     
-    # Count servers
-    total_servers = len(composer.config.servers)
-    running_servers = len(composer.discovered_servers)
-    failed_servers = 0  # TODO: Track failed servers
+    # Count servers from config
+    all_servers = []
+    if composer.config.servers:
+        if composer.config.servers.embedded and composer.config.servers.embedded.servers:
+            all_servers.extend(composer.config.servers.embedded.servers)
+        if composer.config.servers.proxied:
+            if composer.config.servers.proxied.stdio:
+                all_servers.extend(composer.config.servers.proxied.stdio)
+            if composer.config.servers.proxied.sse:
+                all_servers.extend(composer.config.servers.proxied.sse)
+            if composer.config.servers.proxied.http:
+                all_servers.extend(composer.config.servers.proxied.http)
+    
+    total_servers = len(all_servers)
+    
+    # Get process info to determine running servers
+    process_info = composer.get_proxied_servers_info() if composer.process_manager else {}
+    running_servers = sum(1 for info in process_info.values() if info.get('state') == 'running')
+    failed_servers = sum(1 for info in process_info.values() if info.get('state') == 'crashed')
     
     # Get server statuses
     server_statuses: Dict[str, ServerStatus] = {}
-    for server_id in composer.config.servers.keys():
-        if server_id in composer.discovered_servers:
-            server_statuses[server_id] = ServerStatus.RUNNING
+    for server in all_servers:
+        server_id = server.name
+        if server_id in process_info:
+            state = process_info[server_id].get('state', 'stopped')
+            if state == 'running':
+                server_statuses[server_id] = ServerStatus.RUNNING
+            elif state == 'crashed':
+                server_statuses[server_id] = ServerStatus.CRASHED
+            elif state == 'starting':
+                server_statuses[server_id] = ServerStatus.STARTING
+            elif state == 'stopping':
+                server_statuses[server_id] = ServerStatus.STOPPING
+            else:
+                server_statuses[server_id] = ServerStatus.STOPPED
         else:
             server_statuses[server_id] = ServerStatus.STOPPED
     
@@ -232,8 +318,24 @@ async def get_metrics(
         Dictionary with aggregated metrics.
     """
     # Get basic counts
-    total_servers = len(composer.config.servers)
-    running_servers = len(composer.discovered_servers)
+    all_servers = []
+    if composer.config.servers:
+        if composer.config.servers.embedded and composer.config.servers.embedded.servers:
+            all_servers.extend(composer.config.servers.embedded.servers)
+        if composer.config.servers.proxied:
+            if composer.config.servers.proxied.stdio:
+                all_servers.extend(composer.config.servers.proxied.stdio)
+            if composer.config.servers.proxied.sse:
+                all_servers.extend(composer.config.servers.proxied.sse)
+            if composer.config.servers.proxied.http:
+                all_servers.extend(composer.config.servers.proxied.http)
+    
+    total_servers = len(all_servers)
+    
+    # Get process info to determine running servers
+    process_info = composer.get_proxied_servers_info() if composer.process_manager else {}
+    running_servers = sum(1 for info in process_info.values() if info.get('state') == 'running')
+    
     total_tools = len(composer.list_tools())
     total_prompts = len(composer.list_prompts())
     total_resources = len(composer.list_resources())
@@ -298,8 +400,24 @@ async def get_prometheus_metrics(
         Response with Prometheus metrics in text format.
     """
     # Update metrics before returning
-    total_servers = len(composer.config.servers)
-    running_servers = len(composer.discovered_servers)
+    all_servers = []
+    if composer.config.servers:
+        if composer.config.servers.embedded and composer.config.servers.embedded.servers:
+            all_servers.extend(composer.config.servers.embedded.servers)
+        if composer.config.servers.proxied:
+            if composer.config.servers.proxied.stdio:
+                all_servers.extend(composer.config.servers.proxied.stdio)
+            if composer.config.servers.proxied.sse:
+                all_servers.extend(composer.config.servers.proxied.sse)
+            if composer.config.servers.proxied.http:
+                all_servers.extend(composer.config.servers.proxied.http)
+    
+    total_servers = len(all_servers)
+    
+    # Get process info to determine running servers
+    process_info = composer.get_proxied_servers_info() if composer.process_manager else {}
+    running_servers = sum(1 for info in process_info.values() if info.get('state') == 'running')
+    
     total_tools = len(composer.list_tools())
     total_prompts = len(composer.list_prompts())
     total_resources = len(composer.list_resources())

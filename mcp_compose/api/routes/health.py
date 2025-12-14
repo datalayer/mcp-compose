@@ -59,8 +59,18 @@ async def get_detailed_health(
     """
     from ...__version__ import __version__
     
-    # Get all servers
-    servers = composer.list_servers()
+    # Get all servers from config
+    all_servers = []
+    if composer.config.servers:
+        if composer.config.servers.embedded and composer.config.servers.embedded.servers:
+            all_servers.extend(composer.config.servers.embedded.servers)
+        if composer.config.servers.proxied:
+            if composer.config.servers.proxied.stdio:
+                all_servers.extend(composer.config.servers.proxied.stdio)
+            if composer.config.servers.proxied.sse:
+                all_servers.extend(composer.config.servers.proxied.sse)
+            if composer.config.servers.proxied.http:
+                all_servers.extend(composer.config.servers.proxied.http)
     
     # Count servers by status
     status_counts: Dict[ServerStatus, int] = {
@@ -72,14 +82,30 @@ async def get_detailed_health(
         ServerStatus.UNKNOWN: 0,
     }
     
+    # Get process info
+    process_info = composer.get_proxied_servers_info() if composer.process_manager else {}
+    
     server_statuses = {}
-    for server_id in servers:
-        # Get server status (simplified - in reality would query process manager)
-        # For now, assume servers are running if they exist
-        is_running = True  # composer.get_server_status(server_id)
-        status = ServerStatus.RUNNING if is_running else ServerStatus.STOPPED
-        status_counts[status] += 1
-        server_statuses[server_id] = status
+    for server_config in all_servers:
+        server_id = server_config.name
+        # Determine status from process info
+        if server_id in process_info:
+            state = process_info[server_id].get('state', 'stopped')
+            if state == 'running':
+                server_status = ServerStatus.RUNNING
+            elif state == 'crashed':
+                server_status = ServerStatus.CRASHED
+            elif state == 'starting':
+                server_status = ServerStatus.STARTING
+            elif state == 'stopping':
+                server_status = ServerStatus.STOPPING
+            else:
+                server_status = ServerStatus.STOPPED
+        else:
+            server_status = ServerStatus.STOPPED
+        
+        status_counts[server_status] += 1
+        server_statuses[server_id] = server_status
     
     # Determine overall health
     total_servers = len(servers)

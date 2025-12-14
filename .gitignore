@@ -13,6 +13,7 @@
 **/*.log
 *.pyc
 **/__pycache__
+**/package-lock.json
 
 **/config.json
 

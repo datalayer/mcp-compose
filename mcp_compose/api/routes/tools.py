@@ -56,6 +56,12 @@ async def list_tools(
     Returns:
         ToolListResponse with list of tools and pagination info.
     """
+    # Debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"composed_tools: {list(composer.composed_tools.keys())}")
+    logger.info(f"source_mapping: {composer.source_mapping}")
+    
     # Get all tool IDs
     all_tool_ids = composer.list_tools()
     

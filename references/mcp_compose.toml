@@ -35,6 +35,11 @@ enabled = false
 providers = ["api_key"]
 default_provider = "api_key"
 
+# Basic username/password authentication (for UI login)
+# [authentication.basic]
+# username = "${MCP_USERNAME}"  # or "admin"
+# password = "${MCP_PASSWORD}"  # or "secret"
+
 [authentication.api_key]
 header_name = "X-API-Key"
 keys = ["${MCP_API_KEY_1}", "${MCP_API_KEY_2}"]
@@ -216,6 +221,7 @@ enabled = true
 framework = "react"
 mode = "embedded"
 path = "/ui"
+port = 9456  # Port for UI when mode is 'separate', otherwise uses API port
 # static_dir = "/var/www/mcp-composer/ui"
 features = [
     "server_management",

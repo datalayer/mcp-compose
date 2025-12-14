@@ -26,12 +26,22 @@ dev:
 test: ## run the integration tests
 	hatch test
 
-build:
+build: build-ui ## build Python package (UI is built first)
 	pip install build
 	python -m build .
 
+build-ui: ## build the UI artifacts
+	@echo "Building UI..."
+	cd ui && npm install && npm run build
+	@echo "✓ UI built successfully in ui/dist/"
+
+build-all: build-ui build ## build UI and Python package
+
 clean: ## clean
 	git clean -fdx
+
+clean-ui: ## clean UI build artifacts
+	rm -rf ui/dist ui/node_modules
 
 build-docker: ## build the docker image
 	docker buildx build --platform linux/amd64,linux/arm64 --push -t datalayer/mcp-compose:${VERSION} .
@@ -105,8 +115,8 @@ jupyterlab: ## start jupyterlab for the mcp server
 		--ServerApp.root_dir ./dev/content \
 		--IdentityProvider.token MY_TOKEN
 
-publish-pypi: # publish the pypi package
-	git clean -fdx && \
+publish-pypi: build-ui # publish the pypi package
+	git clean -fdx -e ui/dist -e ui/node_modules && \
 		python -m build
 	@exec echo
 	@exec echo twine upload ./dist/*-py3-none-any.whl

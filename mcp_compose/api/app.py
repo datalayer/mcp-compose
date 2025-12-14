@@ -7,11 +7,13 @@ middleware, and configuration for the REST API server.
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from ..auth import AuthenticationError, InsufficientScopesError
 from ..exceptions import (
@@ -231,9 +233,10 @@ def register_routes(app: FastAPI) -> None:
     Args:
         app: FastAPI application.
     """
-    from .routes import config, health, servers, status, tools, translators, version
+    from .routes import auth, config, health, servers, settings, status, tools, translators, version
     
     # Register route modules
+    app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
     app.include_router(servers.router, prefix="/api/v1", tags=["servers"])
     app.include_router(tools.router, prefix="/api/v1", tags=["tools", "prompts", "resources"])
@@ -241,6 +244,44 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(status.router, prefix="/api/v1", tags=["status", "composition", "metrics"])
     app.include_router(translators.router, prefix="/api/v1", tags=["translators"])
     app.include_router(version.router, prefix="/api/v1", tags=["version"])
+    app.include_router(settings.router, prefix="/api/v1", tags=["settings"])
+    
+    # Serve UI static files if available
+    ui_dist_path = Path(__file__).parent.parent.parent / "ui" / "dist"
+    if ui_dist_path.exists() and ui_dist_path.is_dir():
+        logger.info(f"Serving UI from {ui_dist_path}")
+        
+        from starlette.responses import FileResponse
+        
+        # Serve static assets (js, css, images, etc.)
+        @app.get("/ui/assets/{file_path:path}", include_in_schema=False)
+        async def serve_ui_assets(file_path: str):
+            """Serve UI static assets."""
+            full_path = ui_dist_path / "assets" / file_path
+            if full_path.is_file():
+                return FileResponse(full_path)
+            return {"detail": "Not Found"}
+        
+        # Catch-all route for SPA - serves index.html for all other /ui paths
+        @app.get("/ui/{full_path:path}", include_in_schema=False)
+        async def serve_spa(full_path: str):
+            """Serve index.html for all UI routes to support SPA routing."""
+            # Check if it's a specific file request (like vite.svg)
+            if full_path and not full_path.endswith('/'):
+                file_path = ui_dist_path / full_path
+                if file_path.is_file():
+                    return FileResponse(file_path)
+            # Otherwise serve index.html for SPA routing
+            return FileResponse(ui_dist_path / "index.html")
+        
+        # Root UI path
+        @app.get("/ui", include_in_schema=False)
+        @app.get("/ui/", include_in_schema=False)
+        async def serve_ui_root():
+            """Serve UI root."""
+            return FileResponse(ui_dist_path / "index.html")
+    else:
+        logger.warning(f"UI dist folder not found at {ui_dist_path}")
     
     # Root endpoint
     @app.get("/", include_in_schema=False)

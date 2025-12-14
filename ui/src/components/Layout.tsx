@@ -1,90 +1,138 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Box, NavList, Button, useTheme } from '@primer/react'
 import { 
-  LayoutDashboard, 
-  Server, 
-  Wrench, 
-  FileCode, 
-  ArrowLeftRight,
-  FileText,
-  BarChart3,
-  Settings,
-  Moon,
-  Sun
-} from 'lucide-react'
-import { useThemeStore } from '../store/theme'
+  SunIcon, 
+  MoonIcon,
+  HomeIcon,
+  ServerIcon,
+  ToolsIcon,
+  FileCodeIcon,
+  SyncIcon,
+  FileIcon,
+  GraphIcon,
+  GearIcon,
+  SignOutIcon,
+} from '@primer/octicons-react'
+import { useAuth } from '../store/auth'
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Servers', href: '/servers', icon: Server },
-  { name: 'Tools', href: '/tools', icon: Wrench },
-  { name: 'Configuration', href: '/configuration', icon: FileCode },
-  { name: 'Translators', href: '/translators', icon: ArrowLeftRight },
-  { name: 'Logs', href: '/logs', icon: FileText },
-  { name: 'Metrics', href: '/metrics', icon: BarChart3 },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'Servers', href: '/servers', icon: ServerIcon },
+  { name: 'Tools', href: '/tools', icon: ToolsIcon },
+  { name: 'Configuration', href: '/configuration', icon: FileCodeIcon },
+  { name: 'Translators', href: '/translators', icon: SyncIcon },
+  { name: 'Logs', href: '/logs', icon: FileIcon },
+  { name: 'Metrics', href: '/metrics', icon: GraphIcon },
+  { name: 'Settings', href: '/settings', icon: GearIcon },
 ]
 
 export default function Layout() {
   const location = useLocation()
-  const { theme, toggleTheme } = useThemeStore()
+  const navigate = useNavigate()
+  const { logout } = useAuth()
+  const { colorMode, setColorMode } = useTheme()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
+
+  const toggleTheme = () => {
+    setColorMode(colorMode === 'day' ? 'night' : 'day')
+  }
 
   return (
-    <div className="min-h-screen bg-background">
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border">
+      <Box
+        sx={{
+          width: 256,
+          borderRight: '1px solid',
+          borderColor: 'border.default',
+          bg: 'canvas.subtle',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         {/* Logo */}
-        <div className="flex h-16 items-center justify-between px-6 border-b border-border">
-          <h1 className="text-xl font-bold text-foreground">
-            MCP Composer
-          </h1>
-          <button
+        <Box
+          sx={{
+            p: 3,
+            borderBottom: '1px solid',
+            borderColor: 'border.default',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Box sx={{ fontSize: 2, fontWeight: 'bold' }}>
+            MCP Compose
+          </Box>
+          <Button
             onClick={toggleTheme}
-            className="p-2 rounded-md hover:bg-accent"
+            variant="invisible"
             aria-label="Toggle theme"
+            sx={{ p: 2 }}
           >
-            {theme === 'light' ? (
-              <Moon className="h-5 w-5" />
-            ) : (
-              <Sun className="h-5 w-5" />
-            )}
-          </button>
-        </div>
+            {colorMode === 'day' ? <MoonIcon /> : <SunIcon />}
+          </Button>
+        </Box>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {navigation.map((item) => {
-            const isActive = location.pathname === item.href
-            const Icon = item.icon
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={`
-                  flex items-center px-3 py-2 text-sm font-medium rounded-md
-                  transition-colors
-                  ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-                  }
-                `}
-              >
-                <Icon className="mr-3 h-5 w-5" />
-                {item.name}
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
+        <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+          <NavList>
+            {navigation.map((item) => {
+              const Icon = item.icon
+              const isActive = location.pathname === item.href
+              
+              return (
+                <NavList.Item
+                  key={item.name}
+                  href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navigate(item.href)
+                  }}
+                >
+                  <NavList.LeadingVisual>
+                    <Icon />
+                  </NavList.LeadingVisual>
+                  {item.name}
+                </NavList.Item>
+              )
+            })}
+          </NavList>
+        </Box>
+
+        {/* Logout button */}
+        <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'border.default' }}>
+          <Button
+            onClick={handleLogout}
+            variant="invisible"
+            block
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              color: 'fg.muted',
+              '&:hover': {
+                color: 'fg.default',
+              },
+            }}
+          >
+            <SignOutIcon />
+            <Box sx={{ ml: 2 }}>Sign out</Box>
+          </Button>
+        </Box>
+      </Box>
 
       {/* Main content */}
-      <div className="pl-64">
-        <main className="py-8">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <Outlet />
-          </div>
-        </main>
-      </div>
-    </div>
+      <Box sx={{ flex: 1, overflow: 'auto', bg: 'canvas.default' }}>
+        <Box sx={{ p: 4 }}>
+          <Outlet />
+        </Box>
+      </Box>
+    </Box>
   )
 }
