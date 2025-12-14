@@ -1,7 +1,8 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
 import api from '../api/client'
-import { Search, Wrench, Play, ChevronRight, Loader2, AlertCircle } from 'lucide-react'
+import { SearchIcon, ToolsIcon, PlayIcon, ChevronRightIcon, AlertIcon } from '@primer/octicons-react'
 import { useState } from 'react'
+import { Box, Heading, Text, Button, TextInput, Spinner, Select, FormControl } from '@primer/react'
 
 interface Tool {
   name: string
@@ -78,227 +79,232 @@ export default function Tools() {
   }
 
   return (
-    <div className="space-y-6">
+    <Box>
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Tools</h1>
-        <p className="mt-2 text-muted-foreground">
-          Browse and invoke MCP tools
-        </p>
-      </div>
+      <Box style={{ marginBottom: '24px' }}>
+        <Heading style={{ fontSize: '32px', marginBottom: '8px' }}>Tools</Heading>
+        <Text style={{ color: '#656d76' }}>Browse and invoke MCP tools</Text>
+      </Box>
 
       {/* Filters */}
-      <div className="flex gap-4">
+      <Box style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
         {/* Search */}
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
+        <Box style={{ flex: 1 }}>
+          <TextInput
+            leadingVisual={SearchIcon}
             placeholder="Search tools..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            style={{ width: '100%' }}
           />
-        </div>
+        </Box>
 
         {/* Server Filter */}
-        <select
+        <Select
           value={selectedServer}
           onChange={(e) => {
             setSelectedServer(e.target.value)
             setPage(1)
           }}
-          className="px-4 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
         >
-          <option value="">All Servers</option>
+          <Select.Option value="">All Servers</Select.Option>
           {servers.map((server: any) => (
-            <option key={server.id} value={server.name}>
+            <Select.Option key={server.id} value={server.name}>
               {server.name}
-            </option>
+            </Select.Option>
           ))}
-        </select>
-      </div>
+        </Select>
+      </Box>
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px' }}>
+          <Spinner size="large" />
+        </Box>
       )}
 
       {/* Tools Grid */}
       {!isLoading && (
-        <div className="grid md:grid-cols-2 gap-6">
+        <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
           {/* Tools List */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-foreground">
+          <Box>
+            <Heading style={{ fontSize: '18px', marginBottom: '12px' }}>
               Available Tools ({filteredTools.length})
-            </h2>
+            </Heading>
             
             {filteredTools.length === 0 && (
-              <div className="bg-card border border-border rounded-lg p-6 text-center">
-                <p className="text-muted-foreground">No tools found</p>
-              </div>
+              <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa', textAlign: 'center' }}>
+                <Text style={{ color: '#656d76' }}>No tools found</Text>
+              </Box>
             )}
 
-            <div className="space-y-2">
+            <Box style={{ display: 'grid', gap: '8px' }}>
               {filteredTools.map((tool) => (
-                <button
+                <Box
                   key={tool.name}
                   onClick={() => {
                     setSelectedTool(tool)
                     setToolArgs({})
                     invokeMutation.reset()
                   }}
-                  className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                    selectedTool?.name === tool.name
-                      ? 'bg-primary/10 border-primary'
-                      : 'bg-card border-border hover:border-muted-foreground'
-                  }`}
+                  style={{
+                    padding: '16px',
+                    border: selectedTool?.name === tool.name ? '2px solid #0969da' : '1px solid #d0d7de',
+                    borderRadius: '6px',
+                    backgroundColor: selectedTool?.name === tool.name ? 'rgba(9, 105, 218, 0.1)' : '#f6f8fa',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Wrench className="h-4 w-4 text-muted-foreground" />
-                        <h3 className="font-medium text-foreground">{tool.name}</h3>
-                      </div>
+                  <Box style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <Box style={{ flex: 1 }}>
+                      <Box style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <ToolsIcon size={16} />
+                        <Text style={{ fontWeight: '600' }}>{tool.name}</Text>
+                      </Box>
                       {tool.description && (
-                        <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                        <Text style={{ fontSize: '14px', color: '#656d76', marginTop: '4px', display: 'block' }}>
                           {tool.description}
-                        </p>
+                        </Text>
                       )}
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <Text style={{ fontSize: '12px', color: '#656d76', marginTop: '4px', display: 'block' }}>
                         Server: {tool.server_name}
-                      </p>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                  </div>
-                </button>
+                      </Text>
+                    </Box>
+                    <ChevronRightIcon size={20} />
+                  </Box>
+                </Box>
               ))}
-            </div>
+            </Box>
 
             {/* Pagination */}
             {toolsData?.total && toolsData.total > pageSize && (
-              <div className="flex items-center justify-between pt-4">
-                <button
+              <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px' }}>
+                <Button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-4 py-2 bg-card border border-border rounded-md hover:bg-accent disabled:opacity-50"
+                  size="small"
                 >
                   Previous
-                </button>
-                <span className="text-sm text-muted-foreground">
+                </Button>
+                <Text style={{ fontSize: '14px', color: '#656d76' }}>
                   Page {page} of {Math.ceil(toolsData.total / pageSize)}
-                </span>
-                <button
+                </Text>
+                <Button
                   onClick={() => setPage(p => p + 1)}
                   disabled={page >= Math.ceil(toolsData.total / pageSize)}
-                  className="px-4 py-2 bg-card border border-border rounded-md hover:bg-accent disabled:opacity-50"
+                  size="small"
                 >
                   Next
-                </button>
-              </div>
+                </Button>
+              </Box>
             )}
-          </div>
+          </Box>
 
           {/* Tool Details & Invocation */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-foreground">Tool Details</h2>
+          <Box>
+            <Heading style={{ fontSize: '18px', marginBottom: '12px' }}>Tool Details</Heading>
             
             {!selectedTool && (
-              <div className="bg-card border border-border rounded-lg p-6 text-center">
-                <p className="text-muted-foreground">Select a tool to view details and invoke</p>
-              </div>
+              <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa', textAlign: 'center' }}>
+                <Text style={{ color: '#656d76' }}>Select a tool to view details and invoke</Text>
+              </Box>
             )}
 
             {selectedTool && (
-              <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">{selectedTool.name}</h3>
+              <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+                <Box style={{ marginBottom: '16px' }}>
+                  <Heading style={{ fontSize: '18px', marginBottom: '8px' }}>{selectedTool.name}</Heading>
                   {selectedTool.description && (
-                    <p className="mt-2 text-sm text-muted-foreground">{selectedTool.description}</p>
+                    <Text style={{ fontSize: '14px', color: '#656d76', marginTop: '8px', display: 'block' }}>
+                      {selectedTool.description}
+                    </Text>
                   )}
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <Text style={{ fontSize: '12px', color: '#656d76', marginTop: '8px', display: 'block' }}>
                     Server: {selectedTool.server_name}
-                  </p>
-                </div>
+                  </Text>
+                </Box>
 
                 {/* Input Schema */}
                 {Object.keys(getProperties(selectedTool)).length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-foreground mb-2">Parameters</h4>
-                    <div className="space-y-3">
+                  <Box style={{ marginBottom: '16px' }}>
+                    <Text style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', display: 'block' }}>
+                      Parameters
+                    </Text>
+                    <Box style={{ display: 'grid', gap: '12px' }}>
                       {Object.entries(getProperties(selectedTool)).map(([key, schema]: [string, any]) => (
-                        <div key={key}>
-                          <label className="block text-sm font-medium text-foreground mb-1">
+                        <FormControl key={key}>
+                          <FormControl.Label>
                             {key}
                             {getRequiredFields(selectedTool).includes(key) && (
-                              <span className="text-red-500 ml-1">*</span>
+                              <Text as="span" style={{ color: '#cf222e', marginLeft: '4px' }}>*</Text>
                             )}
-                          </label>
-                          <input
-                            type="text"
+                          </FormControl.Label>
+                          <TextInput
                             value={toolArgs[key] || ''}
                             onChange={(e) => setToolArgs({ ...toolArgs, [key]: e.target.value })}
                             placeholder={schema.description || `Enter ${key}`}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                            style={{ width: '100%' }}
                           />
                           {schema.description && (
-                            <p className="mt-1 text-xs text-muted-foreground">{schema.description}</p>
+                            <FormControl.Caption>{schema.description}</FormControl.Caption>
                           )}
-                        </div>
+                        </FormControl>
                       ))}
-                    </div>
-                  </div>
+                    </Box>
+                  </Box>
                 )}
 
                 {/* Invoke Button */}
-                <button
+                <Button
                   onClick={handleInvokeTool}
                   disabled={invokeMutation.isPending}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                  variant="primary"
+                  leadingVisual={PlayIcon}
+                  style={{ width: '100%', marginBottom: '16px' }}
                 >
-                  {invokeMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Invoking...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4" />
-                      Invoke Tool
-                    </>
-                  )}
-                </button>
+                  {invokeMutation.isPending ? 'Invoking...' : 'Invoke Tool'}
+                </Button>
 
                 {/* Result */}
                 {invokeMutation.isError && (
-                  <div className="p-4 bg-destructive/10 border border-destructive rounded-md">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-destructive">Error</p>
-                        <p className="text-sm text-destructive/80 mt-1">
+                  <Box style={{ padding: '16px', backgroundColor: 'rgba(207, 34, 46, 0.1)', border: '1px solid #cf222e', borderRadius: '6px' }}>
+                    <Box style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <AlertIcon size={20} />
+                      <Box>
+                        <Text style={{ fontWeight: '600', color: '#cf222e', display: 'block' }}>Error</Text>
+                        <Text style={{ fontSize: '14px', color: '#cf222e', marginTop: '4px', display: 'block' }}>
                           {(invokeMutation.error as any)?.response?.data?.message || 'Failed to invoke tool'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                        </Text>
+                      </Box>
+                    </Box>
+                  </Box>
                 )}
 
                 {invokeMutation.isSuccess && (
-                  <div className="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
-                    <p className="font-medium text-green-900 dark:text-green-100 mb-2">Result</p>
-                    <pre className="text-xs text-green-800 dark:text-green-200 overflow-auto">
+                  <Box style={{ padding: '16px', backgroundColor: 'rgba(26, 127, 55, 0.1)', border: '1px solid #1a7f37', borderRadius: '6px' }}>
+                    <Text style={{ fontWeight: '600', color: '#1a7f37', marginBottom: '8px', display: 'block' }}>Result</Text>
+                    <Box
+                      as="pre"
+                      style={{
+                        fontSize: '12px',
+                        color: '#1a7f37',
+                        overflow: 'auto',
+                        backgroundColor: '#ffffff',
+                        padding: '12px',
+                        borderRadius: '6px',
+                        fontFamily: 'monospace',
+                      }}
+                    >
                       {JSON.stringify(invokeMutation.data?.data, null, 2)}
-                    </pre>
-                  </div>
+                    </Box>
+                  </Box>
                 )}
-              </div>
+              </Box>
             )}
-          </div>
-        </div>
+          </Box>
+        </Box>
       )}
-    </div>
+    </Box>
   )
 }

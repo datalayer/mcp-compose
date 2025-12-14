@@ -4,6 +4,7 @@ import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { api } from '../api/client'
 import { GraphIcon, ArrowUpIcon, ArrowDownIcon, ClockIcon, ZapIcon, ServerIcon, AlertIcon } from '@primer/octicons-react'
+import { Box, Heading, Text, Select, FormControl, Spinner } from '@primer/react'
 
 interface MetricsData {
   timestamp: string
@@ -116,13 +117,13 @@ export default function Metrics() {
           type: 'linear',
           x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [
-            { offset: 0, color: 'rgba(59, 130, 246, 0.3)' },
-            { offset: 1, color: 'rgba(59, 130, 246, 0)' }
+            { offset: 0, color: 'rgba(9, 105, 218, 0.3)' },
+            { offset: 1, color: 'rgba(9, 105, 218, 0)' }
           ]
         }
       },
-      lineStyle: { color: '#3b82f6' },
-      itemStyle: { color: '#3b82f6' },
+      lineStyle: { color: '#0969da' },
+      itemStyle: { color: '#0969da' },
       data: metricsHistory.map(m => m.requests)
     }]
   }
@@ -150,7 +151,7 @@ export default function Metrics() {
     series: [{
       name: 'Invocations',
       type: 'bar',
-      itemStyle: { color: '#a855f7' },
+      itemStyle: { color: '#8250df' },
       data: metricsHistory.slice(-20).map(m => m.tools)
     }]
   }
@@ -179,8 +180,8 @@ export default function Metrics() {
       name: 'Latency (ms)',
       type: 'line',
       smooth: true,
-      lineStyle: { color: '#eab308', width: 2 },
-      itemStyle: { color: '#eab308' },
+      lineStyle: { color: '#9a6700', width: 2 },
+      itemStyle: { color: '#9a6700' },
       showSymbol: false,
       data: metricsHistory.slice(-20).map(m => m.latency)
     }]
@@ -212,8 +213,8 @@ export default function Metrics() {
         name: 'CPU %',
         type: 'line',
         smooth: true,
-        lineStyle: { color: '#10b981', width: 2 },
-        itemStyle: { color: '#10b981' },
+        lineStyle: { color: '#1a7f37', width: 2 },
+        itemStyle: { color: '#1a7f37' },
         showSymbol: false,
         data: metricsHistory.map(m => m.cpu)
       },
@@ -221,8 +222,8 @@ export default function Metrics() {
         name: 'Memory %',
         type: 'line',
         smooth: true,
-        lineStyle: { color: '#f59e0b', width: 2 },
-        itemStyle: { color: '#f59e0b' },
+        lineStyle: { color: '#bf8700', width: 2 },
+        itemStyle: { color: '#bf8700' },
         showSymbol: false,
         data: metricsHistory.map(m => m.memory)
       }
@@ -231,196 +232,216 @@ export default function Metrics() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <GraphIcon size={32} className="animate-spin text-muted-foreground" />
-      </div>
+      <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '384px' }}>
+        <Spinner size="large" />
+      </Box>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <Box>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Metrics</h1>
-          <p className="mt-2 text-muted-foreground">
-            System performance and usage statistics
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select
+      <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+        <Box>
+          <Heading style={{ fontSize: '32px', marginBottom: '8px' }}>Metrics</Heading>
+          <Text style={{ color: '#656d76' }}>System performance and usage statistics</Text>
+        </Box>
+        <FormControl>
+          <FormControl.Label visuallyHidden>Time Range</FormControl.Label>
+          <Select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value as '1h' | '6h' | '24h' | '7d')}
-            className="px-4 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            <option value="1h">Last Hour</option>
-            <option value="6h">Last 6 Hours</option>
-            <option value="24h">Last 24 Hours</option>
-            <option value="7d">Last 7 Days</option>
-          </select>
-        </div>
-      </div>
+            <Select.Option value="1h">Last Hour</Select.Option>
+            <Select.Option value="6h">Last 6 Hours</Select.Option>
+            <Select.Option value="24h">Last 24 Hours</Select.Option>
+            <Select.Option value="7d">Last 7 Days</Select.Option>
+          </Select>
+        </FormControl>
+      </Box>
 
       {/* Key Metrics Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Requests</p>
-              <p className="text-3xl font-bold mt-2">{metrics?.http_requests_total || 0}</p>
-              <div className="flex items-center gap-1 mt-2">
+      <Box style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', marginBottom: '24px' }}>
+        <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box>
+              <Text style={{ fontSize: '14px', color: '#656d76', display: 'block' }}>Total Requests</Text>
+              <Text style={{ fontSize: '32px', fontWeight: 'bold', marginTop: '8px', display: 'block' }}>
+                {metrics?.http_requests_total || 0}
+              </Text>
+              <Box style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
                 {requestsTrend.isUp ? (
-                  <ArrowUpIcon size={16} className="text-green-500" />
+                  <ArrowUpIcon size={16} />
                 ) : (
-                  <ArrowDownIcon size={16} className="text-red-500" />
+                  <ArrowDownIcon size={16} />
                 )}
-                <span className={`text-sm ${requestsTrend.isUp ? 'text-green-500' : 'text-red-500'}`}>
+                <Text style={{ fontSize: '14px', color: requestsTrend.isUp ? '#1a7f37' : '#cf222e' }}>
                   {requestsTrend.value.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-            <div className="p-3 bg-blue-500/10 rounded-lg">
-              <GraphIcon size={24} className="text-blue-500" />
-            </div>
-          </div>
-        </div>
+                </Text>
+              </Box>
+            </Box>
+            <Box style={{ padding: '12px', backgroundColor: 'rgba(9, 105, 218, 0.1)', borderRadius: '6px' }}>
+              <GraphIcon size={24} />
+            </Box>
+          </Box>
+        </Box>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Tool Invocations</p>
-              <p className="text-3xl font-bold mt-2">{metrics?.tool_invocations_total || 0}</p>
-              <div className="flex items-center gap-1 mt-2">
+        <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box>
+              <Text style={{ fontSize: '14px', color: '#656d76', display: 'block' }}>Tool Invocations</Text>
+              <Text style={{ fontSize: '32px', fontWeight: 'bold', marginTop: '8px', display: 'block' }}>
+                {metrics?.tool_invocations_total || 0}
+              </Text>
+              <Box style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
                 {toolsTrend.isUp ? (
-                  <ArrowUpIcon size={16} className="text-green-500" />
+                  <ArrowUpIcon size={16} />
                 ) : (
-                  <ArrowDownIcon size={16} className="text-red-500" />
+                  <ArrowDownIcon size={16} />
                 )}
-                <span className={`text-sm ${toolsTrend.isUp ? 'text-green-500' : 'text-red-500'}`}>
+                <Text style={{ fontSize: '14px', color: toolsTrend.isUp ? '#1a7f37' : '#cf222e' }}>
                   {toolsTrend.value.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-            <div className="p-3 bg-purple-500/10 rounded-lg">
-              <ZapIcon size={24} className="text-purple-500" />
-            </div>
-          </div>
-        </div>
+                </Text>
+              </Box>
+            </Box>
+            <Box style={{ padding: '12px', backgroundColor: 'rgba(130, 80, 223, 0.1)', borderRadius: '6px' }}>
+              <ZapIcon size={24} />
+            </Box>
+          </Box>
+        </Box>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Avg Latency</p>
-              <p className="text-3xl font-bold mt-2">{avgLatency.toFixed(0)}ms</p>
-              <p className="text-sm text-muted-foreground mt-2">Response time</p>
-            </div>
-            <div className="p-3 bg-yellow-500/10 rounded-lg">
-              <ClockIcon size={24} className="text-yellow-500" />
-            </div>
-          </div>
-        </div>
+        <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box>
+              <Text style={{ fontSize: '14px', color: '#656d76', display: 'block' }}>Avg Latency</Text>
+              <Text style={{ fontSize: '32px', fontWeight: 'bold', marginTop: '8px', display: 'block' }}>
+                {avgLatency.toFixed(0)}ms
+              </Text>
+              <Text style={{ fontSize: '14px', color: '#656d76', marginTop: '8px', display: 'block' }}>Response time</Text>
+            </Box>
+            <Box style={{ padding: '12px', backgroundColor: 'rgba(154, 103, 0, 0.1)', borderRadius: '6px' }}>
+              <ClockIcon size={24} />
+            </Box>
+          </Box>
+        </Box>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Active Servers</p>
-              <p className="text-3xl font-bold mt-2">{status?.servers_running || 0}</p>
-              <p className="text-sm text-muted-foreground mt-2">
+        <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box>
+              <Text style={{ fontSize: '14px', color: '#656d76', display: 'block' }}>Active Servers</Text>
+              <Text style={{ fontSize: '32px', fontWeight: 'bold', marginTop: '8px', display: 'block' }}>
+                {status?.servers_running || 0}
+              </Text>
+              <Text style={{ fontSize: '14px', color: '#656d76', marginTop: '8px', display: 'block' }}>
                 of {status?.servers_total || 0} total
-              </p>
-            </div>
-            <div className="p-3 bg-green-500/10 rounded-lg">
-              <ServerIcon size={24} className="text-green-500" />
-            </div>
-          </div>
-        </div>
-      </div>
+              </Text>
+            </Box>
+            <Box style={{ padding: '12px', backgroundColor: 'rgba(26, 127, 55, 0.1)', borderRadius: '6px' }}>
+              <ServerIcon size={24} />
+            </Box>
+          </Box>
+        </Box>
+      </Box>
 
       {/* Request Rate Chart */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <h2 className="text-xl font-bold mb-4">Request Rate Over Time</h2>
+      <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa', marginBottom: '24px' }}>
+        <Heading style={{ fontSize: '20px', marginBottom: '16px' }}>Request Rate Over Time</Heading>
         {metricsHistory.length > 0 ? (
           <ReactECharts option={requestRateOption} style={{ height: 300 }} />
         ) : (
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            <div className="text-center">
-              <AlertIcon size={48} className="mx-auto mb-4" />
-              <p>Collecting metrics data...</p>
-            </div>
-          </div>
+          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#656d76' }}>
+            <Box style={{ marginBottom: '16px' }}>
+              <AlertIcon size={48} />
+            </Box>
+            <Text>Collecting metrics data...</Text>
+          </Box>
         )}
-      </div>
+      </Box>
 
       {/* Tool Invocations and Latency */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-xl font-bold mb-4">Tool Invocations</h2>
+      <Box style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', marginBottom: '24px' }}>
+        <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+          <Heading style={{ fontSize: '20px', marginBottom: '16px' }}>Tool Invocations</Heading>
           {metricsHistory.length > 0 ? (
             <ReactECharts option={toolInvocationsOption} style={{ height: 250 }} />
           ) : (
-            <div className="flex items-center justify-center h-[250px] text-muted-foreground">
-              <p>No data available</p>
-            </div>
+            <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '250px', color: '#656d76' }}>
+              <Text>No data available</Text>
+            </Box>
           )}
-        </div>
+        </Box>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-xl font-bold mb-4">Response Latency</h2>
+        <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+          <Heading style={{ fontSize: '20px', marginBottom: '16px' }}>Response Latency</Heading>
           {metricsHistory.length > 0 ? (
             <ReactECharts option={latencyOption} style={{ height: 250 }} />
           ) : (
-            <div className="flex items-center justify-center h-[250px] text-muted-foreground">
-              <p>No data available</p>
-            </div>
+            <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '250px', color: '#656d76' }}>
+              <Text>No data available</Text>
+            </Box>
           )}
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* System Resources */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <h2 className="text-xl font-bold mb-4">System Resources</h2>
+      <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa', marginBottom: '24px' }}>
+        <Heading style={{ fontSize: '20px', marginBottom: '16px' }}>System Resources</Heading>
         {metricsHistory.length > 0 ? (
           <ReactECharts option={resourcesOption} style={{ height: 300 }} />
         ) : (
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            <div className="text-center">
-              <AlertIcon size={48} className="mx-auto mb-4" />
-              <p>Collecting resource metrics...</p>
-            </div>
-          </div>
+          <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '300px', color: '#656d76' }}>
+            <Box style={{ marginBottom: '16px' }}>
+              <AlertIcon size={48} />
+            </Box>
+            <Text>Collecting resource metrics...</Text>
+          </Box>
         )}
-      </div>
+      </Box>
 
       {/* Performance Summary */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h3 className="font-semibold mb-2">Average CPU Usage</h3>
-          <p className="text-3xl font-bold text-green-500">{avgCpu.toFixed(1)}%</p>
-          <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-green-500 transition-all duration-300"
-              style={{ width: `${Math.min(avgCpu, 100)}%` }}
+      <Box style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
+        <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+          <Heading style={{ fontSize: '16px', marginBottom: '8px' }}>Average CPU Usage</Heading>
+          <Text style={{ fontSize: '32px', fontWeight: 'bold', color: '#1a7f37', display: 'block' }}>
+            {avgCpu.toFixed(1)}%
+          </Text>
+          <Box style={{ marginTop: '8px', height: '8px', backgroundColor: '#eaeef2', borderRadius: '9999px', overflow: 'hidden' }}>
+            <Box
+              style={{
+                height: '100%',
+                backgroundColor: '#1a7f37',
+                transition: 'width 0.3s',
+                width: `${Math.min(avgCpu, 100)}%`
+              }}
             />
-          </div>
-        </div>
+          </Box>
+        </Box>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h3 className="font-semibold mb-2">Average Memory Usage</h3>
-          <p className="text-3xl font-bold text-orange-500">{avgMemory.toFixed(1)}%</p>
-          <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-orange-500 transition-all duration-300"
-              style={{ width: `${Math.min(avgMemory, 100)}%` }}
+        <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+          <Heading style={{ fontSize: '16px', marginBottom: '8px' }}>Average Memory Usage</Heading>
+          <Text style={{ fontSize: '32px', fontWeight: 'bold', color: '#bf8700', display: 'block' }}>
+            {avgMemory.toFixed(1)}%
+          </Text>
+          <Box style={{ marginTop: '8px', height: '8px', backgroundColor: '#eaeef2', borderRadius: '9999px', overflow: 'hidden' }}>
+            <Box
+              style={{
+                height: '100%',
+                backgroundColor: '#bf8700',
+                transition: 'width 0.3s',
+                width: `${Math.min(avgMemory, 100)}%`
+              }}
             />
-          </div>
-        </div>
+          </Box>
+        </Box>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h3 className="font-semibold mb-2">Uptime</h3>
-          <p className="text-3xl font-bold text-blue-500">{status?.uptime || '0m'}</p>
-          <p className="text-sm text-muted-foreground mt-2">System running</p>
-        </div>
-      </div>
-    </div>
+        <Box style={{ padding: '24px', border: '1px solid #d0d7de', borderRadius: '6px', backgroundColor: '#f6f8fa' }}>
+          <Heading style={{ fontSize: '16px', marginBottom: '8px' }}>Uptime</Heading>
+          <Text style={{ fontSize: '32px', fontWeight: 'bold', color: '#0969da', display: 'block' }}>
+            {status?.uptime || '0m'}
+          </Text>
+          <Text style={{ fontSize: '14px', color: '#656d76', marginTop: '8px', display: 'block' }}>System running</Text>
+        </Box>
+      </Box>
+    </Box>
   )
 }

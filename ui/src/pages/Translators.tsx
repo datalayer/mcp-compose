@@ -1,7 +1,15 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
-import { Radio, Trash2, Plus, CheckCircle, Loader2, AlertCircle, ArrowRightLeft } from 'lucide-react'
+import { Box, Heading, Text, Button, TextInput, FormControl, Dialog, Spinner } from '@primer/react'
+import { 
+  BroadcastIcon, 
+  TrashIcon, 
+  PlusIcon, 
+  CheckIcon, 
+  AlertIcon,
+  SyncIcon 
+} from '@primer/octicons-react'
 
 type TranslatorType = 'stdio-to-sse' | 'sse-to-stdio'
 
@@ -101,307 +109,409 @@ export default function Translators() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
+      <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '384px' }}>
+        <Spinner size="large" />
+      </Box>
     )
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <p className="text-destructive">Failed to load translators</p>
-        </div>
-      </div>
+      <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '384px' }}>
+        <Box style={{ textAlign: 'center' }}>
+          <Box style={{ color: '#cf222e', marginBottom: '16px' }}>
+            <AlertIcon size={48} />
+          </Box>
+          <Text style={{ color: '#cf222e' }}>Failed to load translators</Text>
+        </Box>
+      </Box>
     )
   }
 
   const translatorList = translators?.translators || []
 
   return (
-    <div className="space-y-6">
+    <Box>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Translators</h1>
-          <p className="mt-2 text-muted-foreground">
+      <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <Box>
+          <Heading style={{ fontSize: '32px', marginBottom: '8px' }}>Translators</Heading>
+          <Text style={{ color: '#656d76' }}>
             Manage protocol translators for MCP servers
-          </p>
-        </div>
-        <button
+          </Text>
+        </Box>
+        <Button 
+          variant="primary"
           onClick={() => setShowAddDialog(true)}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2"
+          leadingVisual={PlusIcon}
         >
-          <Plus className="h-4 w-4" />
           Add Translator
-        </button>
-      </div>
+        </Button>
+      </Box>
 
       {/* Info Banner */}
-      <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <Radio className="h-5 w-5 text-blue-500 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-blue-500">About Protocol Translators</h3>
-            <p className="text-sm text-muted-foreground mt-1">
+      <Box
+        style={{
+          backgroundColor: 'rgba(9, 105, 218, 0.1)',
+          border: '1px solid rgba(9, 105, 218, 0.2)',
+          borderRadius: '6px',
+          padding: '16px',
+          marginBottom: '24px',
+        }}
+      >
+        <Box style={{ display: 'flex', gap: '12px' }}>
+          <Box style={{ color: '#0969da', marginTop: '2px' }}>
+            <BroadcastIcon size={20} />
+          </Box>
+          <Box>
+            <Heading as="h3" style={{ fontSize: '14px', fontWeight: 600, color: '#0969da', marginBottom: '4px' }}>
+              About Protocol Translators
+            </Heading>
+            <Text style={{ fontSize: '13px', color: '#656d76', display: 'block', marginTop: '4px' }}>
               Protocol translators enable communication between different MCP transport protocols:
-            </p>
-            <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
-              <li><strong>STDIO → SSE:</strong> Exposes STDIO servers via Server-Sent Events for web clients</li>
-              <li><strong>SSE → STDIO:</strong> Connects to SSE servers using STDIO interface</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+            </Text>
+            <Box as="ul" style={{ fontSize: '13px', color: '#656d76', marginTop: '8px', paddingLeft: '20px' }}>
+              <li style={{ marginBottom: '4px' }}>
+                <strong>STDIO → SSE:</strong> Exposes STDIO servers via Server-Sent Events for web clients
+              </li>
+              <li>
+                <strong>SSE → STDIO:</strong> Connects to SSE servers using STDIO interface
+              </li>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
 
       {/* Translators List */}
       {translatorList.length > 0 ? (
-        <div className="grid gap-4">
+        <Box style={{ display: 'grid', gap: '16px' }}>
           {translatorList.map((translator: Translator) => (
-            <div
+            <Box
               key={translator.name}
-              className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 transition-colors"
+              style={{
+                border: '1px solid #d0d7de',
+                borderRadius: '6px',
+                padding: '24px',
+              }}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <ArrowRightLeft className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">{translator.name}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
+              <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Box style={{ flex: 1 }}>
+                  <Box style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Box
+                      style={{
+                        padding: '8px',
+                        backgroundColor: 'rgba(9, 105, 218, 0.1)',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      <Box style={{ color: '#0969da' }}>
+                        <SyncIcon size={20} />
+                      </Box>
+                    </Box>
+                    <Box>
+                      <Heading as="h3" style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>
+                        {translator.name}
+                      </Heading>
+                      <Text style={{ fontSize: '13px', color: '#656d76' }}>
                         {translator.type === 'stdio-to-sse' ? 'STDIO → SSE' : 'SSE → STDIO'}
-                      </p>
-                    </div>
-                  </div>
+                      </Text>
+                    </Box>
+                  </Box>
 
-                  <div className="mt-4 space-y-2">
+                  <Box style={{ marginTop: '16px' }}>
                     {translator.type === 'stdio-to-sse' && translator.sse_url && (
-                      <div className="p-3 bg-muted rounded-md">
-                        <p className="text-xs text-muted-foreground">SSE Endpoint</p>
-                        <p className="text-sm font-mono text-foreground mt-1">{translator.sse_url}</p>
-                      </div>
+                      <Box
+                        style={{
+                          padding: '12px',
+                          backgroundColor: '#f6f8fa',
+                          borderRadius: '6px',
+                        }}
+                      >
+                        <Text style={{ fontSize: '11px', color: '#656d76', display: 'block' }}>
+                          SSE Endpoint
+                        </Text>
+                        <Text style={{ fontSize: '13px', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>
+                          {translator.sse_url}
+                        </Text>
+                      </Box>
                     )}
                     {translator.type === 'sse-to-stdio' && translator.command && (
-                      <div className="p-3 bg-muted rounded-md">
-                        <p className="text-xs text-muted-foreground">Command</p>
-                        <p className="text-sm font-mono text-foreground mt-1">
+                      <Box
+                        style={{
+                          padding: '12px',
+                          backgroundColor: '#f6f8fa',
+                          borderRadius: '6px',
+                        }}
+                      >
+                        <Text style={{ fontSize: '11px', color: '#656d76', display: 'block' }}>
+                          Command
+                        </Text>
+                        <Text style={{ fontSize: '13px', fontFamily: 'monospace', display: 'block', marginTop: '4px' }}>
                           {translator.command}
                           {translator.args && translator.args.length > 0 && ` ${translator.args.join(' ')}`}
-                        </p>
-                      </div>
+                        </Text>
+                      </Box>
                     )}
-                  </div>
+                  </Box>
 
                   {translator.created_at && (
-                    <div className="mt-3 text-xs text-muted-foreground">
-                      Created: {new Date(translator.created_at).toLocaleString()}
-                    </div>
+                    <Box style={{ marginTop: '12px' }}>
+                      <Text style={{ fontSize: '11px', color: '#656d76' }}>
+                        Created: {new Date(translator.created_at).toLocaleString()}
+                      </Text>
+                    </Box>
                   )}
-                </div>
+                </Box>
 
-                <button
+                <Button
+                  variant="danger"
                   onClick={() => handleDelete(translator.name)}
                   disabled={deleteMutation.isPending}
-                  className="p-2 hover:bg-destructive/10 text-destructive rounded-md transition-colors disabled:opacity-50 ml-4"
-                  title="Delete translator"
+                  aria-label="Delete translator"
+                  style={{ marginLeft: '16px' }}
                 >
-                  <Trash2 className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
+                  <TrashIcon />
+                </Button>
+              </Box>
+            </Box>
           ))}
-        </div>
+        </Box>
       ) : (
-        <div className="bg-card border border-border rounded-lg p-12">
-          <div className="text-center">
-            <Radio className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No translators configured</h3>
-            <p className="text-muted-foreground mb-6">
+        <Box
+          style={{
+            border: '1px solid #d0d7de',
+            borderRadius: '6px',
+            padding: '48px',
+          }}
+        >
+          <Box style={{ textAlign: 'center' }}>
+            <Box style={{ color: '#656d76', marginBottom: '16px' }}>
+              <BroadcastIcon size={64} />
+            </Box>
+            <Heading as="h3" style={{ fontSize: '18px', marginBottom: '8px' }}>
+              No translators configured
+            </Heading>
+            <Text style={{ color: '#656d76', display: 'block', marginBottom: '24px' }}>
               Create a translator to enable cross-protocol communication
-            </p>
-            <button
+            </Text>
+            <Button
+              variant="primary"
               onClick={() => setShowAddDialog(true)}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
+              leadingVisual={PlusIcon}
             >
-              <Plus className="h-4 w-4" />
               Add Your First Translator
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Box>
+        </Box>
       )}
 
       {/* Add Translator Dialog */}
       {showAddDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Add Protocol Translator</h2>
-            
+        <Dialog
+          isOpen={showAddDialog}
+          onDismiss={resetForm}
+          aria-labelledby="add-translator-title"
+        >
+          <Dialog.Header id="add-translator-title">Add Protocol Translator</Dialog.Header>
+          <Box as="form" onSubmit={handleCreate} style={{ padding: '16px' }}>
             {/* Translator Type Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-3">Translator Type</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
+            <FormControl>
+              <FormControl.Label>Translator Type</FormControl.Label>
+              <Box style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginTop: '12px' }}>
+                <Box
+                  as="button"
                   type="button"
                   onClick={() => setTranslatorType('stdio-to-sse')}
-                  className={`p-4 border-2 rounded-lg transition-all ${
-                    translatorType === 'stdio-to-sse'
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
-                  }`}
+                  style={{
+                    padding: '16px',
+                    border: translatorType === 'stdio-to-sse' ? '2px solid #0969da' : '2px solid #d0d7de',
+                    borderRadius: '6px',
+                    backgroundColor: translatorType === 'stdio-to-sse' ? 'rgba(9, 105, 218, 0.1)' : 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                  }}
                 >
-                  <ArrowRightLeft className="h-6 w-6 mx-auto mb-2" />
-                  <div className="font-semibold text-sm">STDIO → SSE</div>
-                  <div className="text-xs text-muted-foreground mt-1">
+                  <Box style={{ color: '#0969da', marginBottom: '8px' }}>
+                    <SyncIcon size={24} />
+                  </Box>
+                  <Box style={{ fontWeight: 600, fontSize: '13px', marginBottom: '4px' }}>
+                    STDIO → SSE
+                  </Box>
+                  <Text style={{ fontSize: '11px', color: '#656d76' }}>
                     Expose STDIO via SSE
-                  </div>
-                </button>
-                <button
+                  </Text>
+                </Box>
+                <Box
+                  as="button"
                   type="button"
                   onClick={() => setTranslatorType('sse-to-stdio')}
-                  className={`p-4 border-2 rounded-lg transition-all ${
-                    translatorType === 'sse-to-stdio'
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
-                  }`}
+                  style={{
+                    padding: '16px',
+                    border: translatorType === 'sse-to-stdio' ? '2px solid #0969da' : '2px solid #d0d7de',
+                    borderRadius: '6px',
+                    backgroundColor: translatorType === 'sse-to-stdio' ? 'rgba(9, 105, 218, 0.1)' : 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                  }}
                 >
-                  <ArrowRightLeft className="h-6 w-6 mx-auto mb-2 rotate-180" />
-                  <div className="font-semibold text-sm">SSE → STDIO</div>
-                  <div className="text-xs text-muted-foreground mt-1">
+                  <Box style={{ color: '#0969da', marginBottom: '8px', transform: 'rotate(180deg)' }}>
+                    <SyncIcon size={24} />
+                  </Box>
+                  <Box style={{ fontWeight: 600, fontSize: '13px', marginBottom: '4px' }}>
+                    SSE → STDIO
+                  </Box>
+                  <Text style={{ fontSize: '11px', color: '#656d76' }}>
                     Connect to SSE via STDIO
-                  </div>
-                </button>
-              </div>
-            </div>
+                  </Text>
+                </Box>
+              </Box>
+            </FormControl>
 
-            <form onSubmit={handleCreate} className="space-y-4">
+            <Box style={{ marginTop: '16px' }}>
               {translatorType === 'stdio-to-sse' ? (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Translator Name <span className="text-destructive">*</span>
-                    </label>
-                    <input
-                      type="text"
+                  <FormControl required>
+                    <FormControl.Label>
+                      Translator Name <Text style={{ color: '#cf222e' }}>*</Text>
+                    </FormControl.Label>
+                    <TextInput
                       value={stdioName}
                       onChange={(e) => setStdioName(e.target.value)}
                       placeholder="my-translator"
-                      className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                       required
+                      block
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      SSE URL <span className="text-destructive">*</span>
-                    </label>
-                    <input
+                  </FormControl>
+                  <Box style={{ marginTop: '16px' }}>
+                    <FormControl required>
+                    <FormControl.Label>
+                      SSE URL <Text style={{ color: '#cf222e' }}>*</Text>
+                    </FormControl.Label>
+                    <TextInput
                       type="url"
                       value={sseUrl}
                       onChange={(e) => setSseUrl(e.target.value)}
                       placeholder="http://localhost:3001/sse"
-                      className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                       required
+                      block
                     />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      The SSE endpoint to expose the STDIO server through
-                    </p>
-                  </div>
+                      <FormControl.Caption>
+                        The SSE endpoint to expose the STDIO server through
+                      </FormControl.Caption>
+                    </FormControl>
+                  </Box>
                 </>
               ) : (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Translator Name <span className="text-destructive">*</span>
-                    </label>
-                    <input
-                      type="text"
+                  <FormControl required>
+                    <FormControl.Label>
+                      Translator Name <Text style={{ color: '#cf222e' }}>*</Text>
+                    </FormControl.Label>
+                    <TextInput
                       value={sseName}
                       onChange={(e) => setSseName(e.target.value)}
                       placeholder="my-translator"
-                      className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                       required
+                      block
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Command <span className="text-destructive">*</span>
-                    </label>
-                    <input
-                      type="text"
+                  </FormControl>
+                  <Box style={{ marginTop: '16px' }}>
+                    <FormControl required>
+                      <FormControl.Label>
+                        Command <Text style={{ color: '#cf222e' }}>*</Text>
+                      </FormControl.Label>
+                    <TextInput
                       value={command}
                       onChange={(e) => setCommand(e.target.value)}
                       placeholder="python -m mcp_server"
-                      className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                       required
+                      block
                     />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      The command to launch the STDIO process
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Arguments (optional)
-                    </label>
-                    <input
-                      type="text"
+                      <FormControl.Caption>
+                        The command to launch the STDIO process
+                      </FormControl.Caption>
+                    </FormControl>
+                  </Box>
+                  <Box style={{ marginTop: '16px' }}>
+                    <FormControl>
+                    <FormControl.Label>Arguments (optional)</FormControl.Label>
+                    <TextInput
                       value={args}
                       onChange={(e) => setArgs(e.target.value)}
                       placeholder="--port 8080 --debug"
-                      className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                      block
                     />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Space-separated command arguments
-                    </p>
-                  </div>
+                      <FormControl.Caption>
+                        Space-separated command arguments
+                      </FormControl.Caption>
+                    </FormControl>
+                  </Box>
                 </>
               )}
+            </Box>
 
-              {(createStdioToSseMutation.isError || createSseToStdioMutation.isError) && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                  <p className="text-sm text-destructive">
-                    Failed to create translator. Please check your inputs and try again.
-                  </p>
-                </div>
-              )}
+            {(createStdioToSseMutation.isError || createSseToStdioMutation.isError) && (
+              <Box
+                style={{
+                  padding: '12px',
+                  backgroundColor: 'rgba(207, 34, 46, 0.1)',
+                  border: '1px solid rgba(207, 34, 46, 0.2)',
+                  borderRadius: '6px',
+                  marginTop: '16px',
+                }}
+              >
+                <Text style={{ fontSize: '13px', color: '#cf222e' }}>
+                  Failed to create translator. Please check your inputs and try again.
+                </Text>
+              </Box>
+            )}
 
-              <div className="flex justify-end gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 bg-muted rounded-md hover:bg-muted/80 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createStdioToSseMutation.isPending || createSseToStdioMutation.isPending}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-                >
-                  {(createStdioToSseMutation.isPending || createSseToStdioMutation.isPending) ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <Box style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
+              <Button type="button" onClick={resetForm}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={createStdioToSseMutation.isPending || createSseToStdioMutation.isPending}
+              >
+                {(createStdioToSseMutation.isPending || createSseToStdioMutation.isPending) ? (
+                  <>
+                    <Box style={{ display: 'inline-block', marginRight: '8px' }}>
+                      <Spinner size="small" />
+                    </Box>
+                    Creating...
+                  </>
+                ) : (
+                  'Create'
+                )}
+              </Button>
+            </Box>
+          </Box>
+        </Dialog>
       )}
 
       {/* Success Toast */}
       {(createStdioToSseMutation.isSuccess || createSseToStdioMutation.isSuccess) && (
-        <div className="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-right">
-          <CheckCircle className="h-5 w-5" />
-          <span>Translator created successfully!</span>
-        </div>
+        <Box
+          style={{
+            position: 'fixed',
+            bottom: '16px',
+            right: '16px',
+            backgroundColor: '#1a7f37',
+            color: 'white',
+            padding: '12px 16px',
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <CheckIcon size={20} />
+          <Text style={{ color: 'white' }}>Translator created successfully!</Text>
+        </Box>
       )}
-    </div>
+    </Box>
   )
 }
