@@ -74,10 +74,11 @@ packages = ["mcp_compose"]
 [tool.hatch.build.targets.sdist]
 include = [
     "mcp_compose",
-    "ui/dist",
+    "ui",
     "tests",
     "README.md",
     "LICENSE",
+    "hatch_build.py",
 ]
 
 [tool.ruff]

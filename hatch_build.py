@@ -22,26 +22,34 @@ class CustomBuildHook(BuildHookInterface):
             # Check if node_modules exists, if not run npm install
             if not (ui_dir / "node_modules").exists():
                 print("Installing UI dependencies...", file=sys.stderr)
-                subprocess.run(
-                    ["npm", "install"],
-                    cwd=ui_dir,
-                    check=True,
-                    capture_output=True,
-                )
+                try:
+                    subprocess.run(
+                        ["npm", "install"],
+                        cwd=ui_dir,
+                        check=True,
+                    )
+                except subprocess.CalledProcessError as e:
+                    print(f"✗ npm install failed with exit code {e.returncode}", file=sys.stderr)
+                    print("Make sure Node.js and npm are installed and accessible", file=sys.stderr)
+                    sys.exit(1)
+                except FileNotFoundError:
+                    print("✗ npm not found. Please install Node.js and npm first", file=sys.stderr)
+                    sys.exit(1)
             
             # Build the UI
-            result = subprocess.run(
-                ["npm", "run", "build"],
-                cwd=ui_dir,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            
-            if result.returncode == 0:
+            print("Running npm build...", file=sys.stderr)
+            try:
+                subprocess.run(
+                    ["npm", "run", "build"],
+                    cwd=ui_dir,
+                    check=True,
+                )
                 print("✓ UI built successfully", file=sys.stderr)
-            else:
-                print(f"✗ UI build failed: {result.stderr}", file=sys.stderr)
+            except subprocess.CalledProcessError as e:
+                print(f"✗ npm build failed with exit code {e.returncode}", file=sys.stderr)
+                sys.exit(1)
+            except FileNotFoundError:
+                print("✗ npm not found. Please install Node.js and npm first", file=sys.stderr)
                 sys.exit(1)
         else:
             print("✓ UI already built, skipping build step", file=sys.stderr)
