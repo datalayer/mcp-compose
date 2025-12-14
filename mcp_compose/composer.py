@@ -579,13 +579,13 @@ class MCPServerComposer:
         """Get prompt definition by name."""
         return self.composed_prompts.get(prompt_name)
 
-    def listresource(self, resource_name: str) -> Optional[Dict[str, Any]]:
-        """Get resource definition by name."""
-        return self.composed_resources.get(resource_name)
-
-    def get__resources(self) -> List[str]:
+    def list_resources(self) -> List[str]:
         """Get list of all composed resource names."""
         return list(self.composed_resources.keys())
+
+    def get_resource(self, resource_name: str) -> Optional[Dict[str, Any]]:
+        """Get resource definition by name."""
+        return self.composed_resources.get(resource_name)
 
     def get_tool_source(self, tool_name: str) -> Optional[str]:
         """Get the source server name for a specific tool."""

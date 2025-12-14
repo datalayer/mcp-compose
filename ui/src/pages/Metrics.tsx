@@ -5,6 +5,7 @@ import type { EChartsOption } from 'echarts'
 import { api } from '../api/client'
 import { GraphIcon, ArrowUpIcon, ArrowDownIcon, ClockIcon, ZapIcon, ServerIcon, AlertIcon } from '@primer/octicons-react'
 import { Box, Heading, Text, Select, FormControl, Spinner } from '@primer/react'
+import DemoBanner from '../components/DemoBanner'
 
 interface MetricsData {
   timestamp: string

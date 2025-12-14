@@ -10,6 +10,7 @@ import {
   AlertIcon,
   SyncIcon 
 } from '@primer/octicons-react'
+import DemoBanner from '../components/DemoBanner'
 
 type TranslatorType = 'stdio-to-sse' | 'sse-to-stdio'
 

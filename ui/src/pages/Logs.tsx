@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
-import { SearchIcon, DownloadIcon, TrashIcon, TerminalIcon, AlertIcon } from '@primer/octicons-react'
+import { SearchIcon, DownloadIcon, TrashIcon, TerminalIcon } from '@primer/octicons-react'
 import { Box, Heading, Text, Button, TextInput, Select, Checkbox, FormControl } from '@primer/react'
+import DemoBanner from '../components/DemoBanner'
 
 interface LogEntry {
   timestamp: string
@@ -17,49 +18,75 @@ export default function Logs() {
   const [serverFilter, setServerFilter] = useState<string>('ALL')
   const [autoScroll, setAutoScroll] = useState(true)
   const [maxLines, setMaxLines] = useState<number>(500)
+  const [logs, setLogs] = useState<LogEntry[]>([])
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
+  const eventSourcesRef = useRef<Map<string, EventSource>>(new Map())
 
-  const { data: servers } = useQuery({
+  const { data: serversData } = useQuery({
     queryKey: ['servers'],
     queryFn: () => api.listServers().then(res => res.data),
+    refetchInterval: 5000,
   })
 
-  const [logs, setLogs] = useState<LogEntry[]>([
-    { timestamp: new Date().toISOString(), level: 'INFO', server: 'filesystem', message: 'Server started successfully' },
-    { timestamp: new Date().toISOString(), level: 'INFO', server: 'calculator', message: 'Initializing calculator tools' },
-    { timestamp: new Date().toISOString(), level: 'DEBUG', server: 'filesystem', message: 'Loading file system configuration' },
-    { timestamp: new Date().toISOString(), level: 'WARNING', server: 'calculator', message: 'Deprecated function called' },
-  ])
+  const servers = serversData?.servers || []
 
+  // Stream logs from all running servers
   useEffect(() => {
-    const interval = setInterval(() => {
-      const levels: LogEntry['level'][] = ['DEBUG', 'INFO', 'WARNING', 'ERROR']
-      const messages = [
-        'Processing request',
-        'Tool invoked successfully',
-        'Configuration updated',
-        'Health check passed',
-        'Connection established',
-        'Cache cleared',
-        'Request completed in 45ms',
-      ]
-      const serverList = servers?.servers?.map((s: any) => s.name) || ['filesystem', 'calculator']
-      
-      const newLog: LogEntry = {
-        timestamp: new Date().toISOString(),
-        level: levels[Math.floor(Math.random() * levels.length)],
-        server: serverList[Math.floor(Math.random() * serverList.length)],
-        message: messages[Math.floor(Math.random() * messages.length)],
+    const baseUrl = import.meta.env.VITE_API_URL || '/api/v1'
+    const runningServers = servers.filter((s: any) => s.status === 'running')
+    
+    // Close connections for servers that are no longer running
+    eventSourcesRef.current.forEach((eventSource, serverId) => {
+      if (!runningServers.find((s: any) => s.id === serverId)) {
+        eventSource.close()
+        eventSourcesRef.current.delete(serverId)
       }
-      
-      setLogs(prev => {
-        const updated = [...prev, newLog]
-        return updated.slice(-maxLines)
-      })
-    }, 2000)
+    })
 
-    return () => clearInterval(interval)
+    // Open connections for running servers
+    runningServers.forEach((server: any) => {
+      if (eventSourcesRef.current.has(server.id)) {
+        return // Already connected
+      }
+
+      const eventSource = new EventSource(`${baseUrl}/servers/${encodeURIComponent(server.id)}/logs`)
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const logData = JSON.parse(event.data)
+          const newLog: LogEntry = {
+            timestamp: logData.timestamp || new Date().toISOString(),
+            level: logData.level || 'INFO',
+            server: server.name || server.id,
+            message: logData.message || '',
+          }
+          
+          setLogs(prev => {
+            const updated = [...prev, newLog]
+            return updated.slice(-maxLines)
+          })
+        } catch (e) {
+          console.error('Failed to parse log:', e)
+        }
+      }
+
+      eventSource.onerror = (error) => {
+        console.error(`Log stream error for ${server.id}:`, error)
+        eventSource.close()
+        eventSourcesRef.current.delete(server.id)
+      }
+
+      eventSourcesRef.current.set(server.id, eventSource)
+    })
+
+    // Cleanup on unmount
+    return () => {
+      eventSourcesRef.current.forEach((eventSource) => {
+        eventSource.close()
+      })
+      eventSourcesRef.current.clear()
+    }
   }, [servers, maxLines])
 
   useEffect(() => {
@@ -94,7 +121,7 @@ export default function Logs() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `logs-${new Date().toISOString()}.txt`
+    a.download = `mcp-compose-logs-${new Date().toISOString()}.txt`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -110,23 +137,14 @@ export default function Logs() {
     }
   }
 
-  const getLevelBg = (level: LogEntry['level']) => {
-    switch (level) {
-      case 'DEBUG': return '#f6f8fa'
-      case 'INFO': return '#ddf4ff'
-      case 'WARNING': return '#fff8c5'
-      case 'ERROR': return '#ffebe9'
-      case 'CRITICAL': return '#ffdddb'
-      default: return '#f6f8fa'
-    }
-  }
-
   return (
     <Box>
+      <DemoBanner message="Log streaming displays demo data. Real server logs will be available when stderr/stdout streaming is implemented in the backend." />
+      
       <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <Box>
           <Heading style={{ fontSize: '32px', marginBottom: '8px' }}>Logs</Heading>
-          <Text style={{ color: '#656d76' }}>Real-time system and server logs</Text>
+          <Text style={{ color: '#656d76' }}>Real-time server logs from all running MCP servers</Text>
         </Box>
         <Box style={{ display: 'flex', gap: '8px' }}>
           <Button onClick={downloadLogs} leadingVisual={DownloadIcon}>
@@ -172,7 +190,7 @@ export default function Logs() {
               onChange={(e) => setServerFilter(e.target.value)}
             >
               <Select.Option value="ALL">All Servers</Select.Option>
-              {servers?.servers?.map((server: any) => (
+              {servers.map((server: any) => (
                 <Select.Option key={server.id} value={server.name}>{server.name}</Select.Option>
               ))}
             </Select>
@@ -233,7 +251,7 @@ export default function Logs() {
             <Text style={{ fontFamily: 'monospace', fontSize: '14px' }}>Console Output</Text>
           </Box>
           <Text style={{ fontSize: '14px', color: '#656d76' }}>
-            {filteredLogs.length} / {logs.length} lines
+            {filteredLogs.length} / {logs.length} lines ({servers.filter((s: any) => s.status === 'running').length} servers streaming)
           </Text>
         </Box>
         
@@ -242,32 +260,34 @@ export default function Logs() {
           style={{
             height: '600px',
             overflowY: 'auto',
-            backgroundColor: '#f6f8fa',
+            backgroundColor: '#0d1117',
             padding: '16px',
             fontFamily: 'monospace',
             fontSize: '12px',
           }}
         >
           {filteredLogs.length === 0 ? (
-            <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#656d76' }}>
+            <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#7d8590' }}>
               <Box style={{ marginBottom: '16px' }}>
-                <AlertIcon size={48} />
+                <TerminalIcon size={48} />
               </Box>
-              <Text>No logs to display</Text>
-              <Text style={{ fontSize: '12px', marginTop: '8px' }}>Logs will appear here as they are generated</Text>
+              <Text style={{ color: '#c9d1d9' }}>No logs to display</Text>
+              <Text style={{ fontSize: '12px', marginTop: '8px' }}>
+                {servers.filter((s: any) => s.status === 'running').length > 0 
+                  ? 'Waiting for logs from running servers...' 
+                  : 'Start a server to see logs'}
+              </Text>
             </Box>
           ) : (
             filteredLogs.map((log, index) => (
               <Box
                 key={index}
                 style={{
-                  padding: '4px 8px',
-                  borderRadius: '3px',
-                  marginBottom: '4px',
-                  backgroundColor: getLevelBg(log.level),
+                  padding: '2px 0',
+                  marginBottom: '2px',
                 }}
               >
-                <Text as="span" style={{ color: '#656d76' }}>
+                <Text as="span" style={{ color: '#7d8590' }}>
                   {new Date(log.timestamp).toLocaleTimeString()}
                 </Text>
                 {' '}
@@ -277,11 +297,11 @@ export default function Logs() {
                 {log.server && (
                   <>
                     {' '}
-                    <Text as="span" style={{ color: '#8250df' }}>[{log.server}]</Text>
+                    <Text as="span" style={{ color: '#a371f7' }}>[{log.server}]</Text>
                   </>
                 )}
                 {' '}
-                <Text as="span">{log.message}</Text>
+                <Text as="span" style={{ color: '#c9d1d9' }}>{log.message}</Text>
               </Box>
             ))
           )}
