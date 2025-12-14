@@ -133,6 +133,8 @@ export default function Translators() {
 
   return (
     <Box>
+      <DemoBanner message="Translator management is fully functional. You can add, configure, and monitor protocol translators for your MCP servers." />
+      
       {/* Header */}
       <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <Box>

@@ -241,6 +241,8 @@ export default function Metrics() {
 
   return (
     <Box>
+      <DemoBanner message="Metrics currently display demo data for visualization purposes. Real server metrics will be available when backend telemetry is integrated." />
+      
       {/* Header */}
       <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <Box>
