@@ -27,6 +27,13 @@ from .oauth_client import (
     get_github_token,
     get_anaconda_token,
 )
+from .otel import (
+    instrument_mcp_compose,
+    uninstrument_mcp_compose,
+    get_server_tracer,
+    create_traced_tool_proxy,
+    trace_server_startup,
+)
 
 __all__ = [
     "MCPServerComposer",
@@ -46,5 +53,10 @@ __all__ = [
     "get_oauth_client",
     "get_github_token",
     "get_anaconda_token",
+    "instrument_mcp_compose",
+    "uninstrument_mcp_compose",
+    "get_server_tracer",
+    "create_traced_tool_proxy",
+    "trace_server_startup",
     "__version__",
 ]

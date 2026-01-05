@@ -8,9 +8,10 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from .composer import ConflictResolution, MCPServerComposer
 from .config_loader import load_config, find_config_file
@@ -29,6 +30,74 @@ def setup_logging(verbose: bool = False) -> None:
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+
+
+def setup_otel_tracing(service_name: str = "mcp-compose", out=sys.stderr) -> Optional[Any]:
+    """
+    Set up OpenTelemetry tracing for the mcp-compose server.
+    
+    Reads configuration from environment variables:
+        DATALAYER_LOGFIRE_TOKEN   - Logfire write token (required for tracing)
+        DATALAYER_LOGFIRE_PROJECT - Logfire project name (for display)
+        DATALAYER_LOGFIRE_URL     - Logfire URL (default: https://logfire-us.pydantic.dev)
+    
+    Args:
+        service_name: Name of the service for tracing
+        out: Output stream for status messages (stderr for STDIO mode)
+    
+    Returns:
+        TracerProvider if tracing is enabled, None otherwise
+    """
+    token = os.environ.get("DATALAYER_LOGFIRE_TOKEN")
+    if not token:
+        return None
+    
+    project = os.environ.get("DATALAYER_LOGFIRE_PROJECT", "starter-project")
+    url = os.environ.get("DATALAYER_LOGFIRE_URL", "https://logfire-us.pydantic.dev")
+    
+    try:
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk.resources import Resource
+        from .otel import instrument_mcp_compose, get_server_tracer
+        
+        print(f"\n📊 OpenTelemetry tracing enabled", file=out)
+        
+        # Create resource with service information
+        resource = Resource.create({
+            "service.name": service_name,
+            "service.version": "1.0.0",
+        })
+        
+        # Create tracer provider
+        provider = TracerProvider(resource=resource)
+        
+        # Configure OTLP exporter for Logfire
+        exporter = OTLPSpanExporter(
+            endpoint=f"{url}/v1/traces",
+            headers={"Authorization": token},
+        )
+        provider.add_span_processor(BatchSpanProcessor(exporter))
+        
+        # Set as global tracer provider
+        trace.set_tracer_provider(provider)
+        
+        # Instrument mcp-compose
+        instrument_mcp_compose(tracer_provider=provider)
+        
+        print(f"   Traces: {url}/datalayer/{project}", file=out)
+        print(file=out)
+        
+        return provider
+        
+    except ImportError:
+        logger.debug("OpenTelemetry not available, tracing disabled")
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to setup OpenTelemetry: {e}")
+        return None
 
 
 def compose_command(args: argparse.Namespace) -> int:
@@ -288,6 +357,9 @@ async def run_server(config, args: argparse.Namespace) -> int:
     # In STDIO mode, all status output MUST go to stderr
     # Only JSON-RPC messages should go to stdout
     out = sys.stderr if transport_mode == "stdio" else sys.stdout
+    
+    # Setup OpenTelemetry tracing if configured via environment variables
+    otel_provider = setup_otel_tracing(service_name=config.composer.name, out=out)
     
     import uvicorn
     
@@ -1074,6 +1146,11 @@ async def run_server(config, args: argparse.Namespace) -> int:
         # Clean shutdown
         await process_manager.stop()
         print("✓ All servers stopped", file=out)
+        
+        # Flush OTEL traces before exit
+        if otel_provider is not None:
+            otel_provider.force_flush()
+            print("✓ OpenTelemetry traces flushed", file=out)
 
 
 def create_parser() -> argparse.ArgumentParser:
