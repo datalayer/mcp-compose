@@ -97,8 +97,12 @@ def instrument_mcp_compose(
     
     # Get tracer provider
     if logfire_instance is not None:
-        # Use Logfire's tracer provider
-        tracer_provider = logfire_instance.config.get_tracer_provider()
+        # Use Logfire's tracer provider - try different API versions
+        if hasattr(logfire_instance, 'config') and hasattr(logfire_instance.config, 'get_tracer_provider'):
+            tracer_provider = logfire_instance.config.get_tracer_provider()
+        else:
+            # Logfire configures the global tracer provider, so use that
+            tracer_provider = trace.get_tracer_provider()
     elif tracer_provider is None:
         # Use global tracer provider
         tracer_provider = trace.get_tracer_provider()

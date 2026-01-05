@@ -57,13 +57,20 @@ def setup_otel_tracing(service_name: str = "mcp-compose", out=sys.stderr) -> Opt
     
     try:
         from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         from opentelemetry.sdk.resources import Resource
-        from .otel import instrument_mcp_compose, get_server_tracer
+        from .otel import instrument_mcp_compose
         
         print(f"\n📊 OpenTelemetry tracing enabled", file=out)
+        print(f"   Endpoint: {url}/v1/traces", file=out)
+        
+        # Configure exporter with endpoint and token (matching working examples)
+        exporter = OTLPSpanExporter(
+            endpoint=f'{url}/v1/traces',
+            headers={'Authorization': token},
+        )
         
         # Create resource with service information
         resource = Resource.create({
@@ -71,21 +78,25 @@ def setup_otel_tracing(service_name: str = "mcp-compose", out=sys.stderr) -> Opt
             "service.version": "1.0.0",
         })
         
-        # Create tracer provider
+        # Setup tracer provider (matching working examples pattern)
+        span_processor = BatchSpanProcessor(exporter)
         provider = TracerProvider(resource=resource)
+        provider.add_span_processor(span_processor)
         
-        # Configure OTLP exporter for Logfire
-        exporter = OTLPSpanExporter(
-            endpoint=f"{url}/v1/traces",
-            headers={"Authorization": token},
-        )
-        provider.add_span_processor(BatchSpanProcessor(exporter))
-        
-        # Set as global tracer provider
+        # Set as global tracer provider (required for instrument_mcp_compose)
         trace.set_tracer_provider(provider)
         
-        # Instrument mcp-compose
+        # Instrument mcp-compose classes to create spans on operations
         instrument_mcp_compose(tracer_provider=provider)
+        
+        # Get tracer and create a startup span
+        tracer = provider.get_tracer('mcp-compose')
+        span = tracer.start_span('mcp-compose.startup')
+        span.set_attribute("service.name", service_name)
+        span.end()
+        
+        # Flush to send the startup span
+        provider.force_flush()
         
         print(f"   Traces: {url}/datalayer/{project}", file=out)
         print(file=out)

@@ -1,4 +1,4 @@
-.PHONY: help install agent clean serve
+.PHONY: help install agent clean serve otel-example otel-simple
 
 # Default target
 help:
@@ -7,9 +7,10 @@ help:
 	@echo "Available targets:"
 	@echo "  install        - Install mcp-compose with otel dependencies"
 	@echo "  install-agent  - Install pydantic-ai for agent support"
-	@echo "  serve          - Run mcp-compose server with OpenTelemetry tracing"
+	@echo "  otel-example   - Run mcp-compose server with OpenTelemetry tracing (recommended)"
+	@echo "  serve          - Alias for otel-example"
 	@echo "  agent          - Run the AI agent with OpenTelemetry tracing"
-	@echo "  otel-example   - Run a simple OpenTelemetry tracing example"
+	@echo "  otel-simple    - Run a simple OpenTelemetry tracing example (exits immediately)"
 	@echo "  clean          - Clean up temporary files"
 	@echo ""
 	@echo "Required environment variables:"
@@ -41,7 +42,10 @@ install-agent:
 	@echo "✓ pydantic-ai installed!"
 
 # Run mcp-compose server with OpenTelemetry tracing
-serve:
+serve: otel-example
+
+# Run mcp-compose server with OpenTelemetry tracing (main example)
+otel-example:
 	@echo "Starting mcp-compose server with OpenTelemetry instrumentation..."
 	@echo ""
 	@if [ -z "$$DATALAYER_LOGFIRE_TOKEN" ]; then \
@@ -49,7 +53,7 @@ serve:
 		echo "   Traces will not be sent to Logfire"; \
 		echo ""; \
 	fi
-	mcp-compose serve -f mcp_compose.toml --transport streamable-http --port 8000
+	mcp-compose serve -c mcp_compose.toml --transport streamable-http --port 8000
 
 # Run the agent with OpenTelemetry tracing
 agent:
@@ -62,9 +66,9 @@ agent:
 	fi
 	python agent.py
 
-# Run simple OpenTelemetry example
-otel-example:
-	@echo "Running OpenTelemetry example..."
+# Run simple OpenTelemetry example (exits immediately)
+otel-simple:
+	@echo "Running simple OpenTelemetry example..."
 	@echo ""
 	@if [ -z "$$DATALAYER_LOGFIRE_TOKEN" ]; then \
 		echo "❌ Error: DATALAYER_LOGFIRE_TOKEN not set"; \

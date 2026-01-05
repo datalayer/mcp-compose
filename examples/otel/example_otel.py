@@ -2,7 +2,7 @@
 Example demonstrating OpenTelemetry instrumentation with mcp-compose.
 
 This example shows how to instrument mcp-compose to send traces to Logfire
-or any OpenTelemetry-compatible backend.
+using the OpenTelemetry SDK directly (no interactive prompts).
 
 Required environment variables:
     export DATALAYER_LOGFIRE_TOKEN="your-write-token"
@@ -23,26 +23,8 @@ LOGFIRE_PROJECT = os.environ.get("DATALAYER_LOGFIRE_PROJECT", "starter-project")
 LOGFIRE_URL = os.environ.get("DATALAYER_LOGFIRE_URL", "https://logfire-us.pydantic.dev")
 
 
-# Option 1: Using Logfire
-def setup_with_logfire():
-    """Setup instrumentation using Logfire."""
-    import logfire
-    from mcp_compose import instrument_mcp_compose
-    
-    # Configure Logfire (reads token from env or config)
-    logfire.configure(
-        service_name="mcp-compose-example",
-    )
-    
-    # Instrument mcp-compose
-    instrument_mcp_compose(logfire)
-    
-    return logfire
-
-
-# Option 2: Using plain OpenTelemetry SDK
-def setup_with_otel():
-    """Setup instrumentation using plain OpenTelemetry."""
+def setup_otel():
+    """Setup OpenTelemetry instrumentation for mcp-compose."""
     from opentelemetry import trace
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -51,7 +33,10 @@ def setup_with_otel():
     from mcp_compose import instrument_mcp_compose
     
     if not LOGFIRE_TOKEN:
-        raise ValueError("DATALAYER_LOGFIRE_TOKEN environment variable is required")
+        raise ValueError(
+            "DATALAYER_LOGFIRE_TOKEN environment variable is required.\n"
+            "Get a write token from: https://logfire-us.pydantic.dev/datalayer/starter-project/settings/write-tokens"
+        )
     
     # Create resource with service information
     resource = Resource.create({
@@ -75,50 +60,51 @@ def setup_with_otel():
     # Instrument mcp-compose
     instrument_mcp_compose(tracer_provider=provider)
     
-    return provider
+    print(f"✓ OpenTelemetry configured")
+    print(f"  Traces: {LOGFIRE_URL}/datalayer/{LOGFIRE_PROJECT}")
+    
+    return provider, trace.get_tracer("mcp-compose-example")
 
 
-async def example_composition():
+async def example_composition(tracer):
     """Example showing mcp-compose operations being traced."""
     from mcp_compose import MCPServerComposer, ConflictResolution
     
-    # Create a composer - operations will be automatically traced
-    composer = MCPServerComposer(
-        composed_server_name="traced-example",
-        conflict_resolution=ConflictResolution.PREFIX,
-    )
-    
-    print(f"Created composer: {composer.composed_server_name}")
-    print(f"Tools composed: {len(composer.composed_tools)}")
+    # Create a span for the example
+    with tracer.start_as_current_span("example_composition") as span:
+        span.set_attribute("example.name", "mcp-compose-otel-demo")
+        
+        # Create a composer - operations will be automatically traced
+        composer = MCPServerComposer(
+            composed_server_name="traced-example",
+            conflict_resolution=ConflictResolution.PREFIX,
+        )
+        
+        span.set_attribute("composer.name", composer.composed_server_name)
+        span.set_attribute("composer.tools_count", len(composer.composed_tools))
+        
+        print(f"\nCreated composer: {composer.composed_server_name}")
+        print(f"Tools composed: {len(composer.composed_tools)}")
     
     return composer
 
 
 async def main():
     """Main entry point."""
+    print("OpenTelemetry Example for mcp-compose\n")
     
-    # Choose instrumentation method based on available packages
-    try:
-        import logfire
-        print("Using Logfire for instrumentation")
-        tracer = setup_with_logfire()
+    # Setup OpenTelemetry
+    provider, tracer = setup_otel()
+    
+    # Create a root span for the entire example
+    with tracer.start_as_current_span("mcp-compose-example") as root_span:
+        root_span.set_attribute("example.type", "otel-demo")
         
-        # Run example with Logfire span
-        with logfire.span("mcp-compose example"):
-            await example_composition()
-            
-        # Force flush to ensure spans are sent
-        tracer.force_flush()
-        
-    except ImportError:
-        print("Logfire not available, using plain OpenTelemetry")
-        provider = setup_with_otel()
-        
-        # Run example
-        await example_composition()
-        
-        # Force flush
-        provider.force_flush()
+        # Run the example composition
+        await example_composition(tracer)
+    
+    # Force flush to ensure all spans are sent
+    provider.force_flush()
     
     print("\n✓ Example complete!")
     print(f"View traces at: {LOGFIRE_URL}/datalayer/{LOGFIRE_PROJECT}")
