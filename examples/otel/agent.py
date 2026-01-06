@@ -116,6 +116,7 @@ def create_agent(model: str = "anthropic:claude-sonnet-4-0") -> Agent:
     mcp_server = MCPServerStdio(
         'mcp-compose',
         args=['serve', '--config', 'mcp_compose.toml', '--transport', 'stdio'],
+        env=dict(os.environ),
         timeout=300.0,
     )
     

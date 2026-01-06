@@ -303,16 +303,21 @@ def serve_command(args: argparse.Namespace) -> int:
         # Find or use specified config file
         if args.config:
             config_path = Path(args.config)
+            print(f"Loading configuration from: {config_path}", file=sys.stderr)
+            config = load_config(config_path)
+            args.config_path = str(config_path)
         else:
             config_path = find_config_file()
             if config_path is None:
-                print("Error: No configuration file found.", file=sys.stderr)
-                print("Create mcp_compose.toml in current directory or use --config", file=sys.stderr)
-                return 1
-        
-        print(f"Loading configuration from: {config_path}", file=sys.stderr)
-        config = load_config(config_path)
-        args.config_path = str(config_path)
+                # No config file found - start with empty config (no proxied servers)
+                print("No configuration file found. Starting without proxied MCP servers.", file=sys.stderr)
+                from .config import MCPComposerConfig
+                config = MCPComposerConfig()
+                args.config_path = None
+            else:
+                print(f"Loading configuration from: {config_path}", file=sys.stderr)
+                config = load_config(config_path)
+                args.config_path = str(config_path)
         
         # Run the server
         return asyncio.run(run_server(config, args))
@@ -452,7 +457,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
     
     # Create discovery with config directory as project root for embedded server imports
     from .discovery import MCPServerDiscovery
-    config_dir = Path(args.config_path).parent
+    config_dir = Path(args.config_path).parent if args.config_path else Path.cwd()
     discovery = MCPServerDiscovery(project_root=config_dir)
     
     # Create composer
@@ -494,9 +499,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                     config.servers.proxied.stdio)
         
         if not has_embedded and not has_stdio:
-            print("⚠️  No servers configured in mcp_compose.toml", file=out)
+            print("ℹ️  No proxied servers configured. Running with built-in tools only.", file=out)
             print(file=out)
-            return 1
         
         # Handle embedded servers using compose_from_config
         if has_embedded:
@@ -1093,6 +1097,13 @@ async def run_server(config, args: argparse.Namespace) -> int:
         print(f"  Tools List:    http://localhost:{server_port}/tools", file=out)
         print(f"  REST API:      http://localhost:{server_port}/api/v1", file=out)
         print(f"  Health Check:  http://localhost:{server_port}/api/v1/health", file=out)
+        # Check if UI is available
+        from pathlib import Path as PathLib
+        ui_dist_path = PathLib(__file__).parent / "ui" / "dist"
+        if not ui_dist_path.exists():
+            ui_dist_path = PathLib(__file__).parent.parent / "ui" / "dist"
+        if ui_dist_path.exists() and ui_dist_path.is_dir():
+            print(f"  Web UI:        http://localhost:{server_port}/ui", file=out)
         print(file=out)
         print(f"✓ Unified MCP server is now running!", file=out)
         print(f"  Total tools: {len(composer.composed_tools)}", file=out)

@@ -45,6 +45,7 @@ import functools
 import json
 import logging
 import os
+import sys
 import time
 from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, TypeVar
 
@@ -446,6 +447,7 @@ def instrument_mcp_compose(
     _instrument_process_manager(tracer)
     _instrument_process(tracer)
     _instrument_transport(tracer, capture_config)
+    _instrument_fastmcp(tracer, capture_config)
     
     _instrumented = True
     logger.info("mcp-compose instrumentation enabled")
@@ -481,7 +483,32 @@ def uninstrument_mcp_compose() -> None:
                 elif module_path == "HttpStreamTransport":
                     from .transport.http_stream import HttpStreamTransport
                     module = HttpStreamTransport
+                elif module_path == "FastMCPToolManager":
+                    from mcp.server.fastmcp.tools import ToolManager as FastMCPToolManager
+                    module = FastMCPToolManager
+                elif module_path == "FastMCP":
+                    from mcp.server.fastmcp import FastMCP
+                    module = FastMCP
+                elif module_path == "MCPServer":
+                    from mcp.server.fastmcp.server import MCPServer
+                    module = MCPServer
+                elif module_path == "LowLevelServer":
+                    from mcp.server.lowlevel.server import Server as LowLevelServer
+                    module = LowLevelServer
+                elif module_path == "LowLevelServer.run":
+                    from mcp.server.lowlevel.server import Server as LowLevelServer
+                    module = LowLevelServer
+                    method_name = "run"
+                elif module_path == "LowLevelServer._handle_request":
+                    from mcp.server.lowlevel.server import Server as LowLevelServer
+                    module = LowLevelServer
+                    method_name = "_handle_request"
                 
+                elif module_path == "FastMCP.run_stdio_async":
+                    from mcp.server.fastmcp import FastMCP
+                    module = FastMCP
+                    method_name = "run_stdio_async"
+
                 if module is not None:
                     setattr(module, method_name, original)
             except Exception as e:
@@ -1243,6 +1270,360 @@ def _instrument_transport(tracer: Any, capture_config: dict) -> None:
     
     except ImportError:
         logger.debug("SSETransport not available, skipping instrumentation")
+
+
+def _instrument_fastmcp(tracer: Any, capture_config: dict) -> None:
+    """
+    Instrument FastMCP server for tracing incoming tool calls.
+    
+    This instruments the FastMCP ToolManager which handles all incoming
+    tools/call requests from agents.
+    """
+    logger.info("Starting FastMCP instrumentation")
+    capture_arguments = capture_config.get("tool_arguments", True)
+    capture_results = capture_config.get("tool_results", True)
+    
+    try:
+        from mcp.server.fastmcp.tools import ToolManager as FastMCPToolManager
+        from mcp.server.fastmcp.server import StreamableHTTPSessionManager
+        
+        # Instrument call_tool method which handles incoming tool calls
+        if hasattr(FastMCPToolManager, 'call_tool'):
+            _original_methods["FastMCPToolManager.call_tool"] = FastMCPToolManager.call_tool
+            original_call_tool = FastMCPToolManager.call_tool
+            
+            @functools.wraps(original_call_tool)
+            async def traced_call_tool(
+                self: Any,
+                name: str,
+                arguments: dict,
+                context: Any = None,
+                convert_result: bool = False,
+            ) -> Any:
+                start_time = time.time()
+                
+                with tracer.start_as_current_span(
+                    f"mcp.server.tool.call: {name}",
+                    kind=SpanKind.SERVER,
+                ) as span:
+                    span.set_attribute("mcp.tool.name", name)
+                    span.set_attribute("mcp.operation", "tool_call")
+                    span.set_attribute("rpc.system", "jsonrpc")
+                    span.set_attribute("rpc.method", "tools/call")
+                    
+                    # Capture arguments
+                    if capture_arguments and arguments:
+                        try:
+                            args_str = json.dumps(arguments)
+                            if len(args_str) > 4096:
+                                args_str = args_str[:4096] + "...(truncated)"
+                            span.set_attribute("mcp.tool.arguments", args_str)
+                        except (TypeError, ValueError):
+                            span.set_attribute("mcp.tool.arguments", str(arguments)[:4096])
+                    
+                    try:
+                        result = await original_call_tool(
+                            self,
+                            name,
+                            arguments,
+                            context=context,
+                            convert_result=convert_result,
+                        )
+                        duration = time.time() - start_time
+                        
+                        span.set_attribute("mcp.duration_seconds", duration)
+                        
+                        # Capture result preview
+                        if capture_results and result is not None:
+                            try:
+                                # Handle list of content items
+                                if isinstance(result, list):
+                                    result_preview = []
+                                    for item in result[:5]:  # First 5 items
+                                        if hasattr(item, 'text'):
+                                            result_preview.append(item.text[:200])
+                                        else:
+                                            result_preview.append(str(item)[:200])
+                                    span.set_attribute("mcp.tool.result_preview", str(result_preview))
+                                else:
+                                    result_str = str(result)[:1024]
+                                    span.set_attribute("mcp.tool.result_preview", result_str)
+                            except Exception:
+                                pass
+                        
+                        # Record metrics
+                        if _metrics is not None:
+                            _metrics.tool_calls_total.add(1, {"tool": name, "source": "fastmcp"})
+                            _metrics.tool_call_duration.record(duration, {"tool": name})
+                        
+                        span.set_status(Status(StatusCode.OK))
+                        return result
+                    except Exception as e:
+                        duration = time.time() - start_time
+                        span.set_attribute("mcp.duration_seconds", duration)
+                        span.set_status(Status(StatusCode.ERROR, str(e)))
+                        span.record_exception(e)
+                        
+                        if _metrics is not None:
+                            _metrics.tool_call_errors.add(1, {"tool": name})
+                        
+                        raise
+            
+            FastMCPToolManager.call_tool = traced_call_tool
+            logger.debug("FastMCP ToolManager.call_tool instrumented")
+    
+    except ImportError:
+        logger.debug("FastMCP ToolManager not available, skipping instrumentation")
+    
+    # Also try to instrument the MCP server's request handler for list operations
+    try:
+        from mcp.server.fastmcp import FastMCP
+        
+        # Instrument list_tools to trace tools/list requests
+        if hasattr(FastMCP, '_mcp_list_tools'):
+            _original_methods["FastMCP._mcp_list_tools"] = FastMCP._mcp_list_tools
+            original_list_tools = FastMCP._mcp_list_tools
+            
+            @functools.wraps(original_list_tools)
+            async def traced_list_tools(self: Any) -> Any:
+                with tracer.start_as_current_span(
+                    "mcp.server.tools.list",
+                    kind=SpanKind.SERVER,
+                ) as span:
+                    span.set_attribute("mcp.operation", "list_tools")
+                    span.set_attribute("rpc.system", "jsonrpc")
+                    span.set_attribute("rpc.method", "tools/list")
+                    
+                    try:
+                        result = await original_list_tools(self)
+                        
+                        # Record tools count
+                        if result and hasattr(result, 'tools'):
+                            span.set_attribute("mcp.tools.count", len(result.tools))
+                        
+                        span.set_status(Status(StatusCode.OK))
+                        return result
+                    except Exception as e:
+                        span.set_status(Status(StatusCode.ERROR, str(e)))
+                        span.record_exception(e)
+                        raise
+            
+            FastMCP._mcp_list_tools = traced_list_tools
+            logger.debug("FastMCP._mcp_list_tools instrumented")
+    
+    except ImportError:
+        logger.debug("FastMCP not available for list_tools instrumentation")
+
+    # Instrument FastMCP.run_stdio_async
+    try:
+        from mcp.server.fastmcp import FastMCP
+        
+        if hasattr(FastMCP, 'run_stdio_async'):
+            _original_methods["FastMCP.run_stdio_async"] = FastMCP.run_stdio_async
+            original_run_stdio = FastMCP.run_stdio_async
+
+            @functools.wraps(original_run_stdio)
+            async def traced_run_stdio(self: Any) -> Any:
+                with tracer.start_as_current_span(
+                    "mcp.server.run_stdio",
+                    kind=SpanKind.SERVER,
+                ) as span:
+                    span.set_attribute("mcp.transport", "stdio")
+                    logger.info("Starting traced run_stdio_async") 
+                    try:
+                        return await original_run_stdio(self)
+                    except Exception as e:
+                        span.record_exception(e)
+                        raise
+
+            FastMCP.run_stdio_async = traced_run_stdio
+            logger.info("FastMCP.run_stdio_async instrumented successfully")
+    except ImportError:
+        logger.debug("FastMCP not available for run_stdio_async instrumentation")
+
+    # Instrument LowLevelServer.run to trace the main server loop
+    try:
+        from mcp.server.lowlevel.server import Server as LowLevelServer
+        
+        if hasattr(LowLevelServer, 'run'):
+            _original_methods["LowLevelServer.run"] = LowLevelServer.run
+            original_run = LowLevelServer.run
+
+            @functools.wraps(original_run)
+            async def traced_run(
+                self: Any,
+                read_stream: Any,
+                write_stream: Any,
+                initialization_options: Any,
+                raise_exceptions: bool = False,
+                stateless: bool = False,
+            ) -> Any:
+                with tracer.start_as_current_span(
+                    "mcp.server.run",
+                    kind=SpanKind.SERVER,
+                ) as span:
+                    span.set_attribute("mcp.transport", "stdio" if "stdio" in str(read_stream).lower() else "unknown")
+                    try:
+                        return await original_run(
+                            self, read_stream, write_stream, initialization_options, raise_exceptions, stateless
+                        )
+                    except Exception as e:
+                        span.record_exception(e)
+                        raise
+
+            LowLevelServer.run = traced_run
+            logger.info("LowLevelServer.run instrumented successfully")
+    except ImportError:
+        logger.debug("LowLevelServer not available for run instrumentation")
+
+    # Instrument LowLevelServer._handle_request to trace request handling
+    try:
+        from mcp.server.lowlevel.server import Server as LowLevelServer
+
+        if hasattr(LowLevelServer, '_handle_request'):
+            _original_methods["LowLevelServer._handle_request"] = LowLevelServer._handle_request
+            original_handle_request = LowLevelServer._handle_request
+
+            @functools.wraps(original_handle_request)
+            async def traced_handle_request(
+                self: Any,
+                message: Any,
+                request: Any,
+                *args: Any,
+                **kwargs: Any,
+            ) -> Any:
+                method = getattr(request, 'method', 'unknown')
+                span_name = f"mcp.server.request: {method}"
+                
+                # Check for tool name in CallTool
+                if hasattr(request, 'params') and hasattr(request.params, 'name'):
+                    tool_name = request.params.name
+                    span_name += f" {tool_name}"
+                
+                with tracer.start_as_current_span(
+                    span_name,
+                    kind=SpanKind.SERVER,
+                ) as span:
+                    span.set_attribute("mcp.message.type", "request")
+                    span.set_attribute("mcp.message.method", method)
+                    span.set_attribute("rpc.system", "jsonrpc")
+
+                    # Capture request params
+                    try:
+                        if hasattr(request, 'model_dump_json'):
+                            # Pydantic v2
+                            span.set_attribute("mcp.message.params", request.model_dump_json())
+                        elif hasattr(request, 'json'):
+                            # Pydantic v1
+                            span.set_attribute("mcp.message.params", request.json())
+                        else:
+                            span.set_attribute("mcp.message.params", str(request))
+                    except Exception:
+                        pass
+                    
+                    try:
+                        result = await original_handle_request(self, message, request, *args, **kwargs)
+                        
+                        # Capture result
+                        try:
+                            if result is not None:
+                                if hasattr(result, 'model_dump_json'):
+                                    span.set_attribute("mcp.message.result", result.model_dump_json())
+                                elif hasattr(result, 'json'):
+                                    span.set_attribute("mcp.message.result", result.json())
+                                else:
+                                    span.set_attribute("mcp.message.result", str(result))
+                        except Exception:
+                            pass
+                            
+                        return result
+                    except Exception as e:
+                        span.record_exception(e)
+                        raise
+
+            LowLevelServer._handle_request = traced_handle_request
+            logger.info("LowLevelServer._handle_request instrumented successfully")
+    except ImportError:
+        logger.debug("LowLevelServer not available for _handle_request instrumentation")
+
+    # Instrument Server._handle_message to trace all inbound MCP messages
+    try:
+        # Import the ACTUAL Server class from lowlevel module
+        # (MCPServer in fastmcp.server is just a re-export)
+        from mcp.server.lowlevel.server import Server as LowLevelServer
+        import sys
+
+        if hasattr(LowLevelServer, '_handle_message'):
+            logger.debug(f"Instrumenting LowLevelServer._handle_message")
+            _original_methods["LowLevelServer._handle_message"] = LowLevelServer._handle_message
+            original_handle_message = LowLevelServer._handle_message
+
+            @functools.wraps(original_handle_message)
+            async def traced_handle_message(
+                self: Any,
+                message: Any,
+                session: Any,
+                lifespan_context: Any,
+                raise_exceptions: bool = False,
+            ) -> Any:
+                # logger.info(f"MCPServer._handle_message called with message type: {type(message).__name__}")
+                
+                # Extract request type from message
+                request_type = "unknown"
+                request_method = "unknown"
+                
+                try:
+                    # Check if this is a RequestResponder (request message)
+                    if hasattr(message, 'request') and hasattr(message.request, 'root'):
+                        req = message.request.root
+                        request_type = type(req).__name__
+                        # Try to extract method from common request types
+                        if hasattr(req, 'method'):
+                            request_method = req.method
+                        elif 'CallTool' in request_type:
+                            request_method = 'tools/call'
+                            if hasattr(req, 'params') and hasattr(req.params, 'name'):
+                                request_method = f"tools/call:{req.params.name}"
+                        elif 'ListTools' in request_type:
+                            request_method = 'tools/list'
+                        elif 'ListResources' in request_type:
+                            request_method = 'resources/list'
+                        elif 'ListPrompts' in request_type:
+                            request_method = 'prompts/list'
+                        elif 'Initialize' in request_type:
+                            request_method = 'initialize'
+                    # Check if this is a notification
+                    elif hasattr(message, 'root'):
+                        request_type = type(message.root).__name__
+                        request_method = 'notification'
+                except Exception:
+                    pass
+
+                # logger.debug(f"Tracing message: {request_method}")
+                with tracer.start_as_current_span(
+                    f"mcp.server.message: {request_method}",
+                    kind=SpanKind.SERVER,
+                ) as span:
+                    span.set_attribute("mcp.message.type", request_type)
+                    span.set_attribute("mcp.message.method", request_method)
+                    span.set_attribute("mcp.operation", "handle_message")
+                    span.set_attribute("rpc.system", "jsonrpc")
+
+                    try:
+                        result = await original_handle_message(
+                            self, message, session, lifespan_context, raise_exceptions
+                        )
+                        span.set_status(Status(StatusCode.OK))
+                        return result
+                    except Exception as e:
+                        span.set_status(Status(StatusCode.ERROR, str(e)))
+                        span.record_exception(e)
+                        raise
+
+            LowLevelServer._handle_message = traced_handle_message
+            logger.info("LowLevelServer._handle_message instrumented successfully")
+    except ImportError:
+        logger.debug("LowLevelServer not available for _handle_message instrumentation")
 
 
 # ============================================================================

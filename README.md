@@ -122,6 +122,23 @@ The modern web interface provides:
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment with Docker & Kubernetes
 - **[Architecture](ARCHITECTURE.md)** - System architecture and design decisions
 
+## 💡 What can you use MCP Compose for?
+
+- Local AI development environments: Spin up multiple MCP servers (tools, data sources, agents) on your laptop with one command, inspect them live, and iterate faster.
+- Agent tool ecosystems: Compose and expose tools from multiple MCP servers into a single, unified interface for AI agents — with clear conflict resolution strategies.
+- Protocol bridging: Run legacy or CLI-based MCP servers over STDIO while exposing them to modern clients via SSE, without rewriting anything.
+- Team & platform workflows: Standardize how MCP servers are started, monitored, and secured across teams using Docker, tokens, and a shared control plane.
+- Observability & debugging: Track logs, metrics, and server health in real time through a Web UI or REST API — ideal for diagnosing tool behavior during agent runs.
+- Production-ready orchestration: Deploy multiple MCP servers with authentication, monitoring, and lifecycle management — without building custom glue code.
+
+✨ Key capabilities that enable these use cases:
+
+- Unified multi-server start / stop / monitor
+- REST API + modern React-based Web UI
+- Tool discovery and intelligent composition
+- Programmatic control via Python API
+- Real-time metrics, logs, and monitoring
+
 ## 🏗️ Architecture
 
 ```
