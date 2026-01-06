@@ -50,6 +50,7 @@ import time
 from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, TypeVar
 
 try:
+from opentelemetry import context
     from opentelemetry import trace
     from opentelemetry.trace import Span, SpanKind, Status, StatusCode, Tracer
     from opentelemetry.semconv.trace import SpanAttributes
@@ -1500,9 +1501,23 @@ def _instrument_fastmcp(tracer: Any, capture_config: dict) -> None:
                     tool_name = request.params.name
                     span_name += f" {tool_name}"
                 
+                # Create a specific context to detach from the parent 'run' span if needed
+                # However, for request handlers, we usually want them to appear as distinct operations
+                # We can use links if we want to refer back to the server process
+                
+                # NOTE: To fix "Incomplete" traces in visualizers that expect request-response to be 
+                # distinct roots or not nested in a long-running process span, we can detach context.
+                # However, keeping them nested is semantically correct for an embedded server.
+                # The "Incomplete" message in Logfire usually relates to missing parents or unclosed spans.
+                # If these are nested in 'mcp.server.run' which never closes, Logfire might flag them.
+                
+                # Let's try creating a NEW ROOT span for each request to ensure they show up as 
+                # complete, independent transactions in the trace list.
+                
                 with tracer.start_as_current_span(
                     span_name,
                     kind=SpanKind.SERVER,
+                    context=context.Context(), # Create as root span (detach from mcp.server.run)
                 ) as span:
                     span.set_attribute("mcp.message.type", "request")
                     span.set_attribute("mcp.message.method", method)
@@ -1609,10 +1624,41 @@ def _instrument_fastmcp(tracer: Any, capture_config: dict) -> None:
                     span.set_attribute("mcp.operation", "handle_message")
                     span.set_attribute("rpc.system", "jsonrpc")
 
+                    # Capture request params
+                    try:
+                        req_obj = None
+                        if hasattr(message, 'request') and hasattr(message.request, 'root'):
+                            req_obj = message.request.root
+                        elif hasattr(message, 'root'):
+                            req_obj = message.root
+                        
+                        if req_obj:
+                            if hasattr(req_obj, 'model_dump_json'):
+                                span.set_attribute("mcp.message.params", req_obj.model_dump_json())
+                            elif hasattr(req_obj, 'json'):
+                                span.set_attribute("mcp.message.params", req_obj.json())
+                            else:
+                                span.set_attribute("mcp.message.params", str(req_obj))
+                    except Exception:
+                        pass
+
                     try:
                         result = await original_handle_message(
                             self, message, session, lifespan_context, raise_exceptions
                         )
+                        
+                        # Capture result (note: _handle_message might return None for some message types)
+                        try:
+                            if result is not None:
+                                if hasattr(result, 'model_dump_json'):
+                                    span.set_attribute("mcp.message.result", result.model_dump_json())
+                                elif hasattr(result, 'json'):
+                                    span.set_attribute("mcp.message.result", result.json())
+                                else:
+                                    span.set_attribute("mcp.message.result", str(result))
+                        except Exception:
+                            pass
+                            
                         span.set_status(Status(StatusCode.OK))
                         return result
                     except Exception as e:
