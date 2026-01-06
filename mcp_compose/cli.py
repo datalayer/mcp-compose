@@ -56,42 +56,22 @@ def setup_otel_tracing(service_name: str = "mcp-compose", out=sys.stderr) -> Opt
     url = os.environ.get("DATALAYER_LOGFIRE_URL", "https://logfire-us.pydantic.dev")
     
     try:
-        from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.sdk.resources import Resource
-        from .otel import instrument_mcp_compose
+        from .otel import setup_otel
         
         print(f"\n📊 OpenTelemetry tracing enabled", file=out)
         print(f"   Endpoint: {url}/v1/traces", file=out)
         
-        # Configure exporter with endpoint and token (matching working examples)
-        exporter = OTLPSpanExporter(
-            endpoint=f'{url}/v1/traces',
-            headers={'Authorization': token},
+        # Use the core setup_otel function
+        provider, tracer = setup_otel(
+            service_name=service_name,
+            token=token,
+            project=project,
+            url=url,
+            instrument=True,
         )
         
-        # Create resource with service information
-        resource = Resource.create({
-            "service.name": service_name,
-            "service.version": "1.0.0",
-        })
-        
-        # Setup tracer provider (matching working examples pattern)
-        span_processor = BatchSpanProcessor(exporter)
-        provider = TracerProvider(resource=resource)
-        provider.add_span_processor(span_processor)
-        
-        # Set as global tracer provider (required for instrument_mcp_compose)
-        trace.set_tracer_provider(provider)
-        
-        # Instrument mcp-compose classes to create spans on operations
-        instrument_mcp_compose(tracer_provider=provider)
-        
-        # Get tracer and create a startup span
-        tracer = provider.get_tracer('mcp-compose')
-        span = tracer.start_span('mcp-compose.startup')
+        # Create a startup span
+        span = tracer.start_span('mcp-compose.server.startup')
         span.set_attribute("service.name", service_name)
         span.end()
         
@@ -105,6 +85,10 @@ def setup_otel_tracing(service_name: str = "mcp-compose", out=sys.stderr) -> Opt
         
     except ImportError:
         logger.debug("OpenTelemetry not available, tracing disabled")
+        return None
+    except ValueError as e:
+        # Token missing - already checked above, shouldn't happen
+        logger.debug(f"OTEL setup skipped: {e}")
         return None
     except Exception as e:
         logger.warning(f"Failed to setup OpenTelemetry: {e}")

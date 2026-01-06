@@ -9,7 +9,6 @@ sending traces to Logfire.
 - `mcp1.py` - Calculator MCP server (add, subtract, multiply, divide)
 - `mcp2.py` - Echo MCP server (ping, echo, reverse, uppercase, lowercase, count_words)
 - `agent.py` - Pydantic AI agent with OpenTelemetry tracing
-- `example_otel.py` - Simple OpenTelemetry example without agent
 
 ## Prerequisites
 
@@ -43,12 +42,12 @@ Create a write token at: https://logfire-us.pydantic.dev/your-org/your-project/s
 
 ## Usage
 
-### Run Simple OpenTelemetry Example
+### Run the mcp-compose Server with Tracing
 
 ```bash
-make otel-example
-# Or:
-python example_otel.py
+make serve
+# Or directly:
+mcp-compose serve -c mcp_compose.toml --transport streamable-http --port 8000
 ```
 
 ### Run the AI Agent with Tracing
@@ -66,6 +65,25 @@ The agent connects to mcp-compose via STDIO and all MCP operations are traced to
 After running the examples, view your traces at:
 ```
 https://logfire-us.pydantic.dev/datalayer/{DATALAYER_LOGFIRE_PROJECT}
+```
+
+## Quick Start with setup_otel()
+
+The simplest way to enable tracing in your code:
+
+```python
+from mcp_compose import setup_otel
+
+# One-line setup - reads config from environment variables
+provider, tracer = setup_otel(service_name="my-app")
+
+# Create custom spans
+with tracer.start_as_current_span("my-operation") as span:
+    span.set_attribute("key", "value")
+    # ... your code ...
+
+# Flush on shutdown
+provider.force_flush()
 ```
 
 ## Usage with plain OpenTelemetry

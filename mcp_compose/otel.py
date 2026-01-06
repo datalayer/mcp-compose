@@ -4,16 +4,24 @@ OpenTelemetry instrumentation for mcp-compose.
 This module provides automatic tracing for mcp-compose operations,
 including tool discovery, tool calls, and server composition.
 
-Usage with Logfire:
-    import logfire
-    from mcp_compose.otel import instrument_mcp_compose
+Simple usage with Logfire (recommended):
+    from mcp_compose import setup_otel, instrument_mcp_compose
     
-    logfire.configure()
-    instrument_mcp_compose(logfire)
+    # Setup OTEL and instrument mcp-compose in one call
+    provider = setup_otel(service_name="my-app")
+    
+    # Or setup and instrument separately
+    provider = setup_otel(service_name="my-app", instrument=False)
+    instrument_mcp_compose(tracer_provider=provider)
+
+Environment variables for Logfire:
+    DATALAYER_LOGFIRE_TOKEN   - Logfire write token (required)
+    DATALAYER_LOGFIRE_PROJECT - Project name (default: starter-project)
+    DATALAYER_LOGFIRE_URL     - Logfire URL (default: https://logfire-us.pydantic.dev)
 
 Usage with plain OpenTelemetry:
     from opentelemetry import trace
-    from mcp_compose.otel import instrument_mcp_compose
+    from mcp_compose import instrument_mcp_compose
     
     tracer_provider = trace.get_tracer_provider()
     instrument_mcp_compose(tracer_provider=tracer_provider)
@@ -24,7 +32,8 @@ from __future__ import annotations
 import functools
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
+import os
+from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, TypeVar
 
 try:
     from opentelemetry import trace
@@ -47,6 +56,127 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 # Global state to track instrumentation
 _instrumented = False
+_tracer_provider: Optional[Any] = None
+
+
+def setup_otel(
+    service_name: str = "mcp-compose",
+    service_version: str = "1.0.0",
+    *,
+    token: Optional[str] = None,
+    project: Optional[str] = None,
+    url: Optional[str] = None,
+    instrument: bool = True,
+) -> Tuple[Any, Any]:
+    """
+    Setup OpenTelemetry tracing for mcp-compose with Logfire.
+    
+    This is the recommended way to enable tracing. It configures the
+    TracerProvider, OTLP exporter, and optionally instruments mcp-compose.
+    
+    Args:
+        service_name: Name of the service for tracing (default: "mcp-compose")
+        service_version: Version of the service (default: "1.0.0")
+        token: Logfire write token. If not provided, reads from DATALAYER_LOGFIRE_TOKEN env var.
+        project: Logfire project name. If not provided, reads from DATALAYER_LOGFIRE_PROJECT env var.
+        url: Logfire URL. If not provided, reads from DATALAYER_LOGFIRE_URL env var.
+        instrument: Whether to instrument mcp-compose classes (default: True)
+    
+    Returns:
+        Tuple of (TracerProvider, Tracer) for creating custom spans.
+    
+    Raises:
+        ImportError: If OpenTelemetry packages are not installed.
+        ValueError: If no token is provided and DATALAYER_LOGFIRE_TOKEN is not set.
+    
+    Example:
+        from mcp_compose import setup_otel
+        
+        # Basic usage - reads config from environment variables
+        provider, tracer = setup_otel(service_name="my-mcp-app")
+        
+        # Create custom spans
+        with tracer.start_as_current_span("my-operation") as span:
+            span.set_attribute("key", "value")
+            # ... do work ...
+        
+        # Flush on shutdown
+        provider.force_flush()
+    """
+    global _tracer_provider
+    
+    if not OTEL_AVAILABLE:
+        raise ImportError(
+            "OpenTelemetry is required for tracing. "
+            "Install it with: pip install mcp-compose[otel]"
+        )
+    
+    # Read configuration from environment variables if not provided
+    token = token or os.environ.get("DATALAYER_LOGFIRE_TOKEN")
+    project = project or os.environ.get("DATALAYER_LOGFIRE_PROJECT", "starter-project")
+    url = url or os.environ.get("DATALAYER_LOGFIRE_URL", "https://logfire-us.pydantic.dev")
+    
+    if not token:
+        raise ValueError(
+            "Logfire token is required. Either pass token= parameter or set "
+            "DATALAYER_LOGFIRE_TOKEN environment variable.\n"
+            "Get a write token from: https://logfire-us.pydantic.dev/datalayer/{project}/settings/write-tokens"
+        )
+    
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.sdk.resources import Resource
+    
+    # Configure exporter with endpoint and token
+    exporter = OTLPSpanExporter(
+        endpoint=f'{url}/v1/traces',
+        headers={'Authorization': token},
+    )
+    
+    # Create resource with service information
+    resource = Resource.create({
+        "service.name": service_name,
+        "service.version": service_version,
+    })
+    
+    # Setup tracer provider
+    span_processor = BatchSpanProcessor(exporter)
+    provider = TracerProvider(resource=resource)
+    provider.add_span_processor(span_processor)
+    
+    # Set as global tracer provider
+    trace.set_tracer_provider(provider)
+    _tracer_provider = provider
+    
+    # Instrument mcp-compose if requested
+    if instrument:
+        instrument_mcp_compose(tracer_provider=provider)
+    
+    # Get tracer for the service
+    tracer = provider.get_tracer(service_name)
+    
+    logger.info(f"OpenTelemetry configured for {service_name}")
+    logger.info(f"Traces: {url}/datalayer/{project}")
+    
+    return provider, tracer
+
+
+def get_tracer(name: str = "mcp-compose") -> Optional[Any]:
+    """
+    Get a tracer from the configured provider.
+    
+    Args:
+        name: Name for the tracer (default: "mcp-compose")
+    
+    Returns:
+        Tracer instance, or None if OTEL is not configured.
+    """
+    if _tracer_provider is not None:
+        return _tracer_provider.get_tracer(name)
+    if OTEL_AVAILABLE:
+        return trace.get_tracer(name)
+    return None
 
 
 def instrument_mcp_compose(

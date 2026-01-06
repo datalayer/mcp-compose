@@ -28,6 +28,8 @@ from .oauth_client import (
     get_anaconda_token,
 )
 from .otel import (
+    setup_otel,
+    get_tracer,
     instrument_mcp_compose,
     uninstrument_mcp_compose,
     get_server_tracer,
@@ -53,6 +55,8 @@ __all__ = [
     "get_oauth_client",
     "get_github_token",
     "get_anaconda_token",
+    "setup_otel",
+    "get_tracer",
     "instrument_mcp_compose",
     "uninstrument_mcp_compose",
     "get_server_tracer",

@@ -1,4 +1,4 @@
-.PHONY: help install agent clean serve otel-example otel-simple
+.PHONY: help install agent clean serve
 
 # Default target
 help:
@@ -7,10 +7,8 @@ help:
 	@echo "Available targets:"
 	@echo "  install        - Install mcp-compose with otel dependencies"
 	@echo "  install-agent  - Install pydantic-ai for agent support"
-	@echo "  otel-example   - Run mcp-compose server with OpenTelemetry tracing (recommended)"
-	@echo "  serve          - Alias for otel-example"
+	@echo "  serve          - Run mcp-compose server with OpenTelemetry tracing"
 	@echo "  agent          - Run the AI agent with OpenTelemetry tracing"
-	@echo "  otel-simple    - Run a simple OpenTelemetry tracing example (exits immediately)"
 	@echo "  clean          - Clean up temporary files"
 	@echo ""
 	@echo "Required environment variables:"
@@ -42,10 +40,7 @@ install-agent:
 	@echo "✓ pydantic-ai installed!"
 
 # Run mcp-compose server with OpenTelemetry tracing
-serve: otel-example
-
-# Run mcp-compose server with OpenTelemetry tracing (main example)
-otel-example:
+serve:
 	@echo "Starting mcp-compose server with OpenTelemetry instrumentation..."
 	@echo ""
 	@if [ -z "$$DATALAYER_LOGFIRE_TOKEN" ]; then \
@@ -65,17 +60,6 @@ agent:
 		echo ""; \
 	fi
 	python agent.py
-
-# Run simple OpenTelemetry example (exits immediately)
-otel-simple:
-	@echo "Running simple OpenTelemetry example..."
-	@echo ""
-	@if [ -z "$$DATALAYER_LOGFIRE_TOKEN" ]; then \
-		echo "❌ Error: DATALAYER_LOGFIRE_TOKEN not set"; \
-		echo "   Set it with: export DATALAYER_LOGFIRE_TOKEN='your-token'"; \
-		exit 1; \
-	fi
-	python example_otel.py
 
 # Clean up
 clean:
