@@ -50,7 +50,7 @@ import time
 from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, TypeVar
 
 try:
-from opentelemetry import context
+    from opentelemetry import context
     from opentelemetry import trace
     from opentelemetry.trace import Span, SpanKind, Status, StatusCode, Tracer
     from opentelemetry.semconv.trace import SpanAttributes
@@ -1615,9 +1615,13 @@ def _instrument_fastmcp(tracer: Any, capture_config: dict) -> None:
                     pass
 
                 # logger.debug(f"Tracing message: {request_method}")
+                
+                # Detach from parent context using empty Context to ensure these appear
+                # as complete, distinct traces rather than children of the long-running process
                 with tracer.start_as_current_span(
                     f"mcp.server.message: {request_method}",
                     kind=SpanKind.SERVER,
+                    context=context.Context(), # Create as root span
                 ) as span:
                     span.set_attribute("mcp.message.type", request_type)
                     span.set_attribute("mcp.message.method", request_method)
