@@ -30,11 +30,16 @@ from .oauth_client import (
 from .otel import (
     setup_otel,
     get_tracer,
+    get_meter,
     instrument_mcp_compose,
     uninstrument_mcp_compose,
     get_server_tracer,
+    get_server_meter,
     create_traced_tool_proxy,
     trace_server_startup,
+    create_otel_middleware,
+    OTEL_AVAILABLE,
+    METRICS_AVAILABLE,
 )
 
 __all__ = [
@@ -57,10 +62,15 @@ __all__ = [
     "get_anaconda_token",
     "setup_otel",
     "get_tracer",
+    "get_meter",
     "instrument_mcp_compose",
     "uninstrument_mcp_compose",
     "get_server_tracer",
+    "get_server_meter",
     "create_traced_tool_proxy",
     "trace_server_startup",
+    "create_otel_middleware",
+    "OTEL_AVAILABLE",
+    "METRICS_AVAILABLE",
     "__version__",
 ]

@@ -103,27 +103,34 @@ trace.set_tracer_provider(provider)
 instrument_mcp_compose(tracer_provider=provider)
 ```
 
-## What Gets Traced
+## What Gets Traced and Measured
 
-The instrumentation provides **both client-side and server-side tracing**.
+The instrumentation provides **comprehensive tracing and metrics** following the Logfire pattern 
+of external monkey-patching (non-intrusive instrumentation).
 
-### Client-Side Tracing (Agent/Client)
+### Traces
+
+#### Client-Side Tracing (Agent/Client)
 
 When you call `instrument_mcp_compose()` in your agent or client code, it traces:
 
 - **Tool Discovery**: When tools are discovered from child MCP servers
 - **Tool Calls**: Each MCP tool call with arguments and results
+- **JSON-RPC Requests**: All JSON-RPC communication with timing
 - **Server Composition**: Operations like `compose_from_pyproject` and `compose_from_discovery`
 - **Tool Registration**: When tools are registered with conflict resolution
-- **Process Management**: Starting and stopping child processes
+- **Process Management**: Starting, stopping, and restarting child processes
+- **Process I/O**: Message sending and receiving on STDIO
+- **HTTP Transport**: Connection, send, and receive operations
 
-### Server-Side Tracing (mcp-compose serve)
+#### Server-Side Tracing (mcp-compose serve)
 
 When running `mcp-compose serve` with environment variables set, the server automatically:
 
 - Configures OpenTelemetry with OTLP exporter to Logfire
 - Instruments all mcp-compose components
-- Traces incoming tool calls from clients
+- Traces incoming HTTP requests via middleware
+- Traces tool invocations from clients
 - Traces proxy calls to upstream MCP servers
 - Flushes traces on shutdown
 
@@ -134,11 +141,24 @@ export DATALAYER_LOGFIRE_PROJECT="your-project"
 export DATALAYER_LOGFIRE_URL="https://logfire-us.pydantic.dev"
 ```
 
-When these are set, running `mcp-compose serve` will output:
-```
-📊 OpenTelemetry tracing enabled
-   Traces: https://logfire-us.pydantic.dev/datalayer/your-project
-```
+### Metrics
+
+The instrumentation also exports the following metrics (requires `opentelemetry-exporter-otlp-proto-http`):
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `mcp_compose.tool_calls_total` | Counter | Total number of tool calls |
+| `mcp_compose.tool_call_duration_seconds` | Histogram | Duration of tool calls |
+| `mcp_compose.tool_call_errors_total` | Counter | Total number of tool call errors |
+| `mcp_compose.active_processes` | UpDownCounter | Number of active MCP server processes |
+| `mcp_compose.process_restarts_total` | Counter | Total number of process restarts |
+| `mcp_compose.jsonrpc_requests_total` | Counter | Total number of JSON-RPC requests |
+| `mcp_compose.jsonrpc_request_duration_seconds` | Histogram | Duration of JSON-RPC requests |
+| `mcp_compose.jsonrpc_errors_total` | Counter | Total number of JSON-RPC errors |
+| `mcp_compose.tools_discovered_total` | Counter | Total number of tools discovered |
+| `mcp_compose.servers_connected` | UpDownCounter | Number of connected MCP servers |
+| `mcp_compose.http_requests_total` | Counter | Total number of HTTP requests |
+| `mcp_compose.http_request_duration_seconds` | Histogram | Duration of HTTP requests |
 
 ## Span Attributes
 
@@ -149,7 +169,21 @@ The instrumentation adds the following attributes to spans:
 | `mcp.operation` | The operation being performed |
 | `mcp.server.name` | Name of the MCP server |
 | `mcp.tool.name` | Name of the tool being called |
+| `mcp.tool.id` | Full tool ID (server.tool_name) |
 | `mcp.tool.arguments` | JSON-encoded tool arguments |
+| `mcp.tool.result_preview` | Preview of tool result |
 | `mcp.tools.count` | Number of tools discovered/registered |
+| `mcp.duration_seconds` | Operation duration in seconds |
+| `mcp.process.name` | Name of the child process |
+| `mcp.process.pid` | Process ID |
+| `mcp.process.command` | Command used to start process |
+| `mcp.message.size_bytes` | Size of JSON-RPC message |
 | `rpc.system` | Always "jsonrpc" for MCP operations |
 | `rpc.method` | The JSON-RPC method being called |
+| `rpc.jsonrpc.version` | JSON-RPC version (2.0) |
+| `rpc.jsonrpc.request_id` | Request ID for correlation |
+| `rpc.jsonrpc.error_code` | Error code if request failed |
+| `rpc.jsonrpc.error_message` | Error message if request failed |
+| `http.method` | HTTP method (GET, POST, etc.) |
+| `http.url` | Full request URL |
+| `http.status_code` | HTTP response status code |
