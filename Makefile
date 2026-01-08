@@ -8,7 +8,8 @@ SHELL=/bin/bash
 
 .PHONY: clean build
 
-VERSION = 0.1.0
+# Extract version from pyproject.toml
+VERSION := $(shell python -c "from mcp_compose.__version__ import __version__; print(__version__)")
 
 default: all ## default target is all
 
