@@ -55,7 +55,7 @@ install-agent:
 start:
 	@echo "Starting MCP Compose with Streamable HTTP transport..."
 	@echo ""
-	@echo "📡 Server will be available at: http://localhost:8080/mcp"
+	@echo "📡 Server endpoint will be shown below..."
 	@echo ""
 	mcp-compose serve --config mcp_compose.toml --transport streamable-http
 

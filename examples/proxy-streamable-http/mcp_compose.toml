@@ -5,7 +5,7 @@
 name = "demo-composer"
 conflict_resolution = "prefix"  # Prefix tool names with server name
 log_level = "INFO"
-port = 9456
+port = 8888  # Transport port
 
 # ============================================================================
 # Transport Configuration - Streamable HTTP mode (recommended)
@@ -16,6 +16,14 @@ streamable_http_enabled = true
 streamable_http_path = "/mcp"
 streamable_http_cors_enabled = true
 sse_enabled = false
+
+# ============================================================================
+# UI Configuration
+# ============================================================================
+[ui]
+enabled = true
+mode = "separate"
+port = 9456  # UI port
 
 # ============================================================================
 # Calculator MCP Server (Proxied via STDIO, exposed via Streamable HTTP)

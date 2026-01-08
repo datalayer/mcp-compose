@@ -47,7 +47,7 @@ except ImportError:
     sys.exit(1)
 
 
-def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "http://localhost:9456") -> Agent:
+def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "http://localhost:8888") -> Agent:
     """
     Create a pydantic-ai Agent connected to the MCP Compose via Streamable HTTP
     

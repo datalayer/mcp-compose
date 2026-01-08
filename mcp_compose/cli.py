@@ -940,12 +940,22 @@ async def run_server(config, args: argparse.Namespace) -> int:
         from .api.dependencies import set_composer, set_config
         from contextlib import asynccontextmanager
         
-        # Determine port: CLI arg > UI config > composer config
-        server_port = args.port
-        if config.ui and config.ui.enabled and config.ui.port:
-            server_port = config.ui.port
-        if hasattr(args, 'port') and args.port != 8000:  # 8000 is the serve command default
+        # Determine port priority: CLI arg (if explicitly set) > composer config > default
+        # Note: 8000 is the argparse default for serve command
+        if hasattr(args, 'port') and args.port != 8000:
+            # CLI arg was explicitly provided
             server_port = args.port
+        elif config.composer and config.composer.port:
+            # Use composer config port
+            server_port = config.composer.port
+        else:
+            # Fall back to default
+            server_port = args.port
+        
+        # Determine UI port (for logging purposes)
+        ui_port = server_port  # Default: UI on same port as transport
+        if config.ui and config.ui.enabled and config.ui.port and config.ui.mode == "separate":
+            ui_port = config.ui.port
         
         # Set the composer and config instances for dependency injection
         set_composer(composer)
@@ -1103,7 +1113,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
         if not ui_dist_path.exists():
             ui_dist_path = PathLib(__file__).parent.parent / "ui" / "dist"
         if ui_dist_path.exists() and ui_dist_path.is_dir():
-            print(f"  Web UI:        http://localhost:{server_port}/ui", file=out)
+            print(f"  Web UI:        http://localhost:{ui_port}/ui", file=out)
         print(file=out)
         print(f"✓ Unified MCP server is now running!", file=out)
         print(f"  Total tools: {len(composer.composed_tools)}", file=out)
