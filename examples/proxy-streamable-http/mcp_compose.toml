@@ -5,7 +5,7 @@
 name = "demo-composer"
 conflict_resolution = "prefix"  # Prefix tool names with server name
 log_level = "INFO"
-port = 8080
+port = 9456
 
 # ============================================================================
 # Transport Configuration - Streamable HTTP mode (recommended)

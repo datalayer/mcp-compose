@@ -47,7 +47,7 @@ except ImportError:
     sys.exit(1)
 
 
-def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "http://localhost:8080") -> Agent:
+def create_agent(model: str = "anthropic:claude-sonnet-4-0", server_url: str = "http://localhost:9456") -> Agent:
     """
     Create a pydantic-ai Agent connected to the MCP Compose via Streamable HTTP
     
@@ -127,7 +127,7 @@ def main():
         print(f"\nUsing model: {model}")
         print("\n⚠️  IMPORTANT: Make sure the MCP Compose is running!")
         print("   Run in another terminal: make start")
-        print("\nConnecting to server at http://localhost:8080/mcp...")
+        print("\nConnecting to server at http://localhost:9456/mcp...")
         
         # Create agent with MCP server connection
         agent = create_agent(model=model)
@@ -172,13 +172,13 @@ def main():
         print("\nThe agent cannot connect to the MCP Compose.")
         print("\nTroubleshooting:")
         print("  1. Make sure mcp-compose is running: make start")
-        print("  2. Check that the endpoint is http://localhost:8080/mcp")
-        print("  3. Verify no firewall blocking port 8080")
+        print("  2. Check that the endpoint is http://localhost:9456/mcp")
+        print("  3. Verify no firewall blocking port 9456")
         print("=" * 70)
         raise
     except ConnectionError as e:
         print(f"\n❌ Connection Error: {e}")
-        print("   Make sure the MCP Compose is running on port 8080")
+        print("   Make sure the MCP Compose is running on port 9456")
         print("   (Run: make start in another terminal)")
     except Exception as e:
         print(f"\n❌ Error: {e}")
