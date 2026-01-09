@@ -5,7 +5,7 @@
 name = "demo-composer"
 conflict_resolution = "prefix"  # Prefix tool names with server name
 log_level = "INFO"
-port = 8080
+port = 8888  # Transport port
 
 # ============================================================================
 # Transport Configuration - Streamable HTTP mode (recommended)
@@ -18,11 +18,28 @@ streamable_http_cors_enabled = true
 sse_enabled = false
 
 # ============================================================================
+# UI Configuration
+# ============================================================================
+[ui]
+enabled = true
+mode = "separate"
+port = 9456  # UI port
+
+# ============================================================================
 # Calculator MCP Server (Proxied via STDIO, exposed via Streamable HTTP)
 # ============================================================================
 [[servers.proxied.stdio]]
 name = "calculator"
 command = ["python", "mcp1.py"]
+restart_policy = "never"
+# Calculator tools: add, subtract, multiply, divide
+
+# ============================================================================
+# Calculator MCP Server (Proxied via STDIO, exposed via Streamable HTTP)
+# ============================================================================
+[[servers.proxied.stdio]]
+name = "calculator_fastmcp"
+command = ["python", "mcp1_fastmcp.py"]
 restart_policy = "never"
 # Calculator tools: add, subtract, multiply, divide
 
@@ -34,3 +51,75 @@ name = "echo"
 command = ["python", "mcp2.py"]
 restart_policy = "never"
 # Echo tools: ping, echo, reverse, uppercase, lowercase, count_words
+
+# ============================================================================
+#
+# ============================================================================
+# Echo MCP Server (Proxied via SSE)
+# Start the SSE server with: python mcp2_sse.py
+[[servers.proxied.sse]]
+name = "echo_sse"
+url = "http://localhost:8081/sse"
+timeout = 30
+keep_alive = true
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+health_check_enabled = false
+mode = "proxy"
+# Auto-start configuration
+auto_start = true
+command = ["python", "mcp2_sse.py"]
+startup_delay = 3
+# Echo tools: ping, echo, reverse, uppercase, lowercase, count_words
+
+# ============================================================================
+#
+# ============================================================================
+# Echo MCP Server (Proxied via Streamable HTTP)
+# Auto-started as subprocess
+[[servers.proxied.streamable-http]]
+name = "echo_streamable_http"
+url = "http://localhost:8082/mcp"
+timeout = 30
+keep_alive = true
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+health_check_enabled = false
+mode = "proxy"
+# Auto-start configuration
+auto_start = true
+command = ["python", "mcp2_streamable_http.py"]
+startup_delay = 3
+# Echo tools: ping, echo, reverse, uppercase, lowercase, count_words
+
+# ============================================================================
+#
+# ============================================================================
+# [[servers.proxied.stdio]]
+# name = "environments"
+# command = ["environments-mcp-server", "start"]
+# restart_policy = "never"
+
+# [[servers.proxied.sse]]
+# name = "environments"
+# url = "http://localhost:4041/sse"
+# timeout = 30
+# keep_alive = true
+# reconnect_on_failure = true
+# max_reconnect_attempts = 10
+# health_check_enabled = false
+# mode = "proxy"
+
+[[servers.proxied.streamable-http]]
+name = "environments"
+url = "http://localhost:4041/mcp"
+timeout = 30
+keep_alive = true
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+health_check_enabled = false
+mode = "proxy"
+# Auto-start configuration
+auto_start = true
+command = ["environments-mcp-server", "start", "--transport", "streamable-http"]
+startup_delay = 3

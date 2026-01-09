@@ -409,6 +409,90 @@ env = { DEBUG = "1" }                # Optional environment variables
 auto_start = true                    # Start automatically (default: true)
 ```
 
+#### Proxied Servers
+
+MCP Compose supports proxying to remote or subprocess-based MCP servers in different modes:
+
+**STDIO Proxied Servers** - Run local servers as subprocesses:
+
+```toml
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "mcp_server.py"]
+restart_policy = "on_failure"        # never, on_failure, always
+max_restarts = 3
+restart_delay = 5                    # Seconds between restarts
+log_stdout = true
+log_stderr = true
+```
+
+**SSE Proxied Servers** - Connect to servers via Server-Sent Events:
+
+```toml
+[[servers.proxied.sse]]
+name = "remote-sse"
+url = "http://localhost:8080/sse"
+auth_token = "your-bearer-token"
+auth_type = "bearer"                 # bearer, basic, or custom
+timeout = 30
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+health_check_enabled = false
+mode = "proxy"                       # proxy or embed
+# Auto-start configuration (optional)
+auto_start = true                    # Start server as subprocess
+command = ["python", "mcp_server.py"]
+startup_delay = 3                    # Wait time after starting (seconds)
+env = { DEBUG = "1" }               # Environment variables
+working_dir = "/path/to/server"     # Working directory
+```
+
+**HTTP Proxied Servers** - Connect via HTTP streaming:
+
+```toml
+[[servers.proxied.http]]
+name = "http-server"
+url = "http://localhost:8080"
+protocol = "lines"                   # lines, streamable-http, poll
+auth_token = "your-bearer-token"
+auth_type = "bearer"
+timeout = 30
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+poll_interval = 2                    # For poll protocol only
+mode = "proxy"
+```
+
+**Streamable HTTP Proxied Servers** - Native MCP Streamable HTTP protocol:
+
+```toml
+[[servers.proxied.streamable-http]]
+name = "streamable-server"
+url = "http://localhost:8080/mcp"
+auth_token = "your-bearer-token"
+auth_type = "bearer"                 # bearer, basic, or custom
+timeout = 30
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+health_check_enabled = false
+mode = "proxy"                       # proxy or embed
+# Auto-start configuration (optional)
+auto_start = true                    # Start server as subprocess
+command = ["python", "mcp_server.py"]
+startup_delay = 3                    # Wait time after starting (seconds)
+env = { DEBUG = "1" }               # Environment variables
+working_dir = "/path/to/server"     # Working directory
+```
+
+**Key Differences:**
+
+- **STDIO**: Subprocess communication, best for local servers
+- **SSE**: Server-Sent Events, one-way streaming from server
+- **HTTP**: Traditional HTTP streaming with various protocols
+- **Streamable HTTP**: Modern MCP native protocol with bidirectional streaming, session management, and full MCP feature support
+
+See `examples/proxy-streamable-http/` for a complete example.
+
 ### Environment Variables
 
 Configure via environment:

@@ -8,7 +8,8 @@ SHELL=/bin/bash
 
 .PHONY: clean build
 
-VERSION = 0.1.0
+# Extract version from pyproject.toml
+VERSION := $(shell python -c "from mcp_compose.__version__ import __version__; print(__version__)")
 
 default: all ## default target is all
 
@@ -122,3 +123,18 @@ publish-pypi: build-ui # publish the pypi package
 	@exec echo twine upload ./dist/*-py3-none-any.whl
 	@exec echo
 	@exec echo https://pypi.org/project/mcp-compose/#history
+
+build-conda: build-ui ## build the conda package (requires: conda install conda-build)
+	@command -v conda-build >/dev/null 2>&1 || { echo "❌ conda-build is not installed. Run: conda install conda-build"; exit 1; }
+	git clean -fdx -e ui/dist -e ui/node_modules && \
+		VERSION=${VERSION} conda-build --output-folder ./dist/conda . -c conda-forge -c datalayer
+	@exec echo "✓ Conda package built in ./dist/conda/"
+
+publish-conda: build-conda ## build and publish the conda package to anaconda.org datalayer
+	anaconda upload --user datalayer ./dist/conda/noarch/mcp-compose-${VERSION}-*.conda
+	@exec echo
+	@exec echo "✓ Package published to anaconda.org/datalayer/mcp-compose"
+	@exec echo open https://anaconda.org/datalayer/mcp-compose
+	@exec echo
+	@exec echo "✓ Package published to anaconda.org/datalayer/mcp-compose"
+	@exec echo open https://anaconda.org/datalayer/mcp-compose

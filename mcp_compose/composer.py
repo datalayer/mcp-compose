@@ -73,6 +73,7 @@ class MCPServerComposer:
         self.composed_resources: Dict[str, Any] = {}
         self.source_mapping: Dict[str, str] = {}  # Maps component name to source server
         self.conflicts_resolved: List[Dict[str, Any]] = []
+        self.processes: Dict[str, Any] = {}  # Track auto-started processes for SSE/Streamable HTTP servers
         
         # Optional enhanced managers
         self.tool_manager: Optional[ToolManager] = None

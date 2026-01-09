@@ -1,0 +1,33 @@
+# MCP Compose Configuration with OpenTelemetry Instrumentation
+# Calculator and Echo MCP Servers Example - STDIO Transport
+
+[composer]
+name = "otel-demo-composer"
+conflict_resolution = "prefix"  # Prefix tool names with server name
+log_level = "INFO"
+
+# ============================================================================
+# Transport Configuration - STDIO mode for subprocess communication
+# ============================================================================
+[transport]
+stdio_enabled = true
+streamable_http_enabled = false
+sse_enabled = false
+
+# ============================================================================
+# Calculator MCP Server (Proxied via STDIO)
+# ============================================================================
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "mcp1.py"]
+restart_policy = "never"
+# Calculator tools: add, subtract, multiply, divide
+
+# ============================================================================
+# Echo MCP Server (Proxied via STDIO)
+# ============================================================================
+[[servers.proxied.stdio]]
+name = "echo"
+command = ["python", "mcp2.py"]
+restart_policy = "never"
+# Echo tools: ping, echo, reverse, uppercase, lowercase, count_words

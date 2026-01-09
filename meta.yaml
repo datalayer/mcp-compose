@@ -2,32 +2,36 @@
 
 package:
   name: {{ name|lower }}
-  version: {{ environ.get("PKG_VERSION") }}
+  version: "{{ VERSION }}"
 
 source:
   path: .
 
+channels:
+  - conda-forge
+  - datalayer
+
 build:
   noarch: python
   number: 0
-  script: {{ PYTHON }} -m pip install --no-deps --no-build-isolation -vv .
+  script: "{{ PYTHON }} -m pip install . -vv"
 
 requirements:
-  host:
+  build:
     - python >=3.10
     - pip
-    - hatchling ~=1.21
+    - hatchling >=1.21
   run:
+    - python >=3.10
     - cryptography >=41.0.0
     - fastapi >=0.104.0
     - httpx >=0.25.0
     - importlib-metadata >=4.8.0
-    - mcp[cli] >=1.2.1
+    - mcp >=1.2.1
     - prometheus_client
     - psutil >=5.9.0
     - pyjwt >=2.8.0
     - pydantic >=2
-    - python >=3.10
     - python-dotenv >=1.0.0
     - sse-starlette >=1.8.0
     - toml >=0.10.2
@@ -36,12 +40,10 @@ requirements:
     - uvicorn >=0.24.0
 
 test:
-  requires:
-    - pip
+  imports:
+    - mcp_compose
   commands:
-    - python -c "import mcp_compose"
     - mcp-compose --help
-    - pip check
 
 about:
   home: https://github.com/datalayer/mcp-compose
