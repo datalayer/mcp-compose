@@ -292,10 +292,8 @@ class ToolProxy:
                         elif item_type == "object":
                             python_type = list[dict]
                         else:
-                            from typing import Any
                             python_type = list[Any]
                     elif field_type == "object":
-                        from typing import Any
                         python_type = dict[str, Any]
                     elif field_type == "number":
                         python_type = float
