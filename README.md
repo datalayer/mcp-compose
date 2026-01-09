@@ -242,6 +242,82 @@ cors_origins = ["http://localhost:3000"]
 
 See [User Guide](docs/USER_GUIDE.md) for complete configuration options.
 
+### Proxied Server Types
+
+MCP Compose supports proxying to different types of MCP servers:
+
+#### STDIO Proxied Servers
+
+Proxy to local MCP servers running as subprocesses:
+
+```toml
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "mcp1.py"]
+restart_policy = "on_failure"
+max_restarts = 3
+```
+
+#### SSE Proxied Servers
+
+Proxy to remote MCP servers using Server-Sent Events:
+
+```toml
+[[servers.proxied.sse]]
+name = "remote-server"
+url = "http://localhost:8080/sse"
+auth_token = "your-token"
+auth_type = "bearer"
+timeout = 30
+reconnect_on_failure = true
+# Auto-start the server as subprocess (optional)
+auto_start = true
+command = ["python", "mcp_server.py"]
+startup_delay = 3
+```
+
+#### HTTP Proxied Servers
+
+Proxy to remote MCP servers using HTTP streaming:
+
+```toml
+[[servers.proxied.http]]
+name = "http-server"
+url = "http://localhost:8080"
+protocol = "lines"  # or "streamable-http"
+auth_token = "your-token"
+auth_type = "bearer"
+timeout = 30
+```
+
+#### Streamable HTTP Proxied Servers
+
+Proxy to remote MCP servers using the native MCP Streamable HTTP protocol:
+
+```toml
+[[servers.proxied.streamable-http]]
+name = "streamable-server"
+url = "http://localhost:8080/mcp"
+auth_token = "your-token"
+auth_type = "bearer"
+timeout = 30
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+health_check_enabled = false
+# Auto-start the server as subprocess (optional)
+auto_start = true
+command = ["python", "mcp_server.py"]
+startup_delay = 3
+```
+
+**Benefits of Streamable HTTP:**
+- Native MCP protocol support with bidirectional streaming
+- Better performance than traditional HTTP streaming
+- Full support for all MCP features (tools, resources, prompts)
+- Automatic session management
+
+See the [proxy-streamable-http example](examples/proxy-streamable-http/) for a complete working example.
+
 ## 🔌 REST API
 
 ### Key Endpoints
