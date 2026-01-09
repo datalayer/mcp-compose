@@ -55,7 +55,7 @@ install-agent:
 start:
 	@echo "Starting MCP Compose with Streamable HTTP transport..."
 	@echo ""
-	mcp-compose serve --config mcp_compose.toml --transport streamable-http
+	mcp-compose -v serve --config mcp_compose.toml --transport streamable-http
 
 # Run the AI agent
 agent:
