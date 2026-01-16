@@ -62,7 +62,7 @@ start:
 	@echo "⚠️  Note: SSE transport is deprecated."
 	@echo "   Consider using proxy-streamable-http instead."
 	@echo ""
-	@echo "📡 Server will be available at: http://localhost:8080/sse"
+	@echo "📡 Server endpoint will be shown below..."
 	@echo ""
 	mcp-compose serve --config mcp_compose.toml --transport sse
 

@@ -101,5 +101,11 @@ def concatenate(strings: list[str], separator: str = " ") -> str:
 
 
 if __name__ == "__main__":
-    # Run as STDIO server
-    mcp.run(transport="stdio")
+    # Run as Streamable HTTP server
+    import uvicorn
+    
+    # Create the FastAPI app with streamable HTTP transport
+    app = mcp.streamable_http_app()
+    
+    # Run with uvicorn on port 8082
+    uvicorn.run(app, host="0.0.0.0", port=8082)

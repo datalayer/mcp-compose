@@ -86,6 +86,20 @@ def count_words(text: str) -> int:
     return len(text.split())
 
 
+@mcp.tool()
+def concatenate(strings: list[str], separator: str = " ") -> str:
+    """Concatenate an array of strings with a separator.
+    
+    Args:
+        strings: Array of strings to concatenate
+        separator: Separator to use between strings (default: space)
+        
+    Returns:
+        Concatenated string
+    """
+    return separator.join(strings)
+
+
 if __name__ == "__main__":
     # Run as STDIO server
     mcp.run(transport="stdio")

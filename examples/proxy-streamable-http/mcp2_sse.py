@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-MCP Server 2 - Echo & String Tools
+MCP Server 2 - Echo & String Tools (SSE Transport)
 
-Simple MCP server providing string manipulation operations.
+Simple MCP server providing string manipulation operations via SSE.
+Authentication is handled at the MCP Compose level.
 """
 
 from mcp.server.fastmcp import FastMCP
@@ -86,20 +87,12 @@ def count_words(text: str) -> int:
     return len(text.split())
 
 
-@mcp.tool()
-def concatenate(strings: list[str], separator: str = " ") -> str:
-    """Concatenate an array of strings with a separator.
-    
-    Args:
-        strings: Array of strings to concatenate
-        separator: Separator to use between strings (default: space)
-        
-    Returns:
-        Concatenated string
-    """
-    return separator.join(strings)
-
-
 if __name__ == "__main__":
-    # Run as STDIO server
-    mcp.run(transport="stdio")
+    # Run as SSE server on port 8081
+    import uvicorn
+    
+    # Get the SSE app from FastMCP
+    app = mcp.sse_app()
+    
+    # Run with uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8081)

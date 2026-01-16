@@ -5,24 +5,24 @@ MCP Server 1 - Calculator Tools
 Simple MCP server providing calculator operations.
 """
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 # Create MCP server
 mcp = FastMCP("calculator-server")
 
 
 @mcp.tool()
-def add(a: float, b: list[float]) -> float:
-    """Add a number to a list of numbers.
+def add(a: float, b: float) -> float:
+    """Add two numbers together.
     
     Args:
         a: First number
-        b: List of numbers to add to a
+        b: Second number
         
     Returns:
-        Sum of a and all numbers in b
+        Sum of a and b
     """
-    return a + sum(b)
+    return a + b
 
 
 @mcp.tool()
