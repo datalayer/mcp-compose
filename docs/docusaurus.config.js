@@ -38,27 +38,33 @@ module.exports = {
       items: [
         {
           type: 'doc',
-          docId: 'concept/index',
+          docId: 'getting-started/index',
           position: 'left',
-          label: 'Concept',
+          label: 'Start',
         },
         {
           type: 'doc',
-          docId: 'getting-started/index',
+          docId: 'concept/index',
           position: 'left',
-          label: 'Getting Started',
+          label: 'Concepts',
+        },
+        {
+          type: 'doc',
+          docId: 'architecture/index',
+          position: 'left',
+          label: 'Architecture',
         },
         {
           type: 'doc',
           docId: 'discovery/index',
           position: 'left',
-          label: 'Tool Discovery',
+          label: 'Discovery',
         },
         {
           type: 'doc',
           docId: 'execution/index',
           position: 'left',
-          label: 'Code Execution',
+          label: 'Execution',
         },
         {
           type: 'doc',
@@ -71,6 +77,24 @@ module.exports = {
           docId: 'examples/index',
           position: 'left',
           label: 'Examples',
+        },
+        {
+          type: 'doc',
+          docId: 'api-reference/index',
+          position: 'left',
+          label: 'API',
+        },
+        {
+          type: 'doc',
+          docId: 'deployment/index',
+          position: 'left',
+          label: 'Deployment',
+        },
+        {
+          type: 'doc',
+          docId: 'contributing/index',
+          position: 'left',
+          label: 'Contributing',
         },
         {
           href: 'https://discord.gg/YQFwvmSSuR',
