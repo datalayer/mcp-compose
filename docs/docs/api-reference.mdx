@@ -23,17 +23,21 @@ When authentication is enabled, include a bearer token:
 
 ## Server management
 
+```
     GET  /api/v1/servers
     GET  /api/v1/servers/{server_id}
     POST /api/v1/servers/{server_id}/start
     POST /api/v1/servers/{server_id}/stop
     POST /api/v1/servers/{server_id}/restart
+```
 
 ## Tool management
 
+```
     GET  /api/v1/tools
     GET  /api/v1/tools/{tool_name}
     POST /api/v1/tools/{tool_name}/invoke
+```
 
 Query parameters for tool listing:
 
@@ -59,9 +63,11 @@ Example invocation:
 
 ## Translators
 
+```
     GET    /api/v1/translators
     POST   /api/v1/translators
     DELETE /api/v1/translators/{id}
+```
 
 ## WebSockets
 

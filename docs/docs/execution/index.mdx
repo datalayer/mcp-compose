@@ -13,6 +13,21 @@ This section covers runtime operations: starting/stopping servers, invoking tool
 
 ## Server management
 
+### Server Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Stopped
+    Stopped --> Starting: Start Command
+    Starting --> Running: Success
+    Starting --> Crashed: Failure
+    Running --> Stopping: Stop Command
+    Stopping --> Stopped: Success
+    Running --> Crashed: Runtime Error
+    Crashed --> Starting: Restart Command
+    Running --> Starting: Restart Command
+```
+
 ### CLI
 
 Start a server:
@@ -29,9 +44,11 @@ Restart a server:
 
 ### REST API
 
+```
 	POST /api/v1/servers/{server_id}/start
 	POST /api/v1/servers/{server_id}/stop
 	POST /api/v1/servers/{server_id}/restart
+```
 
 Example:
 
@@ -47,7 +64,9 @@ Example:
 
 ### REST API
 
+```
 	POST /api/v1/tools/{tool_name}/invoke
+```
 
 Example:
 

@@ -9,50 +9,58 @@ Below are practical examples for composing and proxying MCP servers. Use them as
 
 ## Basic STDIO composition
 
-	[composer]
-	name = "local-dev"
-	conflict_resolution = "prefix"
+```toml
+[composer]
+name = "local-dev"
+conflict_resolution = "prefix"
 
-	[[servers]]
-	name = "filesystem"
-	command = "python"
-	args = ["-m", "mcp_server_filesystem", "/data"]
-	transport = "stdio"
+[[servers]]
+name = "filesystem"
+command = "python"
+args = ["-m", "mcp_server_filesystem", "/data"]
+transport = "stdio"
 
-	[[servers]]
-	name = "calculator"
-	command = "python"
-	args = ["-m", "mcp_server_calculator"]
-	transport = "stdio"
+[[servers]]
+name = "calculator"
+command = "python"
+args = ["-m", "mcp_server_calculator"]
+transport = "stdio"
+```
 
 ## Proxied Streamable HTTP server
 
-	[[servers.proxied.streamable-http]]
-	name = "remote-server"
-	url = "http://localhost:8080/mcp"
-	auth_token = "${REMOTE_SERVER_TOKEN}"
-	auth_type = "bearer"
-	timeout = 30
-	reconnect_on_failure = true
+```toml
+[[servers.proxied.streamable-http]]
+name = "remote-server"
+url = "http://localhost:8080/mcp"
+auth_token = "${REMOTE_SERVER_TOKEN}"
+auth_type = "bearer"
+timeout = 30
+reconnect_on_failure = true
+```
 
 ## Proxied SSE server (deprecated)
 
-	[[servers.proxied.sse]]
-	name = "legacy-sse"
-	url = "http://localhost:8080/sse"
-	auth_token = "${SSE_TOKEN}"
-	timeout = 30
-	reconnect_on_failure = true
+```toml
+[[servers.proxied.sse]]
+name = "legacy-sse"
+url = "http://localhost:8080/sse"
+auth_token = "${SSE_TOKEN}"
+timeout = 30
+reconnect_on_failure = true
+```
 
 ## HTTP streaming proxy
 
-	[[servers.proxied.http]]
-	name = "http-server"
-	url = "http://localhost:8080"
-	protocol = "lines"
-	auth_token = "${HTTP_TOKEN}"
-	auth_type = "bearer"
-	timeout = 30
+```toml
+[[servers.proxied.http]]
+name = "http-server"
+url = "http://localhost:8080"
+protocol = "lines"
+auth_token = "${HTTP_TOKEN}"
+auth_type = "bearer"
+timeout = 30
+```
 
 ## Docker deployment
 

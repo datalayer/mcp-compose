@@ -11,6 +11,27 @@ MCP Compose integrates with applications and agent frameworks via three main int
 2. **Python API** for native async workflows
 3. **MCP transports** for MCP-native clients and gateways
 
+```mermaid
+graph LR
+    Client[Client App / Agent]
+    
+    subgraph Interfaces
+        REST[REST API]
+        Python[Python API]
+        MCP[MCP StdIO / HTTP]
+    end
+    
+    Composer[MCP Compose]
+    
+    Client --> REST
+    Client --> Python
+    Client --> MCP
+    
+    REST --> Composer
+    Python --> Composer
+    MCP --> Composer
+```
+
 ## REST API integration
 
 The REST API is available at /api/v1 by default.
@@ -21,7 +42,9 @@ List tools:
 
 Invoke a tool:
 
+```
     POST /api/v1/tools/{tool_name}/invoke
+```
 
 Example request:
 

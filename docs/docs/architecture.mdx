@@ -16,13 +16,24 @@ A managed server can be:
 
 ## Component overview
 
-    MCP Compose (Facade)
-    ├─ Authn/Authz middleware
-    ├─ Transport layer (STDIO / Streamable HTTP / SSE)
-    ├─ Tool manager
-    ├─ Process manager
-    └─ REST API + Web UI
-         └─ Managed MCP servers
+```mermaid
+graph TD
+    Facade[MCP Compose Facade]
+    Auth[Authn/Authz Middleware]
+    Transport[Transport Layer<br/>STDIO / Streamable HTTP / SSE]
+    ToolMgr[Tool Manager]
+    ProcMgr[Process Manager]
+    API[REST API + Web UI]
+    Servers[Managed MCP Servers]
+
+    Facade --> Auth
+    Facade --> Transport
+    Facade --> ToolMgr
+    Facade --> ProcMgr
+    Facade --> API
+    API --> Servers
+    ProcMgr --> Servers
+```
 
 ## Configuration
 

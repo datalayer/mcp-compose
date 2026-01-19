@@ -37,12 +37,22 @@ You can also define per-tool overrides and custom templates.
 
 ## High-level architecture
 
-	MCP Compose (Facade)
-	├─ Authn/Authz middleware
-	├─ Transport layer (STDIO/HTTP/SSE)
-	├─ Tool/Process managers
-	└─ REST API + Web UI
-	   └─ Managed MCP servers (embedded + proxied)
+```mermaid
+graph TD
+    Facade[MCP Compose Facade]
+    Auth[Authn/Authz Middleware]
+    Transport[Transport Layer<br/>STDIO / HTTP / SSE]
+    Managers[Tool/Process Managers]
+    API[REST API + Web UI]
+    Servers[Managed MCP Servers<br/>Embedded + Proxied]
+
+    Facade --> Auth
+    Facade --> Transport
+    Facade --> Managers
+    Facade --> API
+    API --> Servers
+    Managers --> Servers
+```
 
 ## Configuration model
 
