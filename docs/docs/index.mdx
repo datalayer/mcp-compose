@@ -8,3 +8,43 @@ import DocCardList from '@theme/DocCardList';
 import { useDocsSidebar } from '@docusaurus/plugin-content-docs/client';
 
 # MCP Compose
+
+MCP Compose is a unified control plane for multiple Model Context Protocol (MCP) servers. It exposes a single MCP endpoint, a REST API, and a modern Web UI for orchestration, monitoring, and tool invocation.
+
+## What you can do with MCP Compose
+
+- **Compose multiple MCP servers** into one unified interface
+- **Discover and invoke tools** across servers with conflict resolution
+- **Manage server lifecycles** (start/stop/restart) from UI, CLI, or API
+- **Translate protocols** between STDIO and Streamable HTTP (SSE deprecated)
+- **Observe in real time** with metrics, logs, and health checks
+
+## Quick start
+
+Create a minimal configuration file:
+
+	[composer]
+	name = "my-composer"
+	conflict_resolution = "prefix"
+
+	[[servers]]
+	name = "filesystem"
+	command = "python"
+	args = ["-m", "mcp_server_filesystem", "/data"]
+	transport = "stdio"
+
+	[[servers]]
+	name = "calculator"
+	command = "python"
+	args = ["-m", "mcp_server_calculator"]
+	transport = "stdio"
+
+Start the server:
+
+	mcp-composer serve --config mcp_compose.toml
+
+Open the Web UI at **http://localhost:8000** and the REST API at **http://localhost:8000/api/v1**.
+
+## Documentation
+
+<DocCardList items={useDocsSidebar().items} />

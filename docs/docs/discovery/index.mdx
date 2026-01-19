@@ -2,3 +2,64 @@
 title: Tool Discovery
 sidebar_position: 1
 ---
+
+# Tool Discovery
+
+MCP Compose aggregates tools across all managed MCP servers and exposes them through CLI, REST API, and the Web UI.
+
+## CLI discovery
+
+List all tools:
+
+	mcp-composer list-tools
+
+Search tools by keyword:
+
+	mcp-composer list-tools --search read
+
+## REST API discovery
+
+List tools:
+
+	GET /api/v1/tools
+
+Filter by server:
+
+	GET /api/v1/tools?server=filesystem
+
+Search by name/description:
+
+	GET /api/v1/tools?search=read
+
+Paginate results:
+
+	GET /api/v1/tools?limit=10&offset=0
+
+Get tool details:
+
+	GET /api/v1/tools/{tool_name}
+
+Example response:
+
+```
+	{
+	  "name": "filesystem:read_file",
+	  "description": "Read contents of a file",
+	  "input_schema": {
+		"type": "object",
+		"properties": {
+		  "path": {"type": "string", "description": "Path to file"}
+		},
+		"required": ["path"]
+	  },
+	  "server": "filesystem"
+	}
+```
+
+## Web UI discovery
+
+Use the Tools page to search and filter tools by server, then inspect input schemas and test invocations.
+
+## Conflict resolution
+
+If multiple servers expose a tool with the same name, MCP Compose resolves naming conflicts using the configured strategy (prefix, suffix, error, override). The final tool name shown in discovery reflects this resolution.

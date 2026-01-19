@@ -4,3 +4,60 @@ sidebar_position: 2
 ---
 
 # Concepts
+
+MCP Compose acts as a facade for multiple managed MCP servers. It aggregates tools, prompts, and resources into a single unified server and exposes that aggregation through MCP transports, a REST API, and a Web UI.
+
+## Core building blocks
+
+### Managed MCP Server
+
+A managed server is either:
+
+- **Embedded**: a Python package implementing an MCP server (loaded in-process).
+- **Proxied**: an external MCP server connected via STDIO, Streamable HTTP, or SSE (deprecated).
+
+### Transports
+
+MCP Compose supports the official MCP transports:
+
+- **STDIO** for subprocess communication
+- **Streamable HTTP** for modern, production-ready HTTP streaming
+- **SSE (deprecated)** for legacy streaming clients
+
+### Composition and conflict resolution
+
+When multiple servers expose tools with the same name, MCP Compose resolves conflicts using a configurable strategy:
+
+- **prefix**: `server:tool`
+- **suffix**: `tool:server`
+- **error**: fail on conflict
+- **override**: last server wins
+
+You can also define per-tool overrides and custom templates.
+
+## High-level architecture
+
+	MCP Compose (Facade)
+	├─ Authn/Authz middleware
+	├─ Transport layer (STDIO/HTTP/SSE)
+	├─ Tool/Process managers
+	└─ REST API + Web UI
+	   └─ Managed MCP servers (embedded + proxied)
+
+## Configuration model
+
+All configuration lives in a single mcp_compose.toml file. A minimal example:
+
+	[composer]
+	name = "my-composer"
+	conflict_resolution = "prefix"
+
+	[[servers]]
+	name = "filesystem"
+	command = "python"
+	args = ["-m", "mcp_server_filesystem", "/data"]
+	transport = "stdio"
+
+## Embedded vs. proxied
+
+Use embedded servers when you control the Python package lifecycle. Use proxied servers when you need to run external binaries or connect to remote MCP endpoints.

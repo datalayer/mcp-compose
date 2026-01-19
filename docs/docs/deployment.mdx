@@ -1,0 +1,72 @@
+---
+title: Deployment
+sidebar_position: 8
+---
+
+# Deployment
+
+This guide covers Docker, docker-compose, and Kubernetes deployment patterns for MCP Compose.
+
+## Docker
+
+Build and run a production image:
+
+    docker build -t mcp-composer:prod .
+    docker run -d -p 8000:8000 \
+      -e MCP_COMPOSER_LOG_LEVEL=INFO \
+      -v $(pwd)/config:/etc/mcp-composer:ro \
+      mcp-composer:prod
+
+## Docker Compose
+
+Start with the provided docker-compose.yml:
+
+    docker-compose up -d
+
+View logs:
+
+    docker-compose logs -f mcp-composer
+
+## Kubernetes
+
+Minimal deployment (example):
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: mcp-composer
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: mcp-composer
+      template:
+        metadata:
+          labels:
+            app: mcp-composer
+        spec:
+          containers:
+          - name: mcp-composer
+            image: mcp-composer:latest
+            ports:
+            - containerPort: 8000
+            livenessProbe:
+              httpGet:
+                path: /api/v1/health
+                port: 8000
+
+## Production configuration checklist
+
+- Enable authentication and CORS
+- Configure rate limiting
+- Run behind a reverse proxy (TLS termination)
+- Set resource limits and health probes
+- Enable metrics and log aggregation
+
+## Monitoring
+
+Prometheus scrape endpoint:
+
+    GET /metrics
+
+Web UI includes live metrics, log streaming, and system health views.
