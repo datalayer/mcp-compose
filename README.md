@@ -25,7 +25,7 @@ MCP Compose is a comprehensive solution for managing multiple MCP servers in a u
 
 ### Key Capabilities
 
-🔧 **Multi-Server Management** - Start, stop, and monitor multiple MCP servers from a single interface  
+🔧 **Multiple MCP Servers Management** - Start, stop, and monitor multiple MCP servers from a single interface  
 🌐 **REST API** - Complete REST API with 32 endpoints for programmatic control  
 🎨 **Modern Web UI** - Beautiful React-based interface with real-time updates  
 🔄 **Protocol Translation** - Seamlessly translate between STDIO and SSE protocols  

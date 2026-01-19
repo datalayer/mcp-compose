@@ -1,0 +1,360 @@
+---
+title: Integrations
+sidebar_position: 1
+---
+
+# Integrations
+
+MCP Compose can be integrated with AI agent frameworks in two ways:
+
+1. **Pydantic AI Toolset** - Direct integration as a toolset
+2. **MCP Server** - Expose Code Mode as an MCP server
+
+## Pydantic AI Integration
+
+Use `CodemodeToolset` with Pydantic AI agents:
+
+```python
+from pydantic_ai import Agent
+from mcp_codemode import CodemodeToolset, ToolRegistry
+
+# Set up registry
+registry = ToolRegistry()
+registry.add_server("filesystem", {"command": "npx", "args": ["@anthropic-ai/mcp-server-filesystem"]})
+await registry.discover_all()
+
+# Create toolset
+toolset = CodemodeToolset(registry)
+
+# Create agent with the toolset
+agent = Agent(
+    "anthropic:claude-sonnet-4-20250514",
+    system_prompt="You are a helpful assistant that uses code to accomplish tasks.",
+)
+
+# Run agent with toolset
+result = await agent.run(
+    "Find all Python files in /workspace and count their lines",
+    toolsets=[toolset]
+)
+
+print(result.output)
+```
+
+### Toolset Configuration
+
+```python
+from mcp_codemode import CodemodeToolset, CodeModeConfig
+
+config = CodeModeConfig(
+    workspace_path="/workspace",
+    generated_path="/tmp/generated",
+    sandbox_variant="local",
+    default_timeout=60.0,
+)
+
+toolset = CodemodeToolset(
+    registry,
+    config=config,
+    include_search=True,    # Include search_tools tool
+    include_execute=True,   # Include execute_code tool
+)
+```
+
+### Available Tools
+
+The toolset exposes these tools to the agent:
+
+#### `search_tools`
+
+Search for available MCP tools:
+
+```python
+# Agent calls this to find relevant tools
+tools = search_tools(query="read files")
+# Returns: [{"name": "filesystem__read_file", "description": "...", ...}]
+```
+
+#### `execute_code`
+
+Execute Python code that uses MCP tools:
+
+```python
+# Agent writes and executes code
+result = execute_code(code="""
+    from generated.servers.filesystem import read_file, list_directory
+    
+    entries = await list_directory({"path": "/workspace"})
+    for entry in entries["entries"]:
+        if entry.endswith(".py"):
+            content = await read_file({"path": f"/workspace/{entry}"})
+            print(f"{entry}: {len(content.splitlines())} lines")
+""")
+```
+
+### Agent Workflow
+
+A typical Code Mode agent workflow:
+
+1. **Search** - Agent uses `search_tools` to find relevant tools
+2. **Plan** - Agent decides how to compose tools
+3. **Execute** - Agent writes Python code calling `execute_code`
+4. **Iterate** - Agent refines based on results
+
+```python
+from pydantic_ai import Agent
+from mcp_codemode import CodemodeToolset
+
+agent = Agent(
+    "anthropic:claude-sonnet-4-20250514",
+    system_prompt="""You are a code-first assistant. 
+
+When given a task:
+1. Use search_tools to find relevant MCP tools
+2. Write Python code that composes these tools
+3. Execute the code with execute_code
+4. Report results or iterate if needed
+
+Always use asyncio.gather for parallel operations.
+Handle errors with try/except blocks.
+"""
+)
+
+result = await agent.run(
+    "Backup all .md files from /docs to /backup",
+    toolsets=[CodemodeToolset(registry)]
+)
+```
+
+## MCP Server Mode
+
+Run Code Mode as an MCP server for other agents:
+
+```bash
+# Start the MCP server
+python -m mcp_codemode.server
+```
+
+### Server Configuration
+
+Configure via environment variables:
+
+```bash
+export CODEMODE_WORKSPACE="/workspace"
+export CODEMODE_GENERATED="/tmp/generated"
+export CODEMODE_TIMEOUT="60"
+export CODEMODE_SANDBOX="local"
+
+python -m mcp_codemode.server
+```
+
+Or via command line:
+
+```bash
+python -m mcp_codemode.server \
+    --workspace /workspace \
+    --generated /tmp/generated \
+    --timeout 60 \
+    --sandbox local
+```
+
+### Server Tools
+
+The server exposes:
+
+- `search_tools` - Search available MCP tools
+- `execute_code` - Execute Python code
+- `list_skills` - List available skills
+- `run_skill` - Run a saved skill
+
+### Connecting from Clients
+
+Connect to the server from any MCP client:
+
+```python
+# Using mcp-client
+from mcp import Client
+
+client = Client()
+await client.connect("stdio://python -m mcp_codemode.server")
+
+# Use the tools
+result = await client.call_tool("search_tools", {"query": "file operations"})
+```
+
+### Server with Custom Registry
+
+Set up the server with pre-configured MCP servers:
+
+```python
+from mcp_codemode import run_server, ToolRegistry
+
+registry = ToolRegistry()
+registry.add_server("filesystem", {"command": "npx", "args": ["@anthropic-ai/mcp-server-filesystem"]})
+registry.add_server("web", {"command": "npx", "args": ["@anthropic-ai/mcp-server-web"]})
+
+await run_server(registry)
+```
+
+## Combined Integration
+
+Use both approaches together:
+
+```python
+from pydantic_ai import Agent
+from mcp_codemode import CodemodeToolset, ToolRegistry
+
+# Primary registry for Code Mode
+codemode_registry = ToolRegistry()
+codemode_registry.add_server("filesystem", {...})
+codemode_registry.add_server("database", {...})
+
+# Create Code Mode toolset
+codemode = CodemodeToolset(codemode_registry)
+
+# Also connect to other MCP servers directly
+from pydantic_ai_slim.pydantic_ai.mcp import MCPServerStdio
+
+other_server = MCPServerStdio("npx", args=["@anthropic-ai/mcp-server-slack"])
+
+# Agent has both Code Mode and direct tool access
+agent = Agent(
+    "anthropic:claude-sonnet-4-20250514",
+    system_prompt="Use code mode for complex file operations, direct tools for simple tasks."
+)
+
+result = await agent.run(
+    "Process all CSV files and post summary to Slack",
+    toolsets=[codemode, other_server]
+)
+```
+
+## Error Handling
+
+### Toolset Errors
+
+```python
+from pydantic_ai import Agent
+from mcp_codemode import CodemodeToolset
+
+agent = Agent("anthropic:claude-sonnet-4-20250514")
+
+try:
+    result = await agent.run(
+        "Do something complex",
+        toolsets=[CodemodeToolset(registry)]
+    )
+except Exception as e:
+    print(f"Agent failed: {e}")
+```
+
+### Execution Errors
+
+The `execute_code` tool returns errors in the result:
+
+```python
+result = execute_code(code="invalid python code %%")
+# Returns: {"success": False, "error": "SyntaxError: invalid syntax", "output": ""}
+```
+
+Agents can handle these and retry:
+
+```python
+# Agent's code execution
+result = execute_code(code=code_attempt_1)
+if not result["success"]:
+    # Agent fixes the code and retries
+    result = execute_code(code=code_attempt_2)
+```
+
+## Streaming Support
+
+Both integration modes support streaming:
+
+### Pydantic AI Streaming
+
+```python
+async with agent.run_stream(
+    "Process large dataset",
+    toolsets=[CodemodeToolset(registry)]
+) as stream:
+    async for chunk in stream.stream():
+        print(chunk, end="", flush=True)
+```
+
+### Execution Progress
+
+For long-running code, use print statements:
+
+```python
+result = execute_code(code="""
+    for i, file in enumerate(files):
+        print(f"Processing {i+1}/{len(files)}: {file}")
+        await process(file)
+    print("Complete!")
+""")
+```
+
+## Best Practices
+
+### 1. Scope Appropriately
+
+Use Code Mode for complex, multi-step operations:
+
+```python
+# Good for Code Mode: Complex multi-tool workflow
+"Read all Python files, analyze their imports, generate dependency graph"
+
+# Use direct tools: Simple single operations  
+"Read the file /config.json"
+```
+
+### 2. Guide the Agent
+
+Provide clear system prompts:
+
+```python
+agent = Agent(
+    "anthropic:claude-sonnet-4-20250514",
+    system_prompt="""
+    You have two modes:
+    - Code Mode: For complex operations involving multiple files or steps
+    - Direct Tools: For simple single operations
+    
+    Use search_tools first to understand available capabilities.
+    When writing code, always include error handling.
+    """
+)
+```
+
+### 3. Monitor Execution
+
+Track tool calls and execution time:
+
+```python
+from mcp_codemode import CodemodeToolset
+
+toolset = CodemodeToolset(registry)
+
+async def on_execution(code: str, result):
+    print(f"Executed code ({len(code)} chars)")
+    print(f"Success: {result.success}")
+    print(f"Duration: {result.duration_ms}ms")
+    print(f"Tool calls: {result.tool_call_count}")
+
+toolset.on_execution = on_execution
+```
+
+### 4. Secure the Sandbox
+
+Configure sandbox security:
+
+```python
+from mcp_codemode import CodeModeConfig
+
+config = CodeModeConfig(
+    sandbox_variant="datalayer-runtime",  # Isolated cloud sandbox
+    default_timeout=30.0,                  # Limit execution time
+    workspace_path="/safe/workspace",      # Restricted workspace
+)
+```
