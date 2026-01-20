@@ -23,25 +23,29 @@ MCP Compose is a unified control plane for multiple Model Context Protocol (MCP)
 
 Create a minimal configuration file:
 
-	[composer]
-	name = "my-composer"
-	conflict_resolution = "prefix"
+```toml
+[composer]
+name = "my-composer"
+conflict_resolution = "prefix"
 
-	[[servers]]
-	name = "filesystem"
-	command = "python"
-	args = ["-m", "mcp_server_filesystem", "/data"]
-	transport = "stdio"
+[[servers]]
+name = "filesystem"
+command = "python"
+args = ["-m", "mcp_server_filesystem", "/data"]
+transport = "stdio"
 
-	[[servers]]
-	name = "calculator"
-	command = "python"
-	args = ["-m", "mcp_server_calculator"]
-	transport = "stdio"
+[[servers]]
+name = "calculator"
+command = "python"
+args = ["-m", "mcp_server_calculator"]
+transport = "stdio"
+```
 
 Start the server:
 
-	mcp-composer serve --config mcp_compose.toml
+```bash
+mcp-compose serve --config mcp_compose.toml
+```
 
 Open the Web UI at **http://localhost:8000** and the REST API at **http://localhost:8000/api/v1**.
 

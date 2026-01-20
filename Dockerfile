@@ -61,11 +61,11 @@ COPY examples/mcp_compose.toml /app/config.toml
 ENV PATH=/root/.local/bin:$PATH
 
 # Create directories
-RUN mkdir -p /var/log/mcp-composer /data /etc/mcp-composer
+RUN mkdir -p /var/log/mcp-compose /data /etc/mcp-compose
 
 # Create non-root user
 RUN useradd -m -u 1000 mcp && \
-    chown -R mcp:mcp /app /var/log/mcp-composer /data /etc/mcp-composer
+    chown -R mcp:mcp /app /var/log/mcp-compose /data /etc/mcp-compose
 
 # Switch to non-root user
 USER mcp
@@ -83,4 +83,4 @@ ENV MCP_COMPOSER_HOST=0.0.0.0 \
     MCP_COMPOSER_LOG_LEVEL=INFO
 
 # Run the application
-CMD ["mcp-composer", "serve", "--config", "/app/config.toml", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["mcp-compose", "serve", "--config", "/app/config.toml", "--host", "0.0.0.0", "--port", "8000"]

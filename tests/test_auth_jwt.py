@@ -234,14 +234,14 @@ class TestJWTAuthenticator:
         """Test token with issuer and audience."""
         auth = JWTAuthenticator(
             secret_key="test_secret",
-            issuer="mcp-composer",
+            issuer="mcp-compose",
             audience="mcp-client",
         )
         
         token = auth.create_access_token(user_id="user123")
         payload = auth.decode_token(token)
         
-        assert payload["iss"] == "mcp-composer"
+        assert payload["iss"] == "mcp-compose"
         assert payload["aud"] == "mcp-client"
     
     def test_custom_expiration(self):

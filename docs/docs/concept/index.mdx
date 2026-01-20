@@ -58,15 +58,17 @@ graph TD
 
 All configuration lives in a single mcp_compose.toml file. A minimal example:
 
-	[composer]
-	name = "my-composer"
-	conflict_resolution = "prefix"
+```toml
+[composer]
+name = "my-composer"
+conflict_resolution = "prefix"
 
-	[[servers]]
-	name = "filesystem"
-	command = "python"
-	args = ["-m", "mcp_server_filesystem", "/data"]
-	transport = "stdio"
+[[servers]]
+name = "filesystem"
+command = "python"
+args = ["-m", "mcp_server_filesystem", "/data"]
+transport = "stdio"
+```
 
 ## Embedded vs. proxied
 

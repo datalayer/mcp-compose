@@ -9,7 +9,9 @@ This section covers runtime operations: starting/stopping servers, invoking tool
 
 ## Start the composer
 
-	mcp-composer serve --config mcp_compose.toml
+```
+mcp-compose serve --config mcp_compose.toml
+```
 
 ## Server management
 
@@ -32,66 +34,80 @@ stateDiagram-v2
 
 Start a server:
 
-	mcp-composer start-server filesystem
+```
+mcp-compose start-server filesystem
+```
 
 Stop a server:
 
-	mcp-composer stop-server filesystem
+```
+mcp-compose stop-server filesystem
+```
 
 Restart a server:
 
-	mcp-composer restart-server filesystem
+```
+mcp-compose restart-server filesystem
+```
 
 ### REST API
 
 ```
-	POST /api/v1/servers/{server_id}/start
-	POST /api/v1/servers/{server_id}/stop
-	POST /api/v1/servers/{server_id}/restart
+POST /api/v1/servers/{server_id}/start
+POST /api/v1/servers/{server_id}/stop
+POST /api/v1/servers/{server_id}/restart
 ```
 
 Example:
 
-	curl -X POST http://localhost:8000/api/v1/servers/filesystem/start
+```bash
+curl -X POST http://localhost:8000/api/v1/servers/filesystem/start
+```
 
 ## Tool invocation
 
 ### CLI
 
-```
-	mcp-composer invoke-tool calculator:add '{"a": 5, "b": 3}'
+```bash
+mcp-compose invoke-tool calculator:add '{"a": 5, "b": 3}'
 ```
 
 ### REST API
 
 ```
-	POST /api/v1/tools/{tool_name}/invoke
+POST /api/v1/tools/{tool_name}/invoke
 ```
 
 Example:
 
-```
-	curl -X POST http://localhost:8000/api/v1/tools/calculator:add/invoke \
-	  -H "Content-Type: application/json" \
-	  -d '{"a": 5, "b": 3}'
+```bash
+curl -X POST http://localhost:8000/api/v1/tools/calculator:add/invoke \
+	-H "Content-Type: application/json" \
+	-d '{"a": 5, "b": 3}'
 ```
 
 ## Monitoring
 
 ### Health and status
 
-	GET /api/v1/health
-	GET /api/v1/status
-	GET /api/v1/status/composition
+```
+GET /api/v1/health
+GET /api/v1/status
+GET /api/v1/status/composition
+```
 
 ### Metrics
 
-	GET /api/v1/status/metrics
+```
+GET /api/v1/status/metrics
+```
 
 ### WebSockets
 
-	WS /ws/logs
-	WS /ws/metrics
+```
+WS /ws/logs
+WS /ws/metrics
+```
 
 The Web UI exposes the same views with live updates for logs, metrics, and server status.
 

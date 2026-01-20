@@ -11,51 +11,63 @@ MCP Compose aggregates tools across all managed MCP servers and exposes them thr
 
 List all tools:
 
-	mcp-composer list-tools
+```
+mcp-compose list-tools
+```
 
 Search tools by keyword:
 
-	mcp-composer list-tools --search read
+```
+mcp-compose list-tools --search read
+```
 
 ## REST API discovery
 
 List tools:
 
-	GET /api/v1/tools
+```
+GET /api/v1/tools
+```
 
 Filter by server:
 
-	GET /api/v1/tools?server=filesystem
+```
+GET /api/v1/tools?server=filesystem
+```
 
 Search by name/description:
 
-	GET /api/v1/tools?search=read
+```
+GET /api/v1/tools?search=read
+```
 
 Paginate results:
 
-	GET /api/v1/tools?limit=10&offset=0
+```
+GET /api/v1/tools?limit=10&offset=0
+```
 
 Get tool details:
 
 ```
-    GET /api/v1/tools/{tool_name}
+GET /api/v1/tools/{tool_name}
 ```
 
 Example response:
 
-```
-	{
-	  "name": "filesystem:read_file",
-	  "description": "Read contents of a file",
-	  "input_schema": {
-		"type": "object",
-		"properties": {
-		  "path": {"type": "string", "description": "Path to file"}
-		},
-		"required": ["path"]
-	  },
-	  "server": "filesystem"
-	}
+```json
+{
+	"name": "filesystem:read_file",
+	"description": "Read contents of a file",
+	"input_schema": {
+	"type": "object",
+	"properties": {
+		"path": {"type": "string", "description": "Path to file"}
+	},
+	"required": ["path"]
+	},
+	"server": "filesystem"
+}
 ```
 
 ## Web UI discovery

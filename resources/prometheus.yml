@@ -2,7 +2,7 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'mcp-composer'
+    cluster: 'mcp-compose'
     environment: 'production'
 
 # Alertmanager configuration
@@ -19,11 +19,11 @@ rule_files:
 # Scrape configurations
 scrape_configs:
   # MCP Compose metrics
-  - job_name: 'mcp-composer'
+  - job_name: 'mcp-compose'
     static_configs:
-      - targets: ['mcp-composer:8000']
+      - targets: ['mcp-compose:8000']
         labels:
-          service: 'mcp-composer'
+          service: 'mcp-compose'
     metrics_path: '/metrics'
     scrape_interval: 10s
     scrape_timeout: 5s

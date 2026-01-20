@@ -80,15 +80,15 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'api-reference/index',
-          position: 'left',
-          label: 'API',
-        },
-        {
-          type: 'doc',
           docId: 'deployment/index',
           position: 'left',
           label: 'Deployment',
+        },
+        {
+          type: 'doc',
+          docId: 'api-reference/index',
+          position: 'left',
+          label: 'API',
         },
         {
           type: 'doc',

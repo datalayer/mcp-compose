@@ -2,11 +2,11 @@ version: '3.8'
 
 services:
   # MCP Compose
-  mcp-composer:
+  mcp-compose:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: mcp-composer
+    container_name: mcp-compose
     ports:
       - "8000:8000"
     volumes:
@@ -15,7 +15,7 @@ services:
       # Data directory for file-based MCP servers
       - mcp-data:/data
       # Logs
-      - mcp-logs:/var/log/mcp-composer
+      - mcp-logs:/var/log/mcp-compose
     environment:
       - MCP_COMPOSER_HOST=0.0.0.0
       - MCP_COMPOSER_PORT=8000
@@ -59,7 +59,7 @@ services:
     networks:
       - mcp-network
     depends_on:
-      - mcp-composer
+      - mcp-compose
 
   # Grafana for visualization
   grafana:
@@ -97,7 +97,7 @@ services:
     networks:
       - mcp-network
     depends_on:
-      - mcp-composer
+      - mcp-compose
     profiles:
       - production
 

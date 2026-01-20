@@ -39,15 +39,17 @@ graph TD
 
 All configuration is provided in mcp_compose.toml.
 
-    [composer]
-    name = "my-unified-server"
-    conflict_resolution = "prefix"
+```toml
+[composer]
+name = "my-unified-server"
+conflict_resolution = "prefix"
 
-    [[servers]]
-    name = "filesystem"
-    command = "python"
-    args = ["-m", "mcp_server_filesystem", "/data"]
-    transport = "stdio"
+[[servers]]
+name = "filesystem"
+command = "python"
+args = ["-m", "mcp_server_filesystem", "/data"]
+transport = "stdio"
+```
 
 ## Security
 

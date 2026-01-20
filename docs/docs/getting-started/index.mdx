@@ -17,47 +17,59 @@ This guide walks through installing MCP Compose, creating a configuration, and l
 
 ### From PyPI
 
-	pip install mcp-compose
+```
+pip install mcp-compose
+```
 
 ### From source
 
-	git clone https://github.com/datalayer/mcp-compose.git
-	cd mcp-compose
-	pip install -e .
+```bash
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
+pip install -e .
+```
 
 ### Docker (recommended for production)
 
-	git clone https://github.com/datalayer/mcp-compose.git
-	cd mcp-compose
-	docker-compose up -d
+```bash
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
+docker-compose up -d
+```
 
 ## Verify installation
 
-	mcp-composer --version
+```bash
+mcp-compose --version
+```
 
 ## Create your configuration
 
 Create a file named mcp_compose.toml:
 
-	[composer]
-	name = "my-composer"
-	conflict_resolution = "prefix"
+```toml
+[composer]
+name = "my-composer"
+conflict_resolution = "prefix"
 
-	[[servers]]
-	name = "filesystem"
-	command = "python"
-	args = ["-m", "mcp_server_filesystem", "/data"]
-	transport = "stdio"
+[[servers]]
+name = "filesystem"
+command = "python"
+args = ["-m", "mcp_server_filesystem", "/data"]
+transport = "stdio"
 
-	[[servers]]
-	name = "calculator"
-	command = "python"
-	args = ["-m", "mcp_server_calculator"]
-	transport = "stdio"
+[[servers]]
+name = "calculator"
+command = "python"
+args = ["-m", "mcp_server_calculator"]
+transport = "stdio"
+```
 
 ## Start MCP Compose
 
-	mcp-composer serve --config mcp_compose.toml
+```bash
+mcp-compose serve --config mcp_compose.toml
+```
 
 Once running, you have:
 
@@ -69,12 +81,14 @@ Once running, you have:
 
 List tools:
 
-	mcp-composer list-tools
+```bash
+mcp-compose list-tools
+```
 
 Invoke a tool:
 
-```
-	mcp-composer invoke-tool calculator:add '{"a": 5, "b": 3}'
+```bash
+mcp-compose invoke-tool calculator:add '{"a": 5, "b": 3}'
 ```
 
 ## Next steps

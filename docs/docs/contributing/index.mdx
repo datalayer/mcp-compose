@@ -15,23 +15,29 @@ Thank you for contributing to MCP Compose. This page summarizes the workflow and
 
 ## Development setup
 
-    git clone https://github.com/datalayer/mcp-compose.git
-    cd mcp-compose
-    python -m venv venv
-    source venv/bin/activate
-    pip install -e ".[dev]"
+```bash
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
+python -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+```
 
 ## UI development
 
-    cd ui
-    npm install
-    npm run dev
+```bash
+cd ui
+npm install
+npm run dev
+```
 
 ## Testing
 
-    pytest
-    make test-coverage
-    make lint
+```bash
+pytest
+make test-coverage
+make lint
+```
 
 ## Commit messages
 
