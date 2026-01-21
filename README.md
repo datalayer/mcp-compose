@@ -25,7 +25,7 @@ MCP Compose is a comprehensive solution for managing multiple MCP servers in a u
 
 ### Key Capabilities
 
-🔧 **Multi-Server Management** - Start, stop, and monitor multiple MCP servers from a single interface  
+🔧 **Multiple MCP Servers Management** - Start, stop, and monitor multiple MCP servers from a single interface  
 🌐 **REST API** - Complete REST API with 32 endpoints for programmatic control  
 🎨 **Modern Web UI** - Beautiful React-based interface with real-time updates  
 🔄 **Protocol Translation** - Seamlessly translate between STDIO and SSE protocols  
@@ -67,17 +67,17 @@ open http://localhost:8000
 
 ```bash
 # Start the server with Web UI
-mcp-composer serve --config examples/mcp_compose.toml
+mcp-compose serve --config examples/mcp_compose.toml
 
 # Access Web UI at http://localhost:8000
 # Access API at http://localhost:8000/api/v1
 # Access API docs at http://localhost:8000/docs
 
 # Discover available MCP servers
-mcp-composer discover
+mcp-compose discover
 
 # Invoke a tool
-mcp-composer invoke-tool calculator:add '{"a": 5, "b": 3}'
+mcp-compose invoke-tool calculator:add '{"a": 5, "b": 3}'
 ```
 
 ### Using Python API
@@ -398,7 +398,7 @@ make test
 make build-ui
 
 # Run server
-mcp-composer serve
+mcp-compose serve
 ```
 
 ## 🐳 Docker Deployment
@@ -420,15 +420,15 @@ docker-compose down
 
 ```bash
 # Build with production settings
-docker build -t mcp-composer:prod .
+docker build -t mcp-compose:prod .
 
 # Run with environment variables
 docker run -d \
   -p 8000:8000 \
   -v $(pwd)/config.toml:/app/config.toml:ro \
   -e MCP_COMPOSER_AUTH_TOKEN=secret \
-  --name mcp-composer \
-  mcp-composer:prod
+  --name mcp-compose \
+  mcp-compose:prod
 ```
 
 See [Deployment Guide](docs/DEPLOYMENT.md) for Kubernetes and production setup.

@@ -1,0 +1,101 @@
+---
+title: API Reference
+sidebar_position: 7
+---
+
+# API Reference
+
+This page summarizes the MCP Compose REST and WebSocket APIs. All endpoints are prefixed by /api/v1 unless configured otherwise.
+
+## Authentication
+
+When authentication is enabled, include a bearer token:
+
+```
+Authorization: Bearer YOUR_TOKEN
+```
+
+## Health and status
+
+```
+GET /api/v1/health
+GET /api/v1/version
+GET /api/v1/status
+GET /api/v1/status/composition
+GET /api/v1/status/metrics
+```
+
+## Server management
+
+```
+GET  /api/v1/servers
+GET  /api/v1/servers/{server_id}
+POST /api/v1/servers/{server_id}/start
+POST /api/v1/servers/{server_id}/stop
+POST /api/v1/servers/{server_id}/restart
+```
+
+## Tool management
+
+```
+GET  /api/v1/tools
+GET  /api/v1/tools/{tool_name}
+POST /api/v1/tools/{tool_name}/invoke
+```
+
+Query parameters for tool listing:
+
+- server (optional): filter by server name
+- search (optional): search by name/description
+- limit (optional): max results (default 100)
+- offset (optional): pagination offset
+
+Example invocation:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/tools/calculator:add/invoke \
+    -H "Content-Type: application/json" \
+    -d '{"a": 5, "b": 3}'
+```
+
+## Configuration
+
+```
+GET  /api/v1/config
+PUT  /api/v1/config
+POST /api/v1/config/validate
+POST /api/v1/config/reload
+```
+
+## Translators
+
+```
+GET    /api/v1/translators
+POST   /api/v1/translators
+DELETE /api/v1/translators/{id}
+```
+
+## WebSockets
+
+```
+WS /ws/logs
+WS /ws/metrics
+```
+
+## Error handling
+
+Errors return a JSON payload:
+
+```json
+{
+    "detail": "Server not found: nonexistent"
+}
+```
+
+HTTP codes:
+
+- 200 OK: successful request
+- 400 Bad Request: validation or state errors
+- 401 Unauthorized: missing or invalid auth
+- 404 Not Found: resource not found
+- 500 Internal Server Error: unexpected failure

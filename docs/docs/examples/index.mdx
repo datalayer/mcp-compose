@@ -1,0 +1,78 @@
+---
+title: Examples
+sidebar_position: 6
+---
+
+# Examples
+
+Below are practical examples for composing and proxying MCP servers. Use them as templates for your own configurations.
+
+## Basic STDIO composition
+
+```toml
+[composer]
+name = "local-dev"
+conflict_resolution = "prefix"
+
+[[servers]]
+name = "filesystem"
+command = "python"
+args = ["-m", "mcp_server_filesystem", "/data"]
+transport = "stdio"
+
+[[servers]]
+name = "calculator"
+command = "python"
+args = ["-m", "mcp_server_calculator"]
+transport = "stdio"
+```
+
+## Proxied Streamable HTTP server
+
+```toml
+[[servers.proxied.streamable-http]]
+name = "remote-server"
+url = "http://localhost:8080/mcp"
+auth_token = "${REMOTE_SERVER_TOKEN}"
+auth_type = "bearer"
+timeout = 30
+reconnect_on_failure = true
+```
+
+## Proxied SSE server (deprecated)
+
+```toml
+[[servers.proxied.sse]]
+name = "legacy-sse"
+url = "http://localhost:8080/sse"
+auth_token = "${SSE_TOKEN}"
+timeout = 30
+reconnect_on_failure = true
+```
+
+## HTTP streaming proxy
+
+```toml
+[[servers.proxied.http]]
+name = "http-server"
+url = "http://localhost:8080"
+protocol = "lines"
+auth_token = "${HTTP_TOKEN}"
+auth_type = "bearer"
+timeout = 30
+```
+
+## Docker deployment
+
+```
+docker-compose up -d
+```
+
+Then open:
+
+- http://localhost:8000 (Web UI)
+- http://localhost:8000/api/v1 (REST API)
+
+## Git + File example
+
+The repository includes a Git + Filesystem composition example with a Makefile and optional anonymous access. See the examples directory in the repository for a complete walkthrough.

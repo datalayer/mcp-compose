@@ -47,7 +47,7 @@ keys = ["${MCP_API_KEY_1}", "${MCP_API_KEY_2}"]
 # [authentication.jwt]
 # secret = "${JWT_SECRET}"
 # algorithm = "HS256"
-# issuer = "mcp-composer"
+# issuer = "mcp-compose"
 # audience = "mcp-clients"
 
 # [authentication.oauth2]
@@ -127,7 +127,7 @@ enabled = true
 # health_check_tool = "health"
 # log_stdout = true
 # log_stderr = true
-# log_file = "/var/log/mcp-composer/weather-server.log"
+# log_file = "/var/log/mcp-compose/weather-server.log"
 
 # [[servers.proxied.stdio.resource_limits]]
 # max_memory_mb = 512
@@ -222,7 +222,7 @@ framework = "react"
 mode = "embedded"
 path = "/ui"
 port = 9456  # Port for UI when mode is 'separate', otherwise uses API port
-# static_dir = "/var/www/mcp-composer/ui"
+# static_dir = "/var/www/mcp-compose/ui"
 features = [
     "server_management",
     "tool_testing",
@@ -257,7 +257,7 @@ collect = [
 level = "INFO"
 format = "json"
 output = "stdout"
-# log_file = "/var/log/mcp-composer/composer.log"
+# log_file = "/var/log/mcp-compose/composer.log"
 rotation = "daily"
 max_size_mb = 100
 max_files = 7

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
 """
 MCP Server 2 - Echo & String Tools
 
@@ -84,7 +87,7 @@ def count_words(text: str) -> int:
         Number of words
     """
     return len(text.split())
-
+0
 
 @mcp.tool()
 def concatenate(strings: list[str], separator: str = " ") -> str:

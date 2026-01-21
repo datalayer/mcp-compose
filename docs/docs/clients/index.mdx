@@ -1,0 +1,448 @@
+---
+title: Clients
+sidebar_position: 2
+---
+
+# MCP Clients
+
+MCP Compose can be used with any MCP-compatible client. This guide covers configuration for the two most popular clients: **Claude Desktop** and **VS Code**.
+
+Both clients support two transport methods:
+- **STDIO**: MCP Compose runs as a subprocess, communicating via stdin/stdout
+- **Streamable HTTP**: MCP Compose runs as an HTTP server, communicating via HTTP streaming
+
+## Claude Desktop
+
+Claude Desktop is Anthropic's native application that supports MCP servers through its configuration file.
+
+### Configuration File Location
+
+| Platform | Path |
+|----------|------|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Linux | `~/.config/Claude/claude_desktop_config.json` |
+
+### STDIO Transport
+
+With STDIO, Claude Desktop launches MCP Compose as a subprocess:
+
+```json
+{
+  "mcpServers": {
+    "mcp-compose": {
+      "command": "mcp-compose",
+      "args": ["serve", "--config", "/path/to/mcp_compose.toml"],
+      "env": {
+        "LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+If using `uvx` (recommended for isolated environments):
+
+```json
+{
+  "mcpServers": {
+    "mcp-compose": {
+      "command": "uvx",
+      "args": ["mcp-compose", "serve", "--config", "/path/to/mcp_compose.toml"]
+    }
+  }
+}
+```
+
+If using a Python virtual environment:
+
+```json
+{
+  "mcpServers": {
+    "mcp-compose": {
+      "command": "/path/to/venv/bin/python",
+      "args": ["-m", "mcp_compose", "serve", "--config", "/path/to/mcp_compose.toml"]
+    }
+  }
+}
+```
+
+### Streamable HTTP Transport
+
+With Streamable HTTP, MCP Compose runs as a standalone server that Claude Desktop connects to:
+
+**Step 1**: Start MCP Compose server in a terminal:
+
+```bash
+mcp-compose serve --config /path/to/mcp_compose.toml --transport streamable-http --port 8080
+```
+
+**Step 2**: Configure Claude Desktop to connect:
+
+```json
+{
+  "mcpServers": {
+    "mcp-compose": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+For authenticated endpoints:
+
+```json
+{
+  "mcpServers": {
+    "mcp-compose": {
+      "url": "http://localhost:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+:::tip
+Streamable HTTP is recommended for production deployments where MCP Compose manages multiple downstream servers or requires persistent connections.
+:::
+
+---
+
+## VS Code
+
+VS Code supports MCP servers through the GitHub Copilot extension (with MCP support) or dedicated MCP extensions.
+
+### Configuration File Location
+
+VS Code MCP configuration is stored in your user settings or workspace settings:
+
+| Scope | Path |
+|-------|------|
+| User Settings | `~/.vscode/settings.json` or via Command Palette |
+| Workspace | `.vscode/settings.json` in your project |
+
+You can also use the dedicated MCP configuration file:
+
+| Platform | Path |
+|----------|------|
+| macOS | `~/Library/Application Support/Code/User/mcp.json` |
+| Windows | `%APPDATA%\Code\User\mcp.json` |
+| Linux | `~/.config/Code/User/mcp.json` |
+
+### STDIO Transport
+
+Configure MCP Compose as a subprocess in your VS Code settings:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "mcp-compose": {
+        "command": "mcp-compose",
+        "args": ["serve", "--config", "/path/to/mcp_compose.toml"],
+        "env": {
+          "LOG_LEVEL": "INFO"
+        }
+      }
+    }
+  }
+}
+```
+
+Using `uvx`:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "mcp-compose": {
+        "command": "uvx",
+        "args": ["mcp-compose", "serve", "--config", "/path/to/mcp_compose.toml"]
+      }
+    }
+  }
+}
+```
+
+Using a Python virtual environment:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "mcp-compose": {
+        "command": "/path/to/venv/bin/python",
+        "args": ["-m", "mcp_compose", "serve", "--config", "/path/to/mcp_compose.toml"]
+      }
+    }
+  }
+}
+```
+
+### Streamable HTTP Transport
+
+**Step 1**: Start MCP Compose server:
+
+```bash
+mcp-compose serve --config /path/to/mcp_compose.toml --transport streamable-http --port 8080
+```
+
+**Step 2**: Configure VS Code to connect:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "mcp-compose": {
+        "url": "http://localhost:8080/mcp"
+      }
+    }
+  }
+}
+```
+
+With authentication:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "mcp-compose": {
+        "url": "http://localhost:8080/mcp",
+        "headers": {
+          "Authorization": "Bearer YOUR_TOKEN"
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+## Transport Comparison
+
+| Feature | STDIO | Streamable HTTP |
+|---------|-------|-----------------|
+| Setup complexity | Simple | Requires running server |
+| Process management | Client manages | User manages |
+| Multiple clients | One per process | Many clients supported |
+| Network access | Local only | Local or remote |
+| Authentication | Via env vars | HTTP headers / OAuth |
+| Recommended for | Development | Production |
+
+---
+
+## Portable Configurations with MCP_COMPOSE_CONFIG_DIR
+
+When your `mcp_compose.toml` references downstream servers using relative paths (e.g., `command = ["python", "server.py"]`), you need to set the `working_dir` so the subprocess can find the files.
+
+MCP Compose provides a special variable `${MCP_COMPOSE_CONFIG_DIR}` that resolves to the directory containing your configuration file. This enables portable configurations that work regardless of where MCP Compose is launched from.
+
+### How It Works
+
+In your `mcp_compose.toml`:
+
+```toml
+[[servers.proxied.stdio]]
+name = "my-server"
+command = ["python", "server.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"  # Resolves to config file's directory
+```
+
+The `${MCP_COMPOSE_CONFIG_DIR}` variable is automatically substituted when the configuration is loaded, so relative commands like `python server.py` will execute in the correct directory.
+
+### Claude Desktop Configuration
+
+Set the environment variable in your client configuration so MCP Compose knows where the config directory is:
+
+```json
+{
+  "mcpServers": {
+    "mcp-compose": {
+      "command": "/path/to/python",
+      "args": ["-m", "mcp_compose", "serve", "--config", "/path/to/project/mcp_compose.toml"],
+      "env": {
+        "MCP_COMPOSE_CONFIG_DIR": "/path/to/project"
+      }
+    }
+  }
+}
+```
+
+:::note
+Use absolute paths in the `args` array - Claude Desktop does not expand environment variables in command arguments.
+:::
+
+### VS Code Configuration
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "mcp-compose": {
+        "command": "/path/to/python",
+        "args": ["-m", "mcp_compose", "serve", "--config", "/path/to/project/mcp_compose.toml"],
+        "env": {
+          "MCP_COMPOSE_CONFIG_DIR": "/path/to/project"
+        }
+      }
+    }
+  }
+}
+```
+
+### Example Project Structure
+
+```
+my-project/
+├── mcp_compose.toml      # Config file
+├── calculator.py         # Server 1
+├── echo.py               # Server 2
+└── utils/
+    └── helpers.py
+```
+
+**mcp_compose.toml:**
+```toml
+[composer]
+name = "my-project"
+
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "calculator.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "echo"
+command = ["python", "echo.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+```
+
+**Claude Desktop config:**
+```json
+{
+  "mcpServers": {
+    "my-project": {
+      "command": "python",
+      "args": ["-m", "mcp_compose", "serve", "--config", "/home/user/my-project/mcp_compose.toml"],
+      "env": {
+        "MCP_COMPOSE_CONFIG_DIR": "/home/user/my-project"
+      }
+    }
+  }
+}
+```
+
+This approach keeps your `mcp_compose.toml` portable - you can move or share the project directory without changing any paths inside the configuration file.
+
+## Troubleshooting
+
+### Common Issues
+
+**STDIO: "Command not found"**
+- Ensure `mcp-compose` is installed and in your PATH
+- Use absolute paths for the command and config file
+- Try using `uvx` or the full Python path
+
+**Streamable HTTP: "Connection refused"**
+- Verify the server is running: `curl http://localhost:8080/health`
+- Check the port is not blocked by a firewall
+- Ensure the URL includes the correct path (`/mcp`)
+
+**Tools not appearing**
+- Check MCP Compose logs for errors during tool discovery
+- Verify your `mcp_compose.toml` configuration
+- Restart the client after configuration changes
+
+### Debug Logs
+
+#### Claude Desktop Logs
+
+Claude Desktop writes MCP-related logs to files on disk. Check these locations:
+
+| Platform | Log Directory |
+|----------|---------------|
+| macOS | `~/Library/Logs/Claude/` |
+| Windows | `%APPDATA%\Claude\logs\` |
+| Linux | `~/.config/Claude/logs/` |
+
+Key log files:
+- `mcp.log` - MCP server communication logs
+- `mcp-server-mcp-compose.log` - Logs specific to your MCP Compose server
+
+To view logs in real-time on macOS/Linux:
+
+```bash
+# macOS
+tail -f ~/Library/Logs/Claude/mcp*.log
+
+# Linux
+tail -f ~/.config/Claude/logs/mcp*.log
+```
+
+You can also open the Developer Tools in Claude Desktop:
+1. Enable Developer Mode in Claude Desktop settings
+2. Use `Cmd+Option+I` (macOS) or `Ctrl+Shift+I` (Windows/Linux)
+3. Check the Console tab for MCP-related messages
+
+#### VS Code Logs
+
+VS Code provides multiple ways to view MCP logs:
+
+**Output Panel:**
+1. Open the Output panel: `View > Output` or `Ctrl+Shift+U`
+2. Select "MCP" or "GitHub Copilot" from the dropdown
+3. MCP server logs will appear here
+
+**MCP Log File:**
+
+| Platform | Log Path |
+|----------|----------|
+| macOS | `~/Library/Application Support/Code/logs/*/mcp.log` |
+| Windows | `%APPDATA%\Code\logs\*\mcp.log` |
+| Linux | `~/.config/Code/logs/*/mcp.log` |
+
+**Developer Tools:**
+1. Open Command Palette: `Ctrl+Shift+P` / `Cmd+Shift+P`
+2. Run "Developer: Toggle Developer Tools"
+3. Check the Console tab for errors
+
+**Enable verbose logging:**
+
+Add to your VS Code settings:
+
+```json
+{
+  "mcp.trace.server": "verbose"
+}
+```
+
+#### MCP Compose Server Logs
+
+For Streamable HTTP transport, run with verbose logging:
+
+```bash
+mcp-compose serve --config /path/to/mcp_compose.toml --transport streamable-http --log-level DEBUG
+```
+
+For STDIO transport, redirect stderr to a file:
+
+```json
+{
+  "mcpServers": {
+    "mcp-compose": {
+      "command": "bash",
+      "args": ["-c", "mcp-compose serve --config /path/to/mcp_compose.toml --log-level DEBUG 2>/tmp/mcp-compose.log"]
+    }
+  }
+}
+```
+
+Then monitor the log:
+
+```bash
+tail -f /tmp/mcp-compose.log
+```

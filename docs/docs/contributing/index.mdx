@@ -1,0 +1,56 @@
+---
+title: Contributing
+sidebar_position: 9
+---
+
+# Contributing
+
+Thank you for contributing to MCP Compose. This page summarizes the workflow and standards for changes.
+
+## Prerequisites
+
+- Python 3.10+
+- Node.js 18+
+- Git
+
+## Development setup
+
+```bash
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
+python -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+```
+
+## UI development
+
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+## Testing
+
+```bash
+pytest
+make test-coverage
+make lint
+```
+
+## Commit messages
+
+We follow Conventional Commits:
+
+- feat: new feature
+- fix: bug fix
+- docs: documentation change
+- chore: maintenance
+
+## Pull requests
+
+- Keep changes focused
+- Add or update tests
+- Update documentation when behavior changes
+- Ensure lint and type checks pass

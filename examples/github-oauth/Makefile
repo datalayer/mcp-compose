@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
 .PHONY: help install install-agent setup-auth start agent stop clean oauth-test
 
 # Default target

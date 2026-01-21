@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
 """MCP Compose
 
 A generic Python library for composing Model Context Protocol (MCP) servers

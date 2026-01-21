@@ -1,0 +1,98 @@
+---
+title: Getting Started
+sidebar_position: 1
+---
+
+# Getting Started
+
+This guide walks through installing MCP Compose, creating a configuration, and launching the server with Web UI and REST API.
+
+## Prerequisites
+
+- Python 3.10+
+- Node.js 18+ (only required if you build the Web UI from source)
+- Docker (optional)
+
+## Install
+
+### From PyPI
+
+```
+pip install mcp-compose
+```
+
+### From source
+
+```bash
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
+pip install -e .
+```
+
+### Docker (recommended for production)
+
+```bash
+git clone https://github.com/datalayer/mcp-compose.git
+cd mcp-compose
+docker-compose up -d
+```
+
+## Verify installation
+
+```bash
+mcp-compose --version
+```
+
+## Create your configuration
+
+Create a file named mcp_compose.toml:
+
+```toml
+[composer]
+name = "my-composer"
+conflict_resolution = "prefix"
+
+[[servers]]
+name = "filesystem"
+command = "python"
+args = ["-m", "mcp_server_filesystem", "/data"]
+transport = "stdio"
+
+[[servers]]
+name = "calculator"
+command = "python"
+args = ["-m", "mcp_server_calculator"]
+transport = "stdio"
+```
+
+## Start MCP Compose
+
+```bash
+mcp-compose serve --config mcp_compose.toml
+```
+
+Once running, you have:
+
+- Web UI: http://localhost:8000
+- REST API: http://localhost:8000/api/v1
+- API docs: http://localhost:8000/docs
+
+## CLI quick actions
+
+List tools:
+
+```bash
+mcp-compose list-tools
+```
+
+Invoke a tool:
+
+```bash
+mcp-compose invoke-tool calculator:add '{"a": 5, "b": 3}'
+```
+
+## Next steps
+
+- Explore tool discovery and conflict resolution.
+- Configure authentication and CORS.
+- Add proxied servers (STDIO, Streamable HTTP, SSE deprecated).

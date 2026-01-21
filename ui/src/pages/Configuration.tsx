@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025-2026 Datalayer, Inc.
+ * Distributed under the terms of the Modified BSD License.
+ */
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/client'
 import { SyncIcon, CheckCircleIcon, AlertIcon } from '@primer/octicons-react'

@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
 """
 Process manager for MCP servers.
 
@@ -73,6 +76,7 @@ class ProcessManager:
         name: str,
         command: List[str],
         env: Optional[Dict[str, str]] = None,
+        working_dir: Optional[str] = None,
         auto_start: bool = True
     ) -> Process:
         """
@@ -82,6 +86,7 @@ class ProcessManager:
             name: Unique name for the process.
             command: Command and arguments to execute.
             env: Environment variables for the process.
+            working_dir: Working directory for the process.
             auto_start: Whether to start the process immediately.
         
         Returns:
@@ -95,7 +100,7 @@ class ProcessManager:
         
         logger.info(f"Adding process {name}")
         
-        process = Process(name, command, env)
+        process = Process(name, command, env, working_dir)
         self.processes[name] = process
         
         if auto_start:
@@ -125,6 +130,7 @@ class ProcessManager:
             name=config.name,
             command=command,
             env=config.env,
+            working_dir=config.working_dir,
             auto_start=auto_start
         )
     

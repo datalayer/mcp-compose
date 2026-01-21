@@ -20,6 +20,7 @@ sse_enabled = false
 [[servers.proxied.stdio]]
 name = "calculator"
 command = ["python", "mcp1.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 restart_policy = "never"
 # Calculator tools: add, subtract, multiply, divide
 
@@ -29,5 +30,6 @@ restart_policy = "never"
 [[servers.proxied.stdio]]
 name = "echo"
 command = ["python", "mcp2.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 restart_policy = "never"
 # Echo tools: ping, echo, reverse, uppercase, lowercase, count_words

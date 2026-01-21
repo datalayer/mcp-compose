@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
 """
 MCP Compose CLI.
 
@@ -531,6 +534,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                         name=server_config.name,
                         command=command,
                         env=server_config.env,
+                        working_dir=server_config.working_dir,
                         auto_start=True
                     )
                     
@@ -645,6 +649,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     
                                     # Register with FastMCP using the tool decorator
                                     from mcp.server.fastmcp.tools.base import Tool
+                                    from .tool_proxy import fix_tool_argument_model
                                     tool_obj = Tool.from_function(
                                         proxy_func,
                                         name=tool_name,
@@ -654,6 +659,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     # Override inputSchema with the actual schema from remote tool
                                     if input_schema:
                                         tool_obj.parameters = input_schema
+                                        # Fix the argument model to preserve array/object types
+                                        fix_tool_argument_model(tool_obj, input_schema)
                                     
                                     # Add to composer
                                     composer.composed_tools[tool_name] = tool_def
@@ -794,6 +801,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                             
                                             # Register with FastMCP using the tool decorator
                                             from mcp.server.fastmcp.tools.base import Tool
+                                            from .tool_proxy import fix_tool_argument_model
                                             tool_obj = Tool.from_function(
                                                 proxy_func,
                                                 name=tool_name,
@@ -803,6 +811,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                             # Override inputSchema with the actual schema from remote tool
                                             if input_schema:
                                                 tool_obj.parameters = input_schema
+                                                # Fix the argument model to preserve array/object types
+                                                fix_tool_argument_model(tool_obj, input_schema)
                                             
                                             # Add to composer
                                             composer.composed_tools[tool_name] = tool_def
@@ -891,6 +901,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                         
                                         # Register with FastMCP using the tool decorator
                                         from mcp.server.fastmcp.tools.base import Tool
+                                        from .tool_proxy import fix_tool_argument_model
                                         tool_obj = Tool.from_function(
                                             proxy_func,
                                             name=tool_name,
@@ -900,6 +911,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                         # Override inputSchema with the actual schema from remote tool
                                         if input_schema:
                                             tool_obj.parameters = input_schema
+                                            # Fix the argument model to preserve array/object types
+                                            fix_tool_argument_model(tool_obj, input_schema)
                                         
                                         # Add to composer
                                         composer.composed_tools[tool_name] = tool_def

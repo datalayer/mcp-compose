@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025-2026 Datalayer, Inc.
+ * Distributed under the terms of the Modified BSD License.
+ */
+
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, FormControl, TextInput, Flash, Heading } from '@primer/react'
