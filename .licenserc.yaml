@@ -33,6 +33,7 @@ header:
     - '**/*_key.pub'
     - '**/*.pem'
     - '**/*.pem.disabled'
+    - '**/*.conf'
     - '**/.*'
     - '**/LICENSE.txt'
     - '**/MANIFEST.in'
