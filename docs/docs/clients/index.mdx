@@ -252,12 +252,92 @@ With authentication:
 - Verify your `mcp_compose.toml` configuration
 - Restart the client after configuration changes
 
-### Viewing Logs
+### Debug Logs
 
-For STDIO transport, logs appear in the client's output panel or developer console.
+#### Claude Desktop Logs
 
-For Streamable HTTP, run with verbose logging:
+Claude Desktop writes MCP-related logs to files on disk. Check these locations:
+
+| Platform | Log Directory |
+|----------|---------------|
+| macOS | `~/Library/Logs/Claude/` |
+| Windows | `%APPDATA%\Claude\logs\` |
+| Linux | `~/.config/Claude/logs/` |
+
+Key log files:
+- `mcp.log` - MCP server communication logs
+- `mcp-server-mcp-compose.log` - Logs specific to your MCP Compose server
+
+To view logs in real-time on macOS/Linux:
+
+```bash
+# macOS
+tail -f ~/Library/Logs/Claude/mcp*.log
+
+# Linux
+tail -f ~/.config/Claude/logs/mcp*.log
+```
+
+You can also open the Developer Tools in Claude Desktop:
+1. Enable Developer Mode in Claude Desktop settings
+2. Use `Cmd+Option+I` (macOS) or `Ctrl+Shift+I` (Windows/Linux)
+3. Check the Console tab for MCP-related messages
+
+#### VS Code Logs
+
+VS Code provides multiple ways to view MCP logs:
+
+**Output Panel:**
+1. Open the Output panel: `View > Output` or `Ctrl+Shift+U`
+2. Select "MCP" or "GitHub Copilot" from the dropdown
+3. MCP server logs will appear here
+
+**MCP Log File:**
+
+| Platform | Log Path |
+|----------|----------|
+| macOS | `~/Library/Application Support/Code/logs/*/mcp.log` |
+| Windows | `%APPDATA%\Code\logs\*\mcp.log` |
+| Linux | `~/.config/Code/logs/*/mcp.log` |
+
+**Developer Tools:**
+1. Open Command Palette: `Ctrl+Shift+P` / `Cmd+Shift+P`
+2. Run "Developer: Toggle Developer Tools"
+3. Check the Console tab for errors
+
+**Enable verbose logging:**
+
+Add to your VS Code settings:
+
+```json
+{
+  "mcp.trace.server": "verbose"
+}
+```
+
+#### MCP Compose Server Logs
+
+For Streamable HTTP transport, run with verbose logging:
 
 ```bash
 mcp-compose serve --config /path/to/mcp_compose.toml --transport streamable-http --log-level DEBUG
+```
+
+For STDIO transport, redirect stderr to a file:
+
+```json
+{
+  "mcpServers": {
+    "mcp-compose": {
+      "command": "bash",
+      "args": ["-c", "mcp-compose serve --config /path/to/mcp_compose.toml --log-level DEBUG 2>/tmp/mcp-compose.log"]
+    }
+  }
+}
+```
+
+Then monitor the log:
+
+```bash
+tail -f /tmp/mcp-compose.log
 ```

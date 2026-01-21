@@ -50,6 +50,12 @@ module.exports = {
         },
         {
           type: 'doc',
+          docId: 'configuration/index',
+          position: 'left',
+          label: 'Configuration',
+        },
+        {
+          type: 'doc',
           docId: 'architecture/index',
           position: 'left',
           label: 'Architecture',

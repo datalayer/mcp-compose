@@ -84,7 +84,7 @@ def count_words(text: str) -> int:
         Number of words
     """
     return len(text.split())
-
+0
 
 @mcp.tool()
 def concatenate(strings: list[str], separator: str = " ") -> str:

@@ -531,6 +531,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                         name=server_config.name,
                         command=command,
                         env=server_config.env,
+                        working_dir=server_config.working_dir,
                         auto_start=True
                     )
                     

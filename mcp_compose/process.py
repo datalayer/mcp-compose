@@ -37,7 +37,7 @@ class Process:
         restart_count: Number of times process has been restarted.
     """
     
-    def __init__(self, name: str, command: list[str], env: Optional[Dict[str, str]] = None):
+    def __init__(self, name: str, command: list[str], env: Optional[Dict[str, str]] = None, working_dir: Optional[str] = None):
         """
         Initialize a Process.
         
@@ -45,10 +45,12 @@ class Process:
             name: Human-readable name for the process.
             command: Command and arguments to execute.
             env: Environment variables for the process.
+            working_dir: Working directory for the process.
         """
         self.name = name
         self.command = command
         self.env = env or {}
+        self.working_dir = working_dir
         
         # State tracking
         self.state = ProcessState.STOPPED
@@ -88,7 +90,8 @@ class Process:
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env={**self.env} if self.env else None
+                env={**self.env} if self.env else None,
+                cwd=self.working_dir
             )
             
             # Store streams

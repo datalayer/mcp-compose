@@ -36,13 +36,16 @@ def load_config(config_path: Union[str, Path]) -> MCPComposerConfig:
     Raises:
         MCPConfigurationError: If configuration file cannot be loaded or is invalid.
     """
-    config_path = Path(config_path)
+    config_path = Path(config_path).resolve()
     
     if not config_path.exists():
         raise MCPConfigurationError(
             f"Configuration file not found: {config_path}",
             config_path=str(config_path)
         )
+    
+    # Store the config directory for path substitution
+    config_dir = str(config_path.parent)
     
     try:
         with open(config_path, "rb") as f:
@@ -61,18 +64,19 @@ def load_config(config_path: Union[str, Path]) -> MCPComposerConfig:
             config_path=str(config_path)
         ) from e
     
-    # Substitute environment variables
-    config = _substitute_env_vars_in_config(config)
+    # Substitute environment variables and special variables like ${MCP_COMPOSE_CONFIG_DIR}
+    config = _substitute_env_vars_in_config(config, config_dir=config_dir)
     
     return config
 
 
-def load_config_from_dict(config_data: Dict) -> MCPComposerConfig:
+def load_config_from_dict(config_data: Dict, config_dir: Optional[str] = None) -> MCPComposerConfig:
     """
     Load configuration from a dictionary.
     
     Args:
         config_data: Configuration dictionary.
+        config_dir: Optional directory path for ${CONFIG_DIR} substitution.
         
     Returns:
         Parsed and validated configuration.
@@ -85,8 +89,8 @@ def load_config_from_dict(config_data: Dict) -> MCPComposerConfig:
     except Exception as e:
         raise MCPConfigurationError(f"Invalid configuration: {e}") from e
     
-    # Substitute environment variables
-    config = _substitute_env_vars_in_config(config)
+    # Substitute environment variables and special variables
+    config = _substitute_env_vars_in_config(config, config_dir=config_dir)
     
     return config
 
@@ -127,15 +131,20 @@ def find_config_file(
     return None
 
 
-def _substitute_env_vars_in_config(config: MCPComposerConfig) -> MCPComposerConfig:
+def _substitute_env_vars_in_config(config: MCPComposerConfig, config_dir: Optional[str] = None) -> MCPComposerConfig:
     """
-    Substitute environment variables in configuration.
+    Substitute environment variables and special variables in configuration.
+    
+    Supports:
+    - ${VAR_NAME} or $VAR_NAME for environment variables
+    - ${MCP_COMPOSE_CONFIG_DIR} for the directory containing the config file
     
     Args:
         config: Configuration object.
+        config_dir: Directory containing the config file (for ${MCP_COMPOSE_CONFIG_DIR} substitution).
         
     Returns:
-        Configuration with substituted environment variables.
+        Configuration with substituted variables.
     """
     import os
     import re
@@ -152,6 +161,14 @@ def _substitute_env_vars_in_config(config: MCPComposerConfig) -> MCPComposerConf
             
             def replace_match(match: re.Match) -> str:
                 var_name = match.group(1) or match.group(2)
+                
+                # Handle special MCP_COMPOSE_CONFIG_DIR variable
+                if var_name == 'MCP_COMPOSE_CONFIG_DIR':
+                    if config_dir is not None:
+                        return config_dir
+                    # Keep original if config_dir not available
+                    return match.group(0)
+                
                 env_value = os.environ.get(var_name)
                 if env_value is None:
                     # Keep original if not found

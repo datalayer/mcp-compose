@@ -1,0 +1,233 @@
+---
+title: Configuration
+sidebar_position: 3
+---
+
+# Configuration
+
+MCP Compose is configured using a TOML file, typically named `mcp_compose.toml`. This page covers all configuration options and best practices.
+
+## Configuration File Location
+
+MCP Compose searches for configuration in the following order:
+
+1. Path specified via `--config` CLI argument
+2. `mcp_compose.toml` in the current directory
+3. `mcp_compose.toml` in parent directories (walking up to root)
+
+## Variable Substitution
+
+MCP Compose supports variable substitution in configuration values:
+
+### Environment Variables
+
+Use `${VAR_NAME}` or `$VAR_NAME` syntax:
+
+```toml
+[[servers.proxied.stdio]]
+name = "my-server"
+command = ["python", "server.py"]
+env = { API_KEY = "${MY_API_KEY}" }
+```
+
+### Special Variables
+
+| Variable | Description |
+|----------|-------------|
+| `${MCP_COMPOSE_CONFIG_DIR}` | Absolute path to the directory containing the config file |
+
+This is particularly useful for relative paths:
+
+```toml
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "mcp1.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+```
+
+## Minimal Configuration
+
+```toml
+[composer]
+name = "my-mcp-server"
+
+[[servers.proxied.stdio]]
+name = "filesystem"
+command = ["python", "-m", "mcp_server_filesystem", "/data"]
+```
+
+## Full Configuration Reference
+
+### Composer Section
+
+```toml
+[composer]
+name = "my-mcp-server"              # Server name (required)
+conflict_resolution = "prefix"       # How to handle tool name conflicts
+log_level = "INFO"                   # Logging level: DEBUG, INFO, WARNING, ERROR
+```
+
+**Conflict Resolution Strategies:**
+
+| Strategy | Description | Example |
+|----------|-------------|---------|
+| `prefix` | Prefix tool name with server name | `server_tool` |
+| `suffix` | Suffix tool name with server name | `tool_server` |
+| `error` | Fail on conflict | - |
+| `override` | Last server wins | - |
+| `ignore` | Skip conflicting tools | - |
+
+### Transport Section
+
+```toml
+[transport]
+stdio_enabled = true                 # Enable STDIO transport (default: true)
+streamable_http_enabled = false      # Enable Streamable HTTP transport
+streamable_http_host = "0.0.0.0"     # HTTP host
+streamable_http_port = 8080          # HTTP port
+sse_enabled = false                  # Enable SSE transport (deprecated)
+```
+
+### STDIO Proxied Servers
+
+For MCP servers that communicate via stdin/stdout:
+
+```toml
+[[servers.proxied.stdio]]
+name = "calculator"                  # Server name (required)
+command = ["python", "server.py"]    # Command to start server (required)
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"  # Working directory
+env = { DEBUG = "true" }             # Environment variables
+restart_policy = "on-failure"        # never, on-failure, always
+max_restarts = 3                     # Maximum restart attempts
+restart_delay = 5                    # Seconds between restarts
+log_stdout = true                    # Log server stdout
+log_stderr = true                    # Log server stderr
+```
+
+### Streamable HTTP Proxied Servers
+
+For MCP servers accessible via Streamable HTTP:
+
+```toml
+[[servers.proxied.streamable_http]]
+name = "remote-server"               # Server name (required)
+url = "http://localhost:8080/mcp"    # Server URL (required)
+auth_token = "${AUTH_TOKEN}"         # Authentication token
+auth_type = "bearer"                 # bearer, basic
+timeout = 30                         # Request timeout in seconds
+retry_interval = 5                   # Retry interval in seconds
+reconnect_on_failure = true          # Auto-reconnect on failure
+max_reconnect_attempts = 10          # Maximum reconnection attempts
+```
+
+### SSE Proxied Servers (Deprecated)
+
+```toml
+[[servers.proxied.sse]]
+name = "legacy-server"
+url = "http://localhost:8080/sse"
+auth_token = "${AUTH_TOKEN}"
+timeout = 30
+```
+
+### Embedded Servers
+
+For Python packages that implement MCP servers:
+
+```toml
+[[servers.embedded.servers]]
+name = "builtin"
+package = "mcp_server_builtin"
+enabled = true
+```
+
+## Example Configurations
+
+### Development Setup
+
+```toml
+[composer]
+name = "dev-composer"
+conflict_resolution = "prefix"
+log_level = "DEBUG"
+
+[transport]
+stdio_enabled = true
+
+[[servers.proxied.stdio]]
+name = "filesystem"
+command = ["python", "-m", "mcp_server_filesystem", "./data"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "git"
+command = ["python", "-m", "mcp_server_git", "."]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+```
+
+### Production Setup with Authentication
+
+```toml
+[composer]
+name = "prod-composer"
+conflict_resolution = "prefix"
+log_level = "INFO"
+
+[transport]
+stdio_enabled = false
+streamable_http_enabled = true
+streamable_http_host = "0.0.0.0"
+streamable_http_port = 8080
+
+[auth]
+enabled = true
+provider = "jwt"
+
+[[servers.proxied.streamable_http]]
+name = "api-server"
+url = "http://internal-api:8080/mcp"
+auth_token = "${INTERNAL_API_TOKEN}"
+timeout = 60
+```
+
+### Multiple Local Servers
+
+```toml
+[composer]
+name = "multi-server"
+conflict_resolution = "prefix"
+
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "calculator.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "weather"
+command = ["python", "weather.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+env = { WEATHER_API_KEY = "${WEATHER_API_KEY}" }
+
+[[servers.proxied.stdio]]
+name = "database"
+command = ["python", "db_server.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+env = { DATABASE_URL = "${DATABASE_URL}" }
+```
+
+## Validating Configuration
+
+Validate your configuration file without starting the server:
+
+```bash
+mcp-compose validate --config mcp_compose.toml
+```
+
+## Configuration Best Practices
+
+1. **Use environment variables** for sensitive data like API keys and tokens
+2. **Use `${MCP_COMPOSE_CONFIG_DIR}`** for portable relative paths
+3. **Set appropriate restart policies** for production deployments
+4. **Enable health checks** for critical servers
+5. **Use `prefix` conflict resolution** to avoid tool name collisions
