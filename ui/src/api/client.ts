@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2023-2025 Datalayer, Inc.
+ * Distributed under the terms of the Modified BSD License.
+ */
+
 import axios from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1'

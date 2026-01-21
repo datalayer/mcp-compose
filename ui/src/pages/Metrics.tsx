@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2023-2025 Datalayer, Inc.
+ * Distributed under the terms of the Modified BSD License.
+ */
+
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ReactECharts from 'echarts-for-react'

@@ -1,3 +1,6 @@
+# Copyright (c) 2023-2025 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
 .PHONY: help install install-agent start agent stop clean
 
 # Default target

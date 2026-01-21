@@ -1,3 +1,6 @@
+# Copyright (c) 2023-2025 Datalayer, Inc.
+# Distributed under the terms of the Modified BSD License.
+
 .PHONY: help install dev-install start client agent inspector test test-dcr clean
 
 # Default target
