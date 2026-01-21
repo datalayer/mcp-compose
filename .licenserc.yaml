@@ -31,6 +31,8 @@ header:
     - '**/*.yml'
     - '**/*_key'
     - '**/*_key.pub'
+    - '**/*.pem'
+    - '**/*.pem.disabled'
     - '**/.*'
     - '**/LICENSE.txt'
     - '**/MANIFEST.in'
