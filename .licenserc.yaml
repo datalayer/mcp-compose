@@ -32,7 +32,7 @@ header:
     - '**/*_key'
     - '**/*_key.pub'
     - '**/*.pem'
-    - '**/*.pem.disabled'
+    - '**/*.disabled'
     - '**/*.conf'
     - '**/.*'
     - '**/LICENSE.txt'
