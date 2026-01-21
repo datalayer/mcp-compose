@@ -1,20 +1,41 @@
 ---
 title: Architecture
-sidebar_position: 3
+sidebar_position: 2
 ---
 
 # Architecture
 
-MCP Compose is a Python facade for multiple managed MCP servers. It aggregates tools, prompts, and resources into a single unified MCP server and exposes that aggregation through REST and Web UI.
+MCP Compose acts as a facade for multiple managed MCP servers. It aggregates tools, prompts, and resources into a single unified server and exposes that aggregation through MCP transports, a REST API, and a Web UI.
 
-## Managed MCP servers
+## Core Building Blocks
 
-A managed server can be:
+### Managed MCP Servers
 
-- Embedded: a Python package implementing an MCP server (loaded in-process)
-- Proxied: an external MCP server connected via STDIO, Streamable HTTP, or SSE (deprecated)
+A managed server is either:
 
-## Component overview
+- **Embedded**: a Python package implementing an MCP server (loaded in-process). Use embedded servers when you control the Python package lifecycle.
+- **Proxied**: an external MCP server connected via STDIO, Streamable HTTP, or SSE (deprecated). Use proxied servers when you need to run external binaries or connect to remote MCP endpoints.
+
+### Transports
+
+MCP Compose supports the official MCP transports:
+
+- **STDIO** for subprocess communication
+- **Streamable HTTP** for modern, production-ready HTTP streaming
+- **SSE (deprecated)** for legacy streaming clients
+
+### Composition and Conflict Resolution
+
+When multiple servers expose tools with the same name, MCP Compose resolves conflicts using a configurable strategy:
+
+- **prefix**: `server:tool`
+- **suffix**: `tool:server`
+- **error**: fail on conflict
+- **override**: last server wins
+
+You can also define per-tool overrides and custom templates.
+
+## Component Overview
 
 ```mermaid
 graph TD
@@ -24,7 +45,7 @@ graph TD
     ToolMgr[Tool Manager]
     ProcMgr[Process Manager]
     API[REST API + Web UI]
-    Servers[Managed MCP Servers]
+    Servers[Managed MCP Servers<br/>Embedded + Proxied]
 
     Facade --> Auth
     Facade --> Transport
@@ -37,7 +58,7 @@ graph TD
 
 ## Configuration
 
-All configuration is provided in mcp_compose.toml.
+All configuration lives in a single `mcp_compose.toml` file. A minimal example:
 
 ```toml
 [composer]

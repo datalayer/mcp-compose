@@ -263,62 +263,10 @@ class ToolProxy:
                 tool_obj.parameters = input_schema
                 logger.debug(f"Tool {prefixed_name} parameters after override: {json.dumps(input_schema, indent=2)}")
                 
-                # CRITICAL FIX: Also update fn_metadata.arg_model to match the schema
-                # This prevents Pydantic from converting arrays to strings during validation
-                from pydantic import create_model, BaseModel
-                from mcp.server.fastmcp.utilities.func_metadata import ArgModelBase
-                
-                # Build Pydantic model fields from inputSchema
-                model_fields = {}
-                properties = input_schema.get("properties", {})
-                required = input_schema.get("required", [])
-                
-                for field_name, field_spec in properties.items():
-                    field_type = field_spec.get("type", "string")
-                    
-                    # Map JSON Schema types to Python/Pydantic types
-                    if field_type == "array":
-                        # Get item type from schema
-                        items = field_spec.get("items", {})
-                        item_type = items.get("type", "string")
-                        if item_type == "string":
-                            python_type = list[str]
-                        elif item_type == "number":
-                            python_type = list[float]
-                        elif item_type == "integer":
-                            python_type = list[int]
-                        elif item_type == "boolean":
-                            python_type = list[bool]
-                        elif item_type == "object":
-                            python_type = list[dict]
-                        else:
-                            python_type = list[Any]
-                    elif field_type == "object":
-                        python_type = dict[str, Any]
-                    elif field_type == "number":
-                        python_type = float
-                    elif field_type == "integer":
-                        python_type = int
-                    elif field_type == "boolean":
-                        python_type = bool
-                    else:
-                        python_type = str
-                    
-                    # Add default if not required
-                    if field_name in required:
-                        model_fields[field_name] = (python_type, ...)
-                    else:
-                        model_fields[field_name] = (python_type, None)
-                
-                # Create new arg_model with correct types (using ArgModelBase as base)
-                new_arg_model = create_model(
-                    f"{safe_name}Arguments",
-                    __base__=ArgModelBase,
-                    **model_fields
-                )
-                
-                # Replace the arg_model in fn_metadata
-                tool_obj.fn_metadata.arg_model = new_arg_model
+                # CRITICAL FIX: Use the fix_tool_argument_model function to properly update
+                # the arg_model with correct types. This ensures arrays are passed as lists
+                # rather than being converted to space-separated strings.
+                fix_tool_argument_model(tool_obj, input_schema)
                 logger.debug(f"Tool {prefixed_name} arg_model updated with correct types")
             
             self.composer.composed_server._tool_manager._tools[tool_obj.name] = tool_obj

@@ -44,9 +44,9 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'concept/index',
+          docId: 'clients/index',
           position: 'left',
-          label: 'Concepts',
+          label: 'Clients',
         },
         {
           type: 'doc',
@@ -62,9 +62,9 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'execution/index',
+          docId: 'operation/index',
           position: 'left',
-          label: 'Execution',
+          label: 'Operation',
         },
         {
           type: 'doc',
