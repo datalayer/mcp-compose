@@ -233,6 +233,111 @@ With authentication:
 | Authentication | Via env vars | HTTP headers / OAuth |
 | Recommended for | Development | Production |
 
+---
+
+## Portable Configurations with MCP_COMPOSE_CONFIG_DIR
+
+When your `mcp_compose.toml` references downstream servers using relative paths (e.g., `command = ["python", "server.py"]`), you need to set the `working_dir` so the subprocess can find the files.
+
+MCP Compose provides a special variable `${MCP_COMPOSE_CONFIG_DIR}` that resolves to the directory containing your configuration file. This enables portable configurations that work regardless of where MCP Compose is launched from.
+
+### How It Works
+
+In your `mcp_compose.toml`:
+
+```toml
+[[servers.proxied.stdio]]
+name = "my-server"
+command = ["python", "server.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"  # Resolves to config file's directory
+```
+
+The `${MCP_COMPOSE_CONFIG_DIR}` variable is automatically substituted when the configuration is loaded, so relative commands like `python server.py` will execute in the correct directory.
+
+### Claude Desktop Configuration
+
+Set the environment variable in your client configuration so MCP Compose knows where the config directory is:
+
+```json
+{
+  "mcpServers": {
+    "mcp-compose": {
+      "command": "/path/to/python",
+      "args": ["-m", "mcp_compose", "serve", "--config", "/path/to/project/mcp_compose.toml"],
+      "env": {
+        "MCP_COMPOSE_CONFIG_DIR": "/path/to/project"
+      }
+    }
+  }
+}
+```
+
+:::note
+Use absolute paths in the `args` array - Claude Desktop does not expand environment variables in command arguments.
+:::
+
+### VS Code Configuration
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "mcp-compose": {
+        "command": "/path/to/python",
+        "args": ["-m", "mcp_compose", "serve", "--config", "/path/to/project/mcp_compose.toml"],
+        "env": {
+          "MCP_COMPOSE_CONFIG_DIR": "/path/to/project"
+        }
+      }
+    }
+  }
+}
+```
+
+### Example Project Structure
+
+```
+my-project/
+├── mcp_compose.toml      # Config file
+├── calculator.py         # Server 1
+├── echo.py               # Server 2
+└── utils/
+    └── helpers.py
+```
+
+**mcp_compose.toml:**
+```toml
+[composer]
+name = "my-project"
+
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "calculator.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "echo"
+command = ["python", "echo.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+```
+
+**Claude Desktop config:**
+```json
+{
+  "mcpServers": {
+    "my-project": {
+      "command": "python",
+      "args": ["-m", "mcp_compose", "serve", "--config", "/home/user/my-project/mcp_compose.toml"],
+      "env": {
+        "MCP_COMPOSE_CONFIG_DIR": "/home/user/my-project"
+      }
+    }
+  }
+}
+```
+
+This approach keeps your `mcp_compose.toml` portable - you can move or share the project directory without changing any paths inside the configuration file.
+
 ## Troubleshooting
 
 ### Common Issues
