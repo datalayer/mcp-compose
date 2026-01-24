@@ -7,71 +7,444 @@ sidebar_position: 2
 
 MCP Compose acts as a facade for multiple managed MCP servers. It aggregates tools, prompts, and resources into a single unified server and exposes that aggregation through MCP transports, a REST API, and a Web UI.
 
+## High-Level Overview
+
+At its core, MCP Compose sits between MCP clients (like Claude Desktop or VS Code) and multiple downstream MCP servers, presenting them as a single unified endpoint.
+
+```mermaid
+graph LR
+    subgraph Clients
+        C1[Claude Desktop]
+        C2[VS Code]
+        C3[Custom Client]
+    end
+
+    subgraph MCP Compose
+        Facade[Unified MCP Server]
+    end
+
+    subgraph Downstream Servers
+        S1[Filesystem MCP]
+        S2[Database MCP]
+        S3[Weather MCP]
+        S4[Custom MCP]
+    end
+
+    C1 --> Facade
+    C2 --> Facade
+    C3 --> Facade
+    Facade --> S1
+    Facade --> S2
+    Facade --> S3
+    Facade --> S4
+```
+
+This diagram illustrates the fundamental value proposition of MCP Compose: **multiplexing**. Instead of configuring each MCP client to connect to multiple servers individually (which would require N×M configurations for N clients and M servers), clients connect only to MCP Compose. The facade aggregates all downstream tools into a single unified interface, dramatically simplifying client configuration and enabling centralized management of the entire MCP ecosystem.
+
+---
+
 ## Core Building Blocks
 
 ### Managed MCP Servers
 
 A managed server is either:
 
-- **Embedded**: a Python package implementing an MCP server (loaded in-process). Use embedded servers when you control the Python package lifecycle.
-- **Proxied**: an external MCP server connected via STDIO, Streamable HTTP, or SSE (deprecated). Use proxied servers when you need to run external binaries or connect to remote MCP endpoints.
+- **Embedded**: a Python package implementing an MCP server (loaded in-process). Use embedded servers when you control the Python package lifecycle and want minimal latency.
+- **Proxied**: an external MCP server connected via STDIO, Streamable HTTP, or SSE (deprecated). Use proxied servers when you need to run external binaries, use different Python environments, or connect to remote MCP endpoints.
+
+```mermaid
+graph TD
+    subgraph MCP Compose Process
+        Facade[MCP Compose Facade]
+        
+        subgraph Embedded Servers
+            E1[jupyter_mcp_server]
+            E2[custom_mcp_server]
+        end
+    end
+    
+    subgraph External Processes
+        subgraph STDIO Proxied
+            P1[filesystem-server<br/>subprocess]
+            P2[weather-server<br/>subprocess]
+        end
+        
+        subgraph HTTP Proxied
+            P3[remote-api:8080<br/>Streamable HTTP]
+            P4[legacy-server:9000<br/>SSE]
+        end
+    end
+    
+    Facade --> E1
+    Facade --> E2
+    Facade <-->|stdin/stdout| P1
+    Facade <-->|stdin/stdout| P2
+    Facade <-->|HTTP| P3
+    Facade <-->|HTTP| P4
+```
+
+This diagram shows the two categories of managed servers. **Embedded servers** (inside the dashed box) share the MCP Compose Python process, offering zero-latency communication but requiring compatible dependencies. **Proxied servers** run externally—either as local subprocesses communicating via STDIO pipes, or as remote services over HTTP. STDIO proxied servers are ideal for local tools that need process isolation, while HTTP proxied servers enable integration with remote or containerized MCP services.
 
 ### Transports
 
-MCP Compose supports the official MCP transports:
+MCP Compose supports the official MCP transports for both upstream (client-facing) and downstream (server-facing) communication:
 
-- **STDIO** for subprocess communication
-- **Streamable HTTP** for modern, production-ready HTTP streaming
+- **STDIO** for subprocess communication — the client launches MCP Compose as a subprocess
+- **Streamable HTTP** for modern, production-ready HTTP streaming — MCP Compose runs as a standalone server
 - **SSE (deprecated)** for legacy streaming clients
+
+```mermaid
+graph TD
+    subgraph Client Connection - STDIO
+        Client1[MCP Client] -->|spawns| MCPCompose1[MCP Compose<br/>subprocess]
+        MCPCompose1 -->|stdin/stdout| Client1
+    end
+    
+    subgraph Client Connection - Streamable HTTP
+        Client2[MCP Client] -->|HTTP POST /mcp| MCPCompose2[MCP Compose<br/>HTTP Server :8080]
+        MCPCompose2 -->|streaming response| Client2
+    end
+```
+
+The transport determines how clients connect to MCP Compose. With **STDIO transport**, the client (e.g., Claude Desktop) spawns MCP Compose as a child process and communicates via stdin/stdout—simple to configure but limited to one client per instance. With **Streamable HTTP transport**, MCP Compose runs as a persistent HTTP server that multiple clients can connect to simultaneously, making it suitable for shared team environments or production deployments behind a load balancer.
 
 ### Composition and Conflict Resolution
 
 When multiple servers expose tools with the same name, MCP Compose resolves conflicts using a configurable strategy:
 
-- **prefix**: `server:tool`
-- **suffix**: `tool:server`
+- **prefix**: `server_tool` (recommended)
+- **suffix**: `tool_server`
 - **error**: fail on conflict
 - **override**: last server wins
+- **ignore**: skip conflicting tools
 
 You can also define per-tool overrides and custom templates.
 
-## Component Overview
+```mermaid
+graph TD
+    subgraph Server A - Calculator
+        TA1[add]
+        TA2[subtract]
+    end
+    
+    subgraph Server B - Math
+        TB1[add]
+        TB2[multiply]
+    end
+    
+    subgraph "Unified Tools (prefix strategy)"
+        U1[calculator_add]
+        U2[calculator_subtract]
+        U3[math_add]
+        U4[math_multiply]
+    end
+    
+    TA1 --> U1
+    TA2 --> U2
+    TB1 --> U3
+    TB2 --> U4
+```
+
+This diagram demonstrates the **prefix** conflict resolution strategy in action. Both the Calculator and Math servers expose an `add` tool. Rather than failing or arbitrarily choosing one, MCP Compose prefixes each tool with its server name, resulting in `calculator_add` and `math_add`. Clients can now explicitly invoke either version. The prefix strategy is recommended because it preserves all tools while making their origin clear, preventing subtle bugs from invoking the wrong implementation.
+
+---
+
+## Component Architecture
+
+The internal architecture consists of several cooperating components that handle different responsibilities.
 
 ```mermaid
 graph TD
-    Facade[MCP Compose Facade]
-    Auth[Authn/Authz Middleware]
-    Transport[Transport Layer<br/>STDIO / Streamable HTTP / SSE]
-    ToolMgr[Tool Manager]
-    ProcMgr[Process Manager]
-    API[REST API + Web UI]
-    Servers[Managed MCP Servers<br/>Embedded + Proxied]
+    subgraph External
+        Client[MCP Client]
+        Browser[Web Browser]
+    end
 
-    Facade --> Auth
-    Facade --> Transport
-    Facade --> ToolMgr
-    Facade --> ProcMgr
-    Facade --> API
-    API --> Servers
-    ProcMgr --> Servers
+    subgraph MCP Compose
+        subgraph Transport Layer
+            STDIO[STDIO Transport]
+            HTTP[Streamable HTTP Transport]
+            SSE[SSE Transport]
+        end
+        
+        subgraph Core
+            Auth[Authentication<br/>Middleware]
+            Authz[Authorization<br/>Middleware]
+            Router[Request Router]
+        end
+        
+        subgraph Managers
+            ToolMgr[Tool Manager<br/>- Discovery<br/>- Conflict Resolution<br/>- Aliasing]
+            ProcMgr[Process Manager<br/>- Lifecycle<br/>- Health Checks<br/>- Restart Policies]
+            ConfigMgr[Config Manager<br/>- TOML Loading<br/>- Validation<br/>- Hot Reload]
+        end
+        
+        subgraph Interfaces
+            API[REST API<br/>/api/v1/*]
+            UI[Web UI<br/>/ui]
+            Metrics[Metrics<br/>/metrics]
+            Health[Health<br/>/health]
+        end
+    end
+    
+    subgraph Downstream
+        Embedded[Embedded Servers]
+        Proxied[Proxied Servers]
+    end
+    
+    Client --> STDIO
+    Client --> HTTP
+    Client --> SSE
+    Browser --> API
+    Browser --> UI
+    
+    STDIO --> Auth
+    HTTP --> Auth
+    SSE --> Auth
+    Auth --> Authz
+    Authz --> Router
+    
+    Router --> ToolMgr
+    ToolMgr --> Embedded
+    ToolMgr --> Proxied
+    
+    API --> ProcMgr
+    API --> ConfigMgr
+    ProcMgr --> Proxied
 ```
+
+This detailed component diagram shows how requests flow through MCP Compose. Incoming connections arrive at the **Transport Layer**, pass through **Authentication** and **Authorization** middleware, then reach the **Request Router**. The router delegates to the **Tool Manager** for tool operations or to the **REST API** for management tasks. The Tool Manager maintains the unified registry and routes calls to the appropriate downstream server. The **Process Manager** handles lifecycle operations for STDIO servers, while the **Config Manager** loads and validates the TOML configuration. External interfaces expose REST endpoints, a web UI, Prometheus metrics, and health checks.
+
+### Tool Manager
+
+The Tool Manager is responsible for discovering tools from all managed servers, resolving naming conflicts, maintaining the unified tool registry, and routing tool calls to the appropriate downstream server.
+
+```mermaid
+graph LR
+    subgraph Discovery
+        D1[Query Server A]
+        D2[Query Server B]
+        D3[Query Server C]
+    end
+    
+    subgraph Tool Manager
+        Registry[Tool Registry]
+        Resolver[Conflict Resolver]
+        Aliaser[Alias Manager]
+    end
+    
+    subgraph Unified API
+        List[tools/list]
+        Call[tools/call]
+    end
+    
+    D1 -->|tools| Resolver
+    D2 -->|tools| Resolver
+    D3 -->|tools| Resolver
+    Resolver --> Registry
+    Aliaser --> Registry
+    Registry --> List
+    Registry --> Call
+```
+
+The Tool Manager performs three key functions: **Discovery** queries each managed server for its available tools during startup. The **Conflict Resolver** applies the configured naming strategy to handle duplicate tool names. The **Alias Manager** allows administrators to create alternative names for tools. The resulting **Tool Registry** serves as the single source of truth, powering both the `tools/list` endpoint (which returns all available tools) and the `tools/call` endpoint (which routes invocations to the correct downstream server).
+
+### Process Manager
+
+The Process Manager handles the lifecycle of STDIO-proxied servers: starting, stopping, restarting, health monitoring, and resource limits.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Stopped
+    Stopped --> Starting: start()
+    Starting --> Running: process spawned
+    Starting --> Crashed: spawn failed
+    Running --> Stopping: stop()
+    Running --> Crashed: unexpected exit
+    Stopping --> Stopped: graceful shutdown
+    Stopping --> Stopped: timeout → kill
+    Crashed --> Starting: restart policy
+    Crashed --> Stopped: max restarts exceeded
+    Stopped --> [*]
+```
+
+This state machine shows the lifecycle of a STDIO-proxied server process. A server begins in the **Stopped** state and transitions to **Starting** when launched. If the process spawns successfully, it enters **Running**; otherwise, it goes to **Crashed**. A running server can be gracefully stopped (transitioning through **Stopping**) or crash unexpectedly. From **Crashed**, the restart policy determines whether to attempt a restart or give up after reaching the maximum retry count. This model ensures resilience—transient failures trigger automatic recovery while persistent failures are surfaced for operator attention.
+
+---
+
+## Sequence Diagrams
+
+### Server Startup Sequence
+
+When MCP Compose starts, it initializes all configured servers, discovers their tools, and builds the unified registry.
+
+```mermaid
+sequenceDiagram
+    participant CLI as CLI / Client
+    participant Compose as MCP Compose
+    participant Config as Config Loader
+    participant ProcMgr as Process Manager
+    participant Server as STDIO Server
+    participant ToolMgr as Tool Manager
+
+    CLI->>Compose: mcp-compose serve --config config.toml
+    Compose->>Config: load_config()
+    Config-->>Compose: ComposerConfig
+    
+    loop For each STDIO server
+        Compose->>ProcMgr: add_process(name, command, working_dir)
+        ProcMgr->>Server: spawn subprocess
+        Server-->>ProcMgr: process ready
+        Compose->>ToolMgr: discover_tools(server)
+        ToolMgr->>Server: initialize request
+        Server-->>ToolMgr: capabilities
+        ToolMgr->>Server: tools/list
+        Server-->>ToolMgr: tool definitions
+        ToolMgr->>ToolMgr: apply conflict resolution
+        ToolMgr-->>Compose: tools registered
+    end
+    
+    Compose-->>CLI: Server ready (N tools)
+```
+
+This sequence shows the complete startup flow. When you run `mcp-compose serve`, the CLI first loads and validates the TOML configuration. For each configured STDIO server, MCP Compose spawns the subprocess via the Process Manager, then initiates the MCP handshake: sending an `initialize` request to negotiate capabilities, followed by `tools/list` to discover available tools. The Tool Manager applies conflict resolution rules and registers each tool in the unified registry. Once all servers are initialized, MCP Compose reports the total tool count and begins accepting client connections.
+
+### Tool Invocation Flow
+
+When a client invokes a tool, MCP Compose routes the request to the appropriate downstream server.
+
+```mermaid
+sequenceDiagram
+    participant Client as MCP Client
+    participant Transport as Transport Layer
+    participant Auth as Auth Middleware
+    participant Router as Request Router
+    participant ToolMgr as Tool Manager
+    participant Server as Downstream Server
+
+    Client->>Transport: tools/call {name: "calculator_add", args: {a: 1, b: 2}}
+    Transport->>Auth: authenticate request
+    Auth->>Auth: validate token/key
+    Auth->>Router: authorized request
+    Router->>ToolMgr: route tool call
+    ToolMgr->>ToolMgr: lookup "calculator_add"<br/>→ server: "calculator", tool: "add"
+    ToolMgr->>Server: tools/call {name: "add", args: {a: 1, b: 2}}
+    Server-->>ToolMgr: result: 3
+    ToolMgr-->>Router: result
+    Router-->>Transport: response
+    Transport-->>Client: {result: 3}
+```
+
+This sequence traces a tool invocation from client to downstream server and back. The client sends a `tools/call` request with the composed tool name (`calculator_add`). The Transport Layer receives the request and passes it to the Auth Middleware for token validation. Once authorized, the Request Router forwards it to the Tool Manager, which looks up the composed name to find the original server (`calculator`) and tool name (`add`). The Tool Manager sends the translated request to the downstream server, receives the result, and bubbles it back through the layers to the client. This indirection is transparent to clients—they simply invoke tools by name.
+
+### Health Check and Auto-Restart
+
+The Process Manager periodically checks server health and automatically restarts failed servers.
+
+```mermaid
+sequenceDiagram
+    participant ProcMgr as Process Manager
+    participant Server as STDIO Server
+    participant ToolMgr as Tool Manager
+
+    loop Every health_check_interval
+        ProcMgr->>Server: health check (ping tool)
+        alt Server responds
+            Server-->>ProcMgr: pong
+            ProcMgr->>ProcMgr: mark healthy
+        else Timeout or error
+            ProcMgr->>ProcMgr: mark unhealthy
+            ProcMgr->>ProcMgr: check restart_policy
+            alt restart_policy = "on-failure" AND restarts < max
+                ProcMgr->>Server: terminate
+                ProcMgr->>ProcMgr: wait restart_delay
+                ProcMgr->>Server: spawn new process
+                ProcMgr->>ToolMgr: re-discover tools
+                ToolMgr-->>ProcMgr: tools updated
+            else max restarts exceeded
+                ProcMgr->>ProcMgr: mark as failed
+                Note over ProcMgr: Server remains down
+            end
+        end
+    end
+```
+
+This sequence illustrates the health monitoring loop. At regular intervals (configured via `health_check_interval`), the Process Manager pings each server—typically by invoking a designated health tool. If the server responds within the timeout, it's marked healthy. If not, the Process Manager consults the restart policy: with `on-failure`, it terminates the unresponsive process, waits the configured delay, spawns a new instance, and re-discovers its tools to update the registry. After exhausting the maximum restart attempts, the server is marked as permanently failed, requiring manual intervention. This self-healing behavior keeps the system running despite transient downstream failures.
+
+### Client Connection via Streamable HTTP
+
+Shows the full flow when a client connects over HTTP and invokes tools.
+
+```mermaid
+sequenceDiagram
+    participant Client as HTTP Client
+    participant HTTP as HTTP Server
+    participant Session as Session Manager
+    participant Compose as MCP Compose
+
+    Client->>HTTP: POST /mcp<br/>{"method": "initialize", ...}
+    HTTP->>Session: create session
+    Session-->>HTTP: session_id
+    HTTP->>Compose: initialize
+    Compose-->>HTTP: capabilities
+    HTTP-->>Client: {"result": {capabilities}, "session_id": "..."}
+
+    Client->>HTTP: POST /mcp<br/>{"method": "tools/list"}<br/>Header: X-Session-ID
+    HTTP->>Session: get session
+    HTTP->>Compose: tools/list
+    Compose-->>HTTP: [tool1, tool2, ...]
+    HTTP-->>Client: {"result": {tools: [...]}}
+
+    Client->>HTTP: POST /mcp<br/>{"method": "tools/call", "params": {...}}
+    HTTP->>Compose: tools/call
+    Note over HTTP,Compose: Streaming response for long operations
+    Compose-->>HTTP: result (streamed)
+    HTTP-->>Client: result (streamed)
+```
+
+This sequence shows an HTTP client establishing a session and invoking tools. The first request (`initialize`) creates a new session and returns a session ID along with server capabilities. Subsequent requests include this session ID in a header, allowing the server to maintain context across requests. When invoking a tool, the response may be streamed—particularly useful for long-running operations that produce incremental output. Streaming enables clients to display partial results in real-time rather than waiting for the entire operation to complete, improving the user experience for tools that process large datasets or perform multi-step operations.
+
+---
 
 ## Configuration
 
-All configuration lives in a single `mcp_compose.toml` file. A minimal example:
+All configuration lives in a single `mcp_compose.toml` file. See the [Configuration](/configuration) page for the complete reference.
+
+A minimal example:
 
 ```toml
 [composer]
 name = "my-unified-server"
 conflict_resolution = "prefix"
 
-[[servers]]
+[[servers.proxied.stdio]]
 name = "filesystem"
-command = "python"
-args = ["-m", "mcp_server_filesystem", "/data"]
-transport = "stdio"
+command = ["python", "-m", "mcp_server_filesystem", "/data"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 ```
+
+---
 
 ## Security
 
-Authentication and authorization are pluggable. Use bearer tokens or OAuth2/OIDC validation when deploying in production.
+Authentication and authorization are pluggable middleware components that intercept all requests before they reach the core routing logic.
+
+```mermaid
+graph LR
+    Request[Incoming Request] --> AuthN[Authentication]
+    AuthN -->|Valid| AuthZ[Authorization]
+    AuthN -->|Invalid| Reject1[401 Unauthorized]
+    AuthZ -->|Allowed| Handler[Request Handler]
+    AuthZ -->|Denied| Reject2[403 Forbidden]
+    Handler --> Response[Response]
+```
+
+This diagram shows the security middleware pipeline. Every incoming request first passes through **Authentication (AuthN)**, which verifies the client's identity—rejecting unauthenticated requests with 401 Unauthorized. Authenticated requests then pass through **Authorization (AuthZ)**, which checks whether the identified user has permission to perform the requested action—rejecting unauthorized requests with 403 Forbidden. Only requests that pass both checks reach the actual handler. This layered approach ensures defense in depth: even if an attacker obtains valid credentials, they're still constrained by their assigned permissions.
+
+Supported authentication methods:
+- **API Keys** for simple internal use
+- **JWT** for stateless token validation
+- **OAuth2/OIDC** for enterprise identity providers
+- **mTLS** for certificate-based authentication
+
+Use bearer tokens or OAuth2/OIDC validation when deploying in production.

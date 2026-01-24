@@ -21,7 +21,7 @@ Keep sensitive data like API keys out of your configuration files by referencing
 
 ### Environment Variables
 
-Use `${VAR_NAME}` or `$VAR_NAME` syntax to reference environment variables:
+Environment variables let you externalize configuration values that may differ between environments (development, staging, production) or contain secrets that shouldn't be committed to version control. Use `${VAR_NAME}` or `$VAR_NAME` syntax to reference them. If a referenced variable is not set, MCP Compose will raise an error at startup, helping you catch misconfigurations early.
 
 ```toml
 [[servers.proxied.stdio]]
@@ -31,6 +31,8 @@ env = { API_KEY = "${MY_API_KEY}" }
 ```
 
 ### Special Variables
+
+In addition to environment variables, MCP Compose provides built-in special variables that are automatically resolved based on context. These are particularly useful for creating portable configurations that can be moved between machines or shared with team members without modification.
 
 | Variable | Description |
 |----------|-------------|
@@ -61,6 +63,8 @@ port = 8080                      # Default port for HTTP transports
 
 ### Conflict Resolution Strategies
 
+When composing multiple MCP servers, it's common for different servers to expose tools with identical names (e.g., both a filesystem server and a database server might have a `read` tool). The conflict resolution strategy determines how MCP Compose handles these collisions. The `prefix` strategy is recommended as it preserves all tools while making their origin clear to clients.
+
 | Strategy | Description | Example Result |
 |----------|-------------|----------------|
 | `prefix` | Prefix tool name with server name | `calculator_add` |
@@ -71,6 +75,8 @@ port = 8080                      # Default port for HTTP transports
 | `custom` | Use custom template | See tool_manager section |
 
 ### Log Levels
+
+The log level controls how much information MCP Compose outputs during operation. Use `DEBUG` during development to see detailed information about tool discovery, message routing, and server lifecycle. In production, `INFO` provides a good balance between visibility and noise, while `ERROR` minimizes output to only critical issues.
 
 | Level | Description |
 |-------|-------------|
@@ -126,6 +132,8 @@ default_provider = "api_key"
 
 ### API Key Authentication
 
+API keys are the simplest form of authentication, ideal for internal services or development environments. Clients include the key in a request header, and MCP Compose validates it against the configured list. You can configure multiple keys to support key rotation or different clients with separate keys.
+
 ```toml
 [authentication.api_key]
 header_name = "X-API-Key"
@@ -134,6 +142,8 @@ keys = ["${MCP_API_KEY_1}", "${MCP_API_KEY_2}"]
 
 ### Basic Authentication
 
+HTTP Basic Authentication uses a username and password combination, transmitted as a Base64-encoded header. While simple to implement, it should only be used over HTTPS to prevent credential interception. This method is suitable for simple setups or when integrating with systems that only support Basic auth.
+
 ```toml
 [authentication.basic]
 username = "${MCP_USERNAME}"
@@ -141,6 +151,8 @@ password = "${MCP_PASSWORD}"
 ```
 
 ### JWT Authentication
+
+JSON Web Tokens (JWT) provide stateless authentication where the token itself contains encoded claims about the user. MCP Compose validates the token's signature using the configured secret and checks the issuer and audience claims. JWTs are ideal for microservices architectures where you don't want the MCP server to maintain session state or query an external auth service for every request.
 
 ```toml
 [authentication.jwt]
@@ -151,6 +163,8 @@ audience = "mcp-clients"
 ```
 
 ### OAuth2 Authentication
+
+OAuth2 enables integration with enterprise identity providers like GitHub, Auth0, Okta, or any OpenID Connect-compatible service. Users authenticate through the identity provider's login flow, and MCP Compose receives tokens that can be validated and used to determine user identity. This is the recommended approach for production deployments where you want centralized user management and single sign-on (SSO) capabilities.
 
 ```toml
 [authentication.oauth2]
@@ -165,6 +179,8 @@ discovery_url = "${OAUTH_DISCOVERY_URL}"  # Optional OIDC discovery
 ```
 
 ### mTLS Authentication
+
+Mutual TLS (mTLS) requires both the server and client to present certificates, providing strong cryptographic authentication. This is commonly used in zero-trust environments or service mesh architectures where certificate-based identity is the standard. The client must present a certificate signed by the configured CA for the connection to be accepted.
 
 ```toml
 [authentication.mtls]
@@ -187,6 +203,8 @@ model = "rbac"
 
 ### Role-Based Access Control (RBAC)
 
+RBAC lets you define named roles with specific permissions, then assign users to those roles. Permissions follow a resource:action format (e.g., `tools:execute`, `servers:read`). Use wildcards like `tools:*` to grant all actions on a resource, or `*` for full administrative access. This model scales well as your team grows—just assign new users to existing roles rather than managing individual permissions.
+
 ```toml
 [[authorization.roles]]
 name = "admin"
@@ -203,6 +221,8 @@ permissions = ["tools:execute", "tools:list"]
 
 ### Rate Limiting
 
+Rate limiting protects your MCP servers from being overwhelmed by too many requests, whether from a misconfigured client, a runaway script, or a denial-of-service attempt. Limits are specified as requests per minute and can be customized per role, allowing power users or automated systems higher throughput while protecting against abuse.
+
 ```toml
 [authorization.rate_limiting]
 enabled = false
@@ -218,7 +238,7 @@ This is where you define the MCP servers that MCP Compose will unify. You can em
 
 ### Embedded Servers
 
-Embedded servers are Python packages that implement MCP servers, loaded directly into the MCP Compose process.
+Embedded servers are Python packages that implement the MCP protocol, loaded directly into the MCP Compose process. This approach has the lowest latency since there's no inter-process communication, but it means all servers share the same Python environment. Use embedded servers for tightly-coupled functionality or when you need maximum performance. The `tool_mappings` option lets you rename tools at load time to avoid conflicts or provide clearer names.
 
 ```toml
 [servers.embedded]
@@ -239,7 +259,7 @@ tool_mappings = { "create" = "jupyter_create", "run" = "jupyter_run" }
 
 ### STDIO Proxied Servers
 
-STDIO servers run as subprocesses, communicating via stdin/stdout.
+STDIO servers run as separate subprocesses, communicating with MCP Compose via stdin/stdout using the MCP JSON-RPC protocol. This is the most common deployment pattern as it provides process isolation—a crashing server won't take down MCP Compose or other servers. You can run servers written in any language, use different Python environments, or apply resource limits. The `working_dir` option is crucial when your server scripts use relative paths for imports or data files.
 
 ```toml
 [[servers.proxied.stdio]]
@@ -286,6 +306,8 @@ log_file = "/var/log/mcp-compose/weather-server.log"
 
 #### Resource Limits
 
+Prevvent a single misbehaving server from consuming all system resources by setting memory and CPU limits. When a server exceeds its memory limit, it will be terminated; CPU limits throttle the process to the specified percentage. This is especially important in multi-tenant environments or when running untrusted code.
+
 ```toml
 [[servers.proxied.stdio]]
 name = "resource-limited-server"
@@ -298,7 +320,7 @@ max_cpu_percent = 50
 
 ### Streamable HTTP Proxied Servers
 
-Connect to remote MCP servers over HTTP with streaming support.
+Connect to MCP servers running remotely over HTTP with streaming support for real-time responses. This is ideal for servers that are deployed as independent services, run in containers, or are hosted by third parties. MCP Compose handles connection management, automatic reconnection on failures, and authentication. The `protocol` option determines how streaming responses are delivered: `lines` for newline-delimited JSON, `chunked` for HTTP chunked encoding, or `poll` for environments where streaming isn't available.
 
 ```toml
 [[servers.proxied.http]]
@@ -366,7 +388,7 @@ conflict_resolution = "prefix"
 
 ### Tool-Specific Overrides
 
-Apply different conflict resolution strategies to specific tools:
+While the global conflict resolution strategy works for most cases, sometimes you need different handling for specific tools. Use glob patterns to match tool names and apply a different strategy. For example, you might want notebook-related tools prefixed for clarity, but search tools from a single authoritative server to remain unprefixed.
 
 ```toml
 [[tool_manager.tool_overrides]]
@@ -380,7 +402,7 @@ resolution = "suffix"
 
 ### Custom Naming Template
 
-Define a custom template for tool naming:
+When the built-in strategies don't fit your naming conventions, define a custom template using placeholders. This gives you complete control over how composed tool names are formed—useful when integrating with existing systems that expect specific naming patterns.
 
 ```toml
 [tool_manager.custom_template]
@@ -393,7 +415,7 @@ Available template variables:
 
 ### Tool Aliases
 
-Create aliases for tools:
+Aliases let you expose tools under different names without modifying the underlying servers. Use them to provide shorter, more intuitive names, maintain backward compatibility when renaming tools, or create domain-specific vocabularies for different user groups.
 
 ```toml
 [tool_manager.aliases]
@@ -403,7 +425,7 @@ fs_read = "read_file"
 
 ### Tool Versioning
 
-Enable multiple versions of the same tool:
+When you need to support multiple versions of a tool simultaneously (e.g., during a migration or A/B testing), enable versioning to expose both versions with distinct names. The version suffix is appended to tool names, allowing clients to explicitly choose which version to invoke.
 
 ```toml
 [tool_manager.versioning]
@@ -501,6 +523,8 @@ enabled = true
 
 ### Metrics
 
+Export operational metrics in Prometheus format for integration with monitoring systems like Grafana. Track tool invocation counts and durations to understand usage patterns, monitor error rates to detect problems early, and observe resource consumption to plan capacity. The `collection_interval` controls how frequently metrics are sampled.
+
 ```toml
 [monitoring.metrics]
 enabled = true
@@ -521,6 +545,8 @@ collect = [
 
 ### Logging
 
+Configure structured logging for operational visibility and troubleshooting. JSON format is recommended for production as it's easily parsed by log aggregation systems like ELK or Splunk. Log rotation prevents disk space exhaustion—choose `daily` for time-based rotation or `size` to rotate when files reach the specified limit. Enable `aggregate_managed_logs` to include stdout/stderr from downstream servers in the main log stream.
+
 ```toml
 [monitoring.logging]
 level = "INFO"
@@ -535,6 +561,8 @@ aggregate_managed_logs = true
 
 ### Distributed Tracing
 
+Distributed tracing helps you understand the flow of requests across your composed MCP servers. When enabled, MCP Compose generates trace spans for each tool invocation and propagates trace context to downstream servers. View traces in systems like Jaeger or Zipkin to identify bottlenecks, debug failures, and understand dependencies. The `sample_rate` controls what percentage of requests are traced—use 1.0 for full tracing or lower values in high-traffic production environments.
+
 ```toml
 [monitoring.tracing]
 enabled = false
@@ -545,10 +573,155 @@ sample_rate = 1.0
 
 ### Health Endpoints
 
+Health endpoints enable integration with load balancers, orchestrators like Kubernetes, and monitoring systems. The basic `/health` endpoint returns a simple status, while `/health/detailed` provides comprehensive information about each downstream server's health, making it easy to diagnose which component is causing issues.
+
 ```toml
 [monitoring.health]
 endpoint = "/health"
 detailed_endpoint = "/health/detailed"
+```
+
+---
+
+## Simple Examples
+
+These examples illustrate common configuration patterns to help you get started quickly.
+
+### Example 1: Local Development with Multiple STDIO Servers
+
+The simplest setup: compose multiple local MCP servers for development. No authentication, STDIO transport for easy debugging with Claude Desktop or VS Code.
+
+```toml
+[composer]
+name = "dev-tools"
+conflict_resolution = "prefix"
+log_level = "DEBUG"
+
+[transport]
+stdio_enabled = true
+
+[[servers.proxied.stdio]]
+name = "filesystem"
+command = ["uvx", "mcp-server-filesystem", "./workspace"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "git"
+command = ["uvx", "mcp-server-git"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "sqlite"
+command = ["uvx", "mcp-server-sqlite", "--db-path", "./data.db"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+```
+
+This configuration composes three popular MCP servers into one. The `prefix` strategy ensures tools like `filesystem_read_file` and `git_status` are clearly distinguished. Setting `log_level = "DEBUG"` helps troubleshoot tool discovery issues during development.
+
+### Example 2: Anaconda Package Server with Token Authentication
+
+Connect to Anaconda's MCP server using token-based authentication. This pattern applies to any MCP server that requires API credentials.
+
+```toml
+[composer]
+name = "anaconda-tools"
+conflict_resolution = "prefix"
+log_level = "INFO"
+
+[transport]
+stdio_enabled = true
+
+[[servers.proxied.stdio]]
+name = "anaconda"
+command = ["uvx", "anaconda-mcp-server"]
+env = { ANACONDA_API_TOKEN = "${ANACONDA_API_TOKEN}" }
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+restart_policy = "on-failure"
+max_restarts = 3
+```
+
+The Anaconda MCP server provides tools for searching packages, managing environments, and interacting with Anaconda.org. The API token is passed via environment variable—set `ANACONDA_API_TOKEN` in your shell or in the MCP client configuration. The `restart_policy = "on-failure"` ensures the server recovers from transient network issues when communicating with Anaconda's API.
+
+To use this with Claude Desktop, add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "anaconda-tools": {
+      "command": "mcp-compose",
+      "args": ["serve", "--config", "/path/to/mcp_compose.toml"],
+      "env": {
+        "ANACONDA_API_TOKEN": "your-anaconda-token-here"
+      }
+    }
+  }
+}
+```
+
+### Example 3: Team Server with HTTP Transport and API Key Protection
+
+A shared MCP Compose instance that multiple team members can connect to over the network, protected by API keys.
+
+```toml
+[composer]
+name = "team-mcp-server"
+conflict_resolution = "prefix"
+log_level = "INFO"
+port = 8080
+
+[transport]
+stdio_enabled = false
+streamable_http_enabled = true
+streamable_http_path = "/mcp"
+streamable_http_cors_enabled = true
+
+[authentication]
+enabled = true
+providers = ["api_key"]
+default_provider = "api_key"
+
+[authentication.api_key]
+header_name = "X-API-Key"
+keys = ["${TEAM_API_KEY_ALICE}", "${TEAM_API_KEY_BOB}", "${TEAM_API_KEY_SHARED}"]
+
+[[servers.proxied.stdio]]
+name = "docs"
+command = ["python", "-m", "docs_mcp_server"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "jira"
+command = ["uvx", "mcp-server-jira"]
+env = { JIRA_API_TOKEN = "${JIRA_API_TOKEN}", JIRA_URL = "${JIRA_URL}" }
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+```
+
+This configuration runs MCP Compose as an HTTP server on port 8080. Team members connect from their MCP clients using the Streamable HTTP URL (`http://server:8080/mcp`) and must include a valid API key in the `X-API-Key` header. Each team member can have their own key for auditing, or share a common key for simplicity.
+
+Start the server:
+
+```bash
+export TEAM_API_KEY_ALICE="alice-secret-key"
+export TEAM_API_KEY_BOB="bob-secret-key"
+export JIRA_API_TOKEN="jira-token"
+export JIRA_URL="https://yourcompany.atlassian.net"
+
+mcp-compose serve --config mcp_compose.toml
+```
+
+Team members configure their MCP client to connect:
+
+```json
+{
+  "mcpServers": {
+    "team-tools": {
+      "url": "http://mcp-server.internal:8080/mcp",
+      "headers": {
+        "X-API-Key": "alice-secret-key"
+      }
+    }
+  }
+}
 ```
 
 ---
