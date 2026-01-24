@@ -49,9 +49,9 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'clients/index',
+          docId: 'architecture/index',
           position: 'left',
-          label: 'Clients',
+          label: 'Architecture',
         },
         {
           type: 'doc',
@@ -61,9 +61,15 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'architecture/index',
+          docId: 'examples/index',
           position: 'left',
-          label: 'Architecture',
+          label: 'Examples',
+        },
+        {
+          type: 'doc',
+          docId: 'clients/index',
+          position: 'left',
+          label: 'Clients',
         },
         {
           type: 'doc',
@@ -82,12 +88,6 @@ module.exports = {
           docId: 'integrations/index',
           position: 'left',
           label: 'Integrations',
-        },
-        {
-          type: 'doc',
-          docId: 'examples/index',
-          position: 'left',
-          label: 'Examples',
         },
         {
           type: 'doc',

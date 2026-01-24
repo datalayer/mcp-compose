@@ -7,39 +7,239 @@ sidebar_position: 6
 
 Below are practical examples for composing and proxying MCP servers. Use them as templates for your own configurations.
 
-## Basic STDIO composition
+---
+
+## Repository Examples
+
+The repository includes complete, runnable examples in the `examples/` directory. Each example includes a `Makefile` for easy setup and execution.
+
+### Transport Examples
+
+| Example | Description |
+|---------|-------------|
+| [**proxy-stdio**](https://github.com/datalayer/mcp-compose/tree/main/examples/proxy-stdio) | STDIO transport where the agent spawns MCP Compose as a subprocess. The simplest setup for local development with Claude Desktop or VS Code. |
+| [**proxy-streamable-http**](https://github.com/datalayer/mcp-compose/tree/main/examples/proxy-streamable-http) | Modern Streamable HTTP transport (recommended). MCP Compose runs as an HTTP server that clients connect to over the network. |
+| [**proxy-sse**](https://github.com/datalayer/mcp-compose/tree/main/examples/proxy-sse) | Server-Sent Events transport (deprecated). Maintained for backward compatibility with older clients. Use Streamable HTTP for new projects. |
+| [**embedded-streamable-http**](https://github.com/datalayer/mcp-compose/tree/main/examples/embedded-streamable-http) | Embedded servers running in-process with the composer. Most efficient approach when servers are Python modules—no subprocess overhead. |
+
+### Authentication Examples
+
+| Example | Description |
+|---------|-------------|
+| [**anaconda-token**](https://github.com/datalayer/mcp-compose/tree/main/examples/anaconda-token) | Anaconda token authentication at the composer level. Demonstrates protecting your MCP Compose endpoint with Anaconda.org API tokens. |
+| [**github-oauth**](https://github.com/datalayer/mcp-compose/tree/main/examples/github-oauth) | GitHub OAuth2 authentication using the generic OAuth2 provider. Validates tokens via the GitHub API userinfo endpoint for enterprise SSO integration. |
+
+### Observability & UI Examples
+
+| Example | Description |
+|---------|-------------|
+| [**otel**](https://github.com/datalayer/mcp-compose/tree/main/examples/otel) | OpenTelemetry instrumentation with Logfire integration. Demonstrates distributed tracing for debugging and performance monitoring. |
+| [**ui**](https://github.com/datalayer/mcp-compose/tree/main/examples/ui) | Web UI dashboard with basic authentication. Includes a React-based management interface for testing tools, viewing logs, and managing servers. |
+
+### Running the Examples
+
+Each example follows the same pattern:
+
+```bash
+# Navigate to the example directory
+cd examples/proxy-streamable-http
+
+# Install dependencies
+make install
+
+# Start the MCP Compose server
+make serve
+
+# In another terminal, run the example agent
+make agent
+```
+
+See the README in each example directory for detailed instructions.
+
+---
+
+## Quick Start Examples
+
+These examples illustrate common configuration patterns to help you get started quickly.
+
+### Local Development with Multiple STDIO Servers
+
+The simplest setup: compose multiple local MCP servers for development. No authentication, STDIO transport for easy debugging with Claude Desktop or VS Code.
 
 ```toml
 [composer]
-name = "local-dev"
+name = "dev-tools"
 conflict_resolution = "prefix"
+log_level = "DEBUG"
 
-[[servers]]
+[transport]
+stdio_enabled = true
+
+[[servers.proxied.stdio]]
 name = "filesystem"
-command = "python"
-args = ["-m", "mcp_server_filesystem", "/data"]
-transport = "stdio"
+command = ["uvx", "mcp-server-filesystem", "./workspace"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 
-[[servers]]
-name = "calculator"
-command = "python"
-args = ["-m", "mcp_server_calculator"]
-transport = "stdio"
+[[servers.proxied.stdio]]
+name = "git"
+command = ["uvx", "mcp-server-git"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "sqlite"
+command = ["uvx", "mcp-server-sqlite", "--db-path", "./data.db"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 ```
 
-## Proxied Streamable HTTP server
+This configuration composes three popular MCP servers into one. The `prefix` strategy ensures tools like `filesystem_read_file` and `git_status` are clearly distinguished. Setting `log_level = "DEBUG"` helps troubleshoot tool discovery issues during development.
+
+### Servers with Anaconda Token Authentication
+
+Compose multiple MCP servers while using Anaconda token authentication for servers that need access to Anaconda.org APIs. This pattern demonstrates passing API credentials via environment variables.
 
 ```toml
-[[servers.proxied.streamable-http]]
+[composer]
+name = "data-science-tools"
+conflict_resolution = "prefix"
+log_level = "INFO"
+
+[transport]
+stdio_enabled = true
+
+[[servers.proxied.stdio]]
+name = "filesystem"
+command = ["uvx", "mcp-server-filesystem", "./notebooks"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "sqlite"
+command = ["uvx", "mcp-server-sqlite", "--db-path", "./data.db"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "fetch"
+command = ["uvx", "mcp-server-fetch"]
+env = { ANACONDA_API_TOKEN = "${ANACONDA_API_TOKEN}" }
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+restart_policy = "on-failure"
+max_restarts = 3
+```
+
+This configuration composes filesystem, SQLite, and fetch servers for a data science workflow. The fetch server is configured with an Anaconda API token, allowing it to access authenticated Anaconda.org endpoints. The token is passed via environment variable—set `ANACONDA_API_TOKEN` in your shell or in the MCP client configuration. The `restart_policy = "on-failure"` ensures servers recover from transient failures.
+
+To use this with Claude Desktop, add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "data-science-tools": {
+      "command": "mcp-compose",
+      "args": ["serve", "--config", "/path/to/mcp_compose.toml"],
+      "env": {
+        "ANACONDA_API_TOKEN": "your-anaconda-token-here"
+      }
+    }
+  }
+}
+```
+
+### Team Server with HTTP Transport and API Key Protection
+
+A shared MCP Compose instance that multiple team members can connect to over the network, protected by API keys.
+
+```toml
+[composer]
+name = "team-mcp-server"
+conflict_resolution = "prefix"
+log_level = "INFO"
+port = 8080
+
+[transport]
+stdio_enabled = false
+streamable_http_enabled = true
+streamable_http_path = "/mcp"
+streamable_http_cors_enabled = true
+
+[authentication]
+enabled = true
+providers = ["api_key"]
+default_provider = "api_key"
+
+[authentication.api_key]
+header_name = "X-API-Key"
+keys = ["${TEAM_API_KEY_ALICE}", "${TEAM_API_KEY_BOB}", "${TEAM_API_KEY_SHARED}"]
+
+[[servers.proxied.stdio]]
+name = "docs"
+command = ["python", "-m", "docs_mcp_server"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
+name = "jira"
+command = ["uvx", "mcp-server-jira"]
+env = { JIRA_API_TOKEN = "${JIRA_API_TOKEN}", JIRA_URL = "${JIRA_URL}" }
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+```
+
+This configuration runs MCP Compose as an HTTP server on port 8080. Team members connect from their MCP clients using the Streamable HTTP URL (`http://server:8080/mcp`) and must include a valid API key in the `X-API-Key` header. Each team member can have their own key for auditing, or share a common key for simplicity.
+
+Start the server:
+
+```bash
+export TEAM_API_KEY_ALICE="alice-secret-key"
+export TEAM_API_KEY_BOB="bob-secret-key"
+export JIRA_API_TOKEN="jira-token"
+export JIRA_URL="https://yourcompany.atlassian.net"
+
+mcp-compose serve --config mcp_compose.toml
+```
+
+Team members configure their MCP client to connect:
+
+```json
+{
+  "mcpServers": {
+    "team-tools": {
+      "url": "http://mcp-server.internal:8080/mcp",
+      "headers": {
+        "X-API-Key": "alice-secret-key"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Server Transport Examples
+
+### STDIO Server
+
+```toml
+[[servers.proxied.stdio]]
+name = "filesystem"
+command = ["uvx", "mcp-server-filesystem", "./data"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+```
+
+### Streamable HTTP Server
+
+```toml
+[[servers.proxied.http]]
 name = "remote-server"
 url = "http://localhost:8080/mcp"
+protocol = "lines"
 auth_token = "${REMOTE_SERVER_TOKEN}"
 auth_type = "bearer"
 timeout = 30
 reconnect_on_failure = true
 ```
 
-## Proxied SSE server (deprecated)
+### SSE Server (Deprecated)
+
+:::warning
+SSE transport is deprecated. Use Streamable HTTP instead.
+:::
 
 ```toml
 [[servers.proxied.sse]]
@@ -50,29 +250,100 @@ timeout = 30
 reconnect_on_failure = true
 ```
 
-## HTTP streaming proxy
+---
+
+## Complete Production Example
+
+Here's a complete configuration example combining multiple features for production deployment:
 
 ```toml
+# ============================================================================
+# Composer Settings
+# ============================================================================
+[composer]
+name = "production-composer"
+conflict_resolution = "prefix"
+log_level = "INFO"
+port = 8080
+
+# ============================================================================
+# Transport Configuration
+# ============================================================================
+[transport]
+stdio_enabled = false
+streamable_http_enabled = true
+streamable_http_path = "/mcp"
+streamable_http_cors_enabled = true
+
+# ============================================================================
+# Authentication
+# ============================================================================
+[authentication]
+enabled = true
+providers = ["jwt"]
+default_provider = "jwt"
+
+[authentication.jwt]
+secret = "${JWT_SECRET}"
+algorithm = "HS256"
+issuer = "mcp-compose"
+
+# ============================================================================
+# Servers
+# ============================================================================
+[[servers.proxied.stdio]]
+name = "filesystem"
+command = ["python", "-m", "mcp_server_filesystem", "./data"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+restart_policy = "on-failure"
+max_restarts = 3
+
+[[servers.proxied.stdio]]
+name = "database"
+command = ["python", "db_server.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+env = { DATABASE_URL = "${DATABASE_URL}" }
+health_check_enabled = true
+health_check_interval = 30
+
 [[servers.proxied.http]]
-name = "http-server"
-url = "http://localhost:8080"
-protocol = "lines"
-auth_token = "${HTTP_TOKEN}"
-auth_type = "bearer"
-timeout = 30
+name = "remote-api"
+url = "https://api.example.com/mcp"
+auth_token = "${API_TOKEN}"
+timeout = 60
+reconnect_on_failure = true
+
+# ============================================================================
+# Monitoring
+# ============================================================================
+[monitoring]
+enabled = true
+
+[monitoring.metrics]
+enabled = true
+provider = "prometheus"
+endpoint = "/metrics"
+
+[monitoring.logging]
+level = "INFO"
+format = "json"
+output = "stdout"
+
+[monitoring.health]
+endpoint = "/health"
 ```
 
-## Docker deployment
+---
 
-```
+## Docker Deployment
+
+Run MCP Compose in a container:
+
+```bash
 docker-compose up -d
 ```
 
-Then open:
+Then access:
 
-- http://localhost:8000 (Web UI)
-- http://localhost:8000/api/v1 (REST API)
-
-## Git + File example
-
-The repository includes a Git + Filesystem composition example with a Makefile and optional anonymous access. See the examples directory in the repository for a complete walkthrough.
+- `http://localhost:8000` - Web UI
+- `http://localhost:8000/api/v1` - REST API
