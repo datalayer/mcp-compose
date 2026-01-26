@@ -1,9 +1,9 @@
 ---
-title: Operation
+title: Operations
 sidebar_position: 1
 ---
 
-# Execution
+# Operations
 
 This section covers runtime operations: starting/stopping servers, invoking tools, and monitoring the system.
 
@@ -49,6 +49,10 @@ Restart a server:
 ```
 mcp-compose restart-server filesystem
 ```
+
+### User Interface (UI)
+
+The Web UI provides a visual dashboard for managing server lifecycles. From the Servers page, you can view the status of all configured servers at a glance, start or stop individual servers with a single click, and trigger restarts when needed. The UI displays real-time status updates, showing when servers transition between states (Starting, Running, Stopped, Crashed). Server logs are also accessible directly from the UI, making it easy to diagnose startup failures or runtime errors without switching to the terminal.
 
 ### REST API
 

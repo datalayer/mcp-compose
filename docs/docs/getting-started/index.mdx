@@ -43,56 +43,59 @@ docker-compose up -d
 mcp-compose --version
 ```
 
-## Create your configuration
+## Quick Start
 
-Create a file named mcp_compose.toml:
+Create a file named `mcp_compose.toml` with a minimal configuration:
 
 ```toml
 [composer]
 name = "my-composer"
 conflict_resolution = "prefix"
 
-[[servers]]
-name = "filesystem"
-command = "python"
-args = ["-m", "mcp_server_filesystem", "/data"]
-transport = "stdio"
+[transport]
+stdio_enabled = true
 
-[[servers]]
+[[servers.proxied.stdio]]
+name = "filesystem"
+command = ["uvx", "mcp-server-filesystem", "/data"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+
+[[servers.proxied.stdio]]
 name = "calculator"
-command = "python"
-args = ["-m", "mcp_server_calculator"]
-transport = "stdio"
+command = ["uvx", "mcp-server-calculator"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 ```
 
-## Start MCP Compose
+Start MCP Compose:
 
 ```bash
 mcp-compose serve --config mcp_compose.toml
 ```
 
-Once running, you have:
+Once running, you have access to:
 
-- Web UI: http://localhost:8000
-- REST API: http://localhost:8000/api/v1
-- API docs: http://localhost:8000/docs
+- **MCP Endpoint**: STDIO (for Claude Desktop, VS Code, etc.)
+- **Web UI**: http://localhost:8080/ui
+- **REST API**: http://localhost:8080/api/v1
+- **API Docs**: http://localhost:8080/docs
 
-## CLI quick actions
+## CLI Quick Actions
 
-List tools:
-
-```bash
-mcp-compose list-tools
-```
-
-Invoke a tool:
+List all available tools across your composed servers:
 
 ```bash
-mcp-compose invoke-tool calculator:add '{"a": 5, "b": 3}'
+mcp-compose list-tools --config mcp_compose.toml
 ```
 
-## Next steps
+Invoke a tool directly from the command line:
 
-- Explore tool discovery and conflict resolution.
-- Configure authentication and CORS.
-- Add proxied servers (STDIO, Streamable HTTP, SSE deprecated).
+```bash
+mcp-compose invoke-tool filesystem_read_file '{"path": "/data/readme.txt"}' --config mcp_compose.toml
+```
+
+## Next Steps
+
+- Read the [Architecture](/architecture) guide to understand how MCP Compose works
+- Explore the [Configuration](/configuration) reference for all available options
+- See the [Clients](/clients) guide to connect Claude Desktop or VS Code
+- Configure [authentication](/configuration#authentication-section) for production deployments

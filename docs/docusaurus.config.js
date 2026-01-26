@@ -49,9 +49,9 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'clients/index',
+          docId: 'architecture/index',
           position: 'left',
-          label: 'Clients',
+          label: 'Architecture',
         },
         {
           type: 'doc',
@@ -61,9 +61,15 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'architecture/index',
+          docId: 'examples/index',
           position: 'left',
-          label: 'Architecture',
+          label: 'Examples',
+        },
+        {
+          type: 'doc',
+          docId: 'clients/index',
+          position: 'left',
+          label: 'Clients',
         },
         {
           type: 'doc',
@@ -73,9 +79,9 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'operation/index',
+          docId: 'operations/index',
           position: 'left',
-          label: 'Operation',
+          label: 'Operations',
         },
         {
           type: 'doc',
@@ -85,15 +91,9 @@ module.exports = {
         },
         {
           type: 'doc',
-          docId: 'examples/index',
+          docId: 'deployments/index',
           position: 'left',
-          label: 'Examples',
-        },
-        {
-          type: 'doc',
-          docId: 'deployment/index',
-          position: 'left',
-          label: 'Deployment',
+          label: 'Deployments',
         },
         {
           type: 'doc',

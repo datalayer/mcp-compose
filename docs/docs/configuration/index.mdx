@@ -5,7 +5,7 @@ sidebar_position: 3
 
 # Configuration
 
-MCP Compose is configured using a TOML file, typically named `mcp_compose.toml`. This page covers all configuration options and best practices.
+MCP Compose is configured using a TOML file, typically named `mcp_compose.toml`. This page provides a comprehensive reference for all configuration options.
 
 ## Configuration File Location
 
@@ -17,11 +17,11 @@ MCP Compose searches for configuration in the following order:
 
 ## Variable Substitution
 
-MCP Compose supports variable substitution in configuration values:
+Keep sensitive data like API keys out of your configuration files by referencing environment variables instead. MCP Compose automatically replaces variable placeholders with their actual values when the configuration is loaded.
 
 ### Environment Variables
 
-Use `${VAR_NAME}` or `$VAR_NAME` syntax:
+Environment variables let you externalize configuration values that may differ between environments (development, staging, production) or contain secrets that shouldn't be committed to version control. Use `${VAR_NAME}` or `$VAR_NAME` syntax to reference them. If a referenced variable is not set, MCP Compose will raise an error at startup, helping you catch misconfigurations early.
 
 ```toml
 [[servers.proxied.stdio]]
@@ -32,96 +32,381 @@ env = { API_KEY = "${MY_API_KEY}" }
 
 ### Special Variables
 
+In addition to environment variables, MCP Compose provides built-in special variables that are automatically resolved based on context. These are particularly useful for creating portable configurations that can be moved between machines or shared with team members without modification.
+
 | Variable | Description |
 |----------|-------------|
 | `${MCP_COMPOSE_CONFIG_DIR}` | Absolute path to the directory containing the config file |
 
-This is particularly useful for relative paths:
+The `MCP_COMPOSE_CONFIG_DIR` variable is particularly useful for portable configurations with relative paths:
 
 ```toml
 [[servers.proxied.stdio]]
 name = "calculator"
-command = ["python", "mcp1.py"]
+command = ["python", "server.py"]
 working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 ```
 
-## Minimal Configuration
+---
+
+## Composer Section
+
+This is the main section where you give your unified MCP server a name and configure how it behaves when multiple downstream servers expose tools with the same name. Think of it as the identity and personality of your composed server.
 
 ```toml
 [composer]
-name = "my-mcp-server"
-
-[[servers.proxied.stdio]]
-name = "filesystem"
-command = ["python", "-m", "mcp_server_filesystem", "/data"]
+name = "my-unified-server"       # Server name (required)
+conflict_resolution = "prefix"   # Tool name conflict strategy
+log_level = "INFO"               # Logging level
+port = 8080                      # Default port for HTTP transports
 ```
 
-## Full Configuration Reference
+### Conflict Resolution Strategies
 
-### Composer Section
+When composing multiple MCP servers, it's common for different servers to expose tools with identical names (e.g., both a filesystem server and a database server might have a `read` tool). The conflict resolution strategy determines how MCP Compose handles these collisions. The `prefix` strategy is recommended as it preserves all tools while making their origin clear to clients.
 
-```toml
-[composer]
-name = "my-mcp-server"              # Server name (required)
-conflict_resolution = "prefix"       # How to handle tool name conflicts
-log_level = "INFO"                   # Logging level: DEBUG, INFO, WARNING, ERROR
-```
+| Strategy | Description | Example Result |
+|----------|-------------|----------------|
+| `prefix` | Prefix tool name with server name | `calculator_add` |
+| `suffix` | Suffix tool name with server name | `add_calculator` |
+| `error` | Fail on conflict | Error raised |
+| `override` | Last server wins | `add` |
+| `ignore` | Skip conflicting tools | Tool skipped |
+| `custom` | Use custom template | See tool_manager section |
 
-**Conflict Resolution Strategies:**
+### Log Levels
 
-| Strategy | Description | Example |
-|----------|-------------|---------|
-| `prefix` | Prefix tool name with server name | `server_tool` |
-| `suffix` | Suffix tool name with server name | `tool_server` |
-| `error` | Fail on conflict | - |
-| `override` | Last server wins | - |
-| `ignore` | Skip conflicting tools | - |
+The log level controls how much information MCP Compose outputs during operation. Use `DEBUG` during development to see detailed information about tool discovery, message routing, and server lifecycle. In production, `INFO` provides a good balance between visibility and noise, while `ERROR` minimizes output to only critical issues.
 
-### Transport Section
+| Level | Description |
+|-------|-------------|
+| `DEBUG` | Verbose debugging information |
+| `INFO` | General operational messages |
+| `WARNING` | Warning messages |
+| `ERROR` | Error messages only |
+
+---
+
+## Transport Section
+
+Choose how MCP clients (like Claude Desktop or VS Code) connect to your composed server. STDIO is the simplest option where the client launches MCP Compose as a subprocess, while Streamable HTTP runs as a standalone server that multiple clients can connect to over the network.
 
 ```toml
 [transport]
-stdio_enabled = true                 # Enable STDIO transport (default: true)
-streamable_http_enabled = false      # Enable Streamable HTTP transport
-streamable_http_host = "0.0.0.0"     # HTTP host
-streamable_http_port = 8080          # HTTP port
-sse_enabled = false                  # Enable SSE transport (deprecated)
+# STDIO transport - for subprocess communication
+stdio_enabled = true
+
+# Streamable HTTP transport (recommended)
+streamable_http_enabled = true
+streamable_http_path = "/mcp"
+streamable_http_cors_enabled = true
+
+# SSE transport (deprecated - use streamable_http instead)
+sse_enabled = false
+sse_path = "/sse"
+sse_cors_enabled = true
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `stdio_enabled` | bool | `true` | Enable STDIO transport |
+| `streamable_http_enabled` | bool | `false` | Enable Streamable HTTP transport |
+| `streamable_http_path` | string | `"/mcp"` | HTTP endpoint path |
+| `streamable_http_cors_enabled` | bool | `true` | Enable CORS for HTTP |
+| `sse_enabled` | bool | `false` | Enable SSE transport (deprecated) |
+| `sse_path` | string | `"/sse"` | SSE endpoint path |
+| `sse_cors_enabled` | bool | `true` | Enable CORS for SSE |
+
+---
+
+## Authentication Section
+
+Protect your MCP server from unauthorized access by requiring clients to prove their identity. Choose from simple API keys for internal use, JWT tokens for stateless authentication, or OAuth2 for integration with existing identity providers like GitHub or Auth0.
+
+```toml
+[authentication]
+enabled = false
+providers = ["api_key"]
+default_provider = "api_key"
+```
+
+### API Key Authentication
+
+API keys are the simplest form of authentication, ideal for internal services or development environments. Clients include the key in a request header, and MCP Compose validates it against the configured list. You can configure multiple keys to support key rotation or different clients with separate keys.
+
+```toml
+[authentication.api_key]
+header_name = "X-API-Key"
+keys = ["${MCP_API_KEY_1}", "${MCP_API_KEY_2}"]
+```
+
+### Basic Authentication
+
+HTTP Basic Authentication uses a username and password combination, transmitted as a Base64-encoded header. While simple to implement, it should only be used over HTTPS to prevent credential interception. This method is suitable for simple setups or when integrating with systems that only support Basic auth.
+
+```toml
+[authentication.basic]
+username = "${MCP_USERNAME}"
+password = "${MCP_PASSWORD}"
+```
+
+### JWT Authentication
+
+JSON Web Tokens (JWT) provide stateless authentication where the token itself contains encoded claims about the user. MCP Compose validates the token's signature using the configured secret and checks the issuer and audience claims. JWTs are ideal for microservices architectures where you don't want the MCP server to maintain session state or query an external auth service for every request.
+
+```toml
+[authentication.jwt]
+secret = "${JWT_SECRET}"
+algorithm = "HS256"
+issuer = "mcp-compose"
+audience = "mcp-clients"
+```
+
+### Anaconda Authentication
+
+Anaconda authentication validates bearer tokens using the Anaconda.org API. Clients must provide a valid Anaconda access token in the Authorization header. This is ideal for teams already using Anaconda for package management and want to leverage their existing Anaconda accounts for MCP access control.
+
+```toml
+[authentication]
+enabled = true
+providers = ["anaconda"]
+default_provider = "anaconda"
+
+[authentication.anaconda]
+domain = "anaconda.com"
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `domain` | string | `"anaconda.com"` | Anaconda domain. Use your custom domain for Anaconda Enterprise. |
+
+Clients authenticate by including their Anaconda token in the Authorization header:
+
+```
+Authorization: Bearer <your_anaconda_token>
+```
+
+#### Fallback Mode
+
+For local development, you can enable **fallback mode** which allows MCP Compose to use your locally stored Anaconda credentials (from `anaconda login`) when no Bearer token is provided by the client. This is useful for testing without explicitly passing tokens.
+
+Set the environment variable before starting MCP Compose:
+
+```bash
+export MCP_COMPOSE_ANACONDA_TOKEN="fallback"
+mcp-compose serve --config mcp_compose.toml
+```
+
+In fallback mode, the authenticator:
+1. First tries to use the Bearer token if provided by the client
+2. If no token is provided, attempts to retrieve the token from the local `anaconda-auth` library (your `anaconda login` session)
+3. Raises an authentication error if neither method succeeds
+
+:::warning
+Fallback mode is intended for local development only. In production, always require clients to provide explicit Bearer tokens.
+:::
+
+### OAuth2 Authentication
+
+OAuth2 enables integration with enterprise identity providers like GitHub, Auth0, Okta, or any OpenID Connect-compatible service. Users authenticate through the identity provider's login flow, and MCP Compose receives tokens that can be validated and used to determine user identity. This is the recommended approach for production deployments where you want centralized user management and single sign-on (SSO) capabilities.
+
+```toml
+[authentication.oauth2]
+provider = "generic"              # github, auth0, okta, or generic
+authorization_endpoint = "https://id.example.com/oauth2/authorize"
+token_endpoint = "https://id.example.com/oauth2/token"
+userinfo_endpoint = "https://id.example.com/oauth2/userinfo"
+scopes = ["openid", "profile"]
+client_id = "${OAUTH_CLIENT_ID}"
+client_secret = "${OAUTH_CLIENT_SECRET}"
+discovery_url = "${OAUTH_DISCOVERY_URL}"  # Optional OIDC discovery
+```
+
+### mTLS Authentication
+
+Mutual TLS (mTLS) requires both the server and client to present certificates, providing strong cryptographic authentication. This is commonly used in zero-trust environments or service mesh architectures where certificate-based identity is the standard. The client must present a certificate signed by the configured CA for the connection to be accepted.
+
+```toml
+[authentication.mtls]
+ca_cert = "/path/to/ca.crt"
+client_cert = "/path/to/client.crt"
+client_key = "/path/to/client.key"
+```
+
+---
+
+## Authorization Section
+
+Control what authenticated users are allowed to do. Define roles with specific permissions so that administrators can manage servers while regular users can only execute tools. Rate limiting prevents any single user from overwhelming the system.
+
+```toml
+[authorization]
+enabled = false
+model = "rbac"
+```
+
+### Role-Based Access Control (RBAC)
+
+RBAC lets you define named roles with specific permissions, then assign users to those roles. Permissions follow a resource:action format (e.g., `tools:execute`, `servers:read`). Use wildcards like `tools:*` to grant all actions on a resource, or `*` for full administrative access. This model scales well as your team grows—just assign new users to existing roles rather than managing individual permissions.
+
+```toml
+[[authorization.roles]]
+name = "admin"
+permissions = ["*"]
+
+[[authorization.roles]]
+name = "developer"
+permissions = ["tools:*", "servers:read", "logs:read"]
+
+[[authorization.roles]]
+name = "user"
+permissions = ["tools:execute", "tools:list"]
+```
+
+### Rate Limiting
+
+Rate limiting protects your MCP servers from being overwhelmed by too many requests, whether from a misconfigured client, a runaway script, or a denial-of-service attempt. Limits are specified as requests per minute and can be customized per role, allowing power users or automated systems higher throughput while protecting against abuse.
+
+```toml
+[authorization.rate_limiting]
+enabled = false
+default_limit = 100
+per_role_limits = { admin = 1000, developer = 500, user = 100 }
+```
+
+---
+
+## Servers Section
+
+This is where you define the MCP servers that MCP Compose will unify. You can embed Python-based servers directly, launch local servers as subprocesses (STDIO), or connect to remote servers over HTTP. Each downstream server's tools become available through the single composed endpoint.
+
+### Embedded Servers
+
+Embedded servers are Python packages that implement the MCP protocol, loaded directly into the MCP Compose process. This approach has the lowest latency since there's no inter-process communication, but it means all servers share the same Python environment. Use embedded servers for tightly-coupled functionality or when you need maximum performance. The `tool_mappings` option lets you rename tools at load time to avoid conflicts or provide clearer names.
+
+```toml
+[servers.embedded]
+
+[[servers.embedded.servers]]
+name = "jupyter-mcp-server"
+package = "jupyter_mcp_server"
+enabled = true
+tool_mappings = { "create" = "jupyter_create", "run" = "jupyter_run" }
+```
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `name` | string | Yes | Server identifier |
+| `package` | string | Yes | Python package name |
+| `enabled` | bool | No | Enable/disable server (default: `true`) |
+| `tool_mappings` | table | No | Custom tool name mappings |
 
 ### STDIO Proxied Servers
 
-For MCP servers that communicate via stdin/stdout:
+STDIO servers run as separate subprocesses, communicating with MCP Compose via stdin/stdout using the MCP JSON-RPC protocol. This is the most common deployment pattern as it provides process isolation—a crashing server won't take down MCP Compose or other servers. You can run servers written in any language, use different Python environments, or apply resource limits. The `working_dir` option is crucial when your server scripts use relative paths for imports or data files.
 
 ```toml
 [[servers.proxied.stdio]]
-name = "calculator"                  # Server name (required)
-command = ["python", "server.py"]    # Command to start server (required)
-working_dir = "${MCP_COMPOSE_CONFIG_DIR}"  # Working directory
-env = { DEBUG = "true" }             # Environment variables
-restart_policy = "on-failure"        # never, on-failure, always
-max_restarts = 3                     # Maximum restart attempts
-restart_delay = 5                    # Seconds between restarts
-log_stdout = true                    # Log server stdout
-log_stderr = true                    # Log server stderr
+name = "weather-server"
+command = ["uvx", "mcp-server-weather"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+env = { WEATHER_API_KEY = "${WEATHER_API_KEY}" }
+
+# Lifecycle management
+restart_policy = "on-failure"    # never, on-failure, always
+max_restarts = 3
+restart_delay = 5
+
+# Health checks
+health_check_enabled = true
+health_check_interval = 30
+health_check_timeout = 5
+health_check_method = "tool"
+health_check_tool = "health"
+
+# Logging
+log_stdout = true
+log_stderr = true
+log_file = "/var/log/mcp-compose/weather-server.log"
+```
+
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Server identifier |
+| `command` | array | Yes | - | Command and arguments |
+| `working_dir` | string | No | - | Working directory for subprocess |
+| `env` | table | No | `{}` | Environment variables |
+| `restart_policy` | string | No | `"never"` | Restart behavior |
+| `max_restarts` | int | No | `3` | Maximum restart attempts |
+| `restart_delay` | int | No | `5` | Seconds between restarts |
+| `health_check_enabled` | bool | No | `false` | Enable health checking |
+| `health_check_interval` | int | No | `30` | Seconds between checks |
+| `health_check_timeout` | int | No | `5` | Health check timeout |
+| `health_check_method` | string | No | `"tool"` | Check method |
+| `health_check_tool` | string | No | `"health"` | Tool to call for health |
+| `log_stdout` | bool | No | `true` | Log server stdout |
+| `log_stderr` | bool | No | `true` | Log server stderr |
+| `log_file` | string | No | - | File path for logs |
+
+#### Resource Limits
+
+Prevvent a single misbehaving server from consuming all system resources by setting memory and CPU limits. When a server exceeds its memory limit, it will be terminated; CPU limits throttle the process to the specified percentage. This is especially important in multi-tenant environments or when running untrusted code.
+
+```toml
+[[servers.proxied.stdio]]
+name = "resource-limited-server"
+command = ["python", "server.py"]
+
+[servers.proxied.stdio.resource_limits]
+max_memory_mb = 512
+max_cpu_percent = 50
 ```
 
 ### Streamable HTTP Proxied Servers
 
-For MCP servers accessible via Streamable HTTP:
+Connect to MCP servers running remotely over HTTP with streaming support for real-time responses. This is ideal for servers that are deployed as independent services, run in containers, or are hosted by third parties. MCP Compose handles connection management, automatic reconnection on failures, and authentication. The `protocol` option determines how streaming responses are delivered: `lines` for newline-delimited JSON, `chunked` for HTTP chunked encoding, or `poll` for environments where streaming isn't available.
 
 ```toml
-[[servers.proxied.streamable_http]]
-name = "remote-server"               # Server name (required)
-url = "http://localhost:8080/mcp"    # Server URL (required)
-auth_token = "${AUTH_TOKEN}"         # Authentication token
-auth_type = "bearer"                 # bearer, basic
-timeout = 30                         # Request timeout in seconds
-retry_interval = 5                   # Retry interval in seconds
-reconnect_on_failure = true          # Auto-reconnect on failure
-max_reconnect_attempts = 10          # Maximum reconnection attempts
+[[servers.proxied.http]]
+name = "remote-api-server"
+url = "https://api.example.com/mcp"
+protocol = "lines"               # chunked, lines, poll
+auth_token = "${REMOTE_SERVER_TOKEN}"
+auth_type = "bearer"             # bearer, basic
+timeout = 30
+retry_interval = 5
+keep_alive = true
+reconnect_on_failure = true
+max_reconnect_attempts = 10
+poll_interval = 2                # Only for poll protocol
+mode = "proxy"                   # proxy or translator
+
+# Health checks
+health_check_enabled = true
+health_check_interval = 60
+health_check_endpoint = "/health"
 ```
 
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `name` | string | Yes | - | Server identifier |
+| `url` | string | Yes | - | Server URL |
+| `protocol` | string | No | `"lines"` | HTTP streaming protocol |
+| `auth_token` | string | No | - | Authentication token |
+| `auth_type` | string | No | `"bearer"` | Token type |
+| `timeout` | int | No | `30` | Request timeout in seconds |
+| `retry_interval` | int | No | `5` | Retry interval in seconds |
+| `keep_alive` | bool | No | `true` | Maintain persistent connection |
+| `reconnect_on_failure` | bool | No | `true` | Auto-reconnect on failure |
+| `max_reconnect_attempts` | int | No | `10` | Maximum reconnection attempts |
+| `poll_interval` | int | No | `2` | Polling interval (poll protocol only) |
+| `mode` | string | No | `"proxy"` | Operating mode |
+
 ### SSE Proxied Servers (Deprecated)
+
+:::warning
+SSE transport is deprecated. Use Streamable HTTP (`[[servers.proxied.http]]`) instead.
+:::
 
 ```toml
 [[servers.proxied.sse]]
@@ -129,92 +414,218 @@ name = "legacy-server"
 url = "http://localhost:8080/sse"
 auth_token = "${AUTH_TOKEN}"
 timeout = 30
+retry_interval = 5
+reconnect_on_failure = true
+max_reconnect_attempts = 10
 ```
 
-### Embedded Servers
+---
 
-For Python packages that implement MCP servers:
+## Tool Manager Section
+
+Fine-tune how tools from different servers are named and organized. Create user-friendly aliases, apply different naming strategies to specific tools, or enable versioning when you need to support multiple versions of the same tool simultaneously.
 
 ```toml
-[[servers.embedded.servers]]
-name = "builtin"
-package = "mcp_server_builtin"
+[tool_manager]
+conflict_resolution = "prefix"
+```
+
+### Tool-Specific Overrides
+
+While the global conflict resolution strategy works for most cases, sometimes you need different handling for specific tools. Use glob patterns to match tool names and apply a different strategy. For example, you might want notebook-related tools prefixed for clarity, but search tools from a single authoritative server to remain unprefixed.
+
+```toml
+[[tool_manager.tool_overrides]]
+tool_pattern = "notebook_*"
+resolution = "prefix"
+
+[[tool_manager.tool_overrides]]
+tool_pattern = "search_*"
+resolution = "suffix"
+```
+
+### Custom Naming Template
+
+When the built-in strategies don't fit your naming conventions, define a custom template using placeholders. This gives you complete control over how composed tool names are formed—useful when integrating with existing systems that expect specific naming patterns.
+
+```toml
+[tool_manager.custom_template]
+template = "{server_name}_{tool_name}"
+```
+
+Available template variables:
+- `{server_name}` - The server's name
+- `{tool_name}` - The original tool name
+
+### Tool Aliases
+
+Aliases let you expose tools under different names without modifying the underlying servers. Use them to provide shorter, more intuitive names, maintain backward compatibility when renaming tools, or create domain-specific vocabularies for different user groups.
+
+```toml
+[tool_manager.aliases]
+jupyter_create = "create_notebook"
+fs_read = "read_file"
+```
+
+### Tool Versioning
+
+When you need to support multiple versions of a tool simultaneously (e.g., during a migration or A/B testing), enable versioning to expose both versions with distinct names. The version suffix is appended to tool names, allowing clients to explicitly choose which version to invoke.
+
+```toml
+[tool_manager.versioning]
+enabled = false
+allow_multiple_versions = false
+version_suffix_format = "_v{version}"
+```
+
+---
+
+## REST API Section
+
+Expose a REST API for programmatic management of your MCP Compose instance. Use it to start/stop servers, invoke tools, or integrate with external systems. The built-in OpenAPI documentation makes it easy to explore available endpoints.
+
+```toml
+[api]
+enabled = true
+path_prefix = "/api/v1"
+host = "0.0.0.0"
+port = 8080
+cors_enabled = true
+cors_origins = ["http://localhost:3000"]
+cors_methods = ["GET", "POST", "PUT", "DELETE"]
+docs_enabled = true
+docs_path = "/docs"
+openapi_path = "/openapi.json"
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | bool | `true` | Enable REST API |
+| `path_prefix` | string | `"/api/v1"` | API path prefix |
+| `host` | string | `"0.0.0.0"` | Bind address |
+| `port` | int | `8080` | Listen port |
+| `cors_enabled` | bool | `true` | Enable CORS |
+| `cors_origins` | array | `["*"]` | Allowed origins |
+| `cors_methods` | array | `["GET", "POST", ...]` | Allowed HTTP methods |
+| `docs_enabled` | bool | `true` | Enable API documentation |
+| `docs_path` | string | `"/docs"` | Documentation path |
+| `openapi_path` | string | `"/openapi.json"` | OpenAPI spec path |
+
+---
+
+## Web UI Section
+
+Enable a browser-based dashboard for managing your MCP Compose instance without command-line tools. Test tools interactively, view logs in real-time, monitor metrics, and even edit configuration—all from a visual interface.
+
+```toml
+[ui]
+enabled = true
+framework = "react"
+mode = "embedded"                # embedded or separate
+path = "/ui"
+port = 9456                      # Used when mode is 'separate'
+static_dir = "/var/www/mcp-compose/ui"
+features = [
+    "server_management",
+    "tool_testing",
+    "logs_viewing",
+    "metrics_dashboard",
+    "configuration_editor"
+]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | bool | `true` | Enable web UI |
+| `framework` | string | `"react"` | UI framework |
+| `mode` | string | `"embedded"` | Deployment mode |
+| `path` | string | `"/ui"` | UI path |
+| `port` | int | `9456` | Separate mode port |
+| `static_dir` | string | - | Static files directory |
+| `features` | array | all | Enabled UI features |
+
+### Available Features
+
+| Feature | Description |
+|---------|-------------|
+| `server_management` | Start, stop, restart servers |
+| `tool_testing` | Interactive tool testing |
+| `logs_viewing` | View server logs |
+| `metrics_dashboard` | Metrics and monitoring |
+| `configuration_editor` | Edit configuration |
+
+---
+
+## Monitoring Section
+
+Gain visibility into how your MCP servers are performing. Collect metrics for dashboards and alerts, configure structured logging for troubleshooting, and enable distributed tracing to follow requests across multiple servers.
+
+```toml
+[monitoring]
 enabled = true
 ```
 
-## Example Configurations
+### Metrics
 
-### Development Setup
-
-```toml
-[composer]
-name = "dev-composer"
-conflict_resolution = "prefix"
-log_level = "DEBUG"
-
-[transport]
-stdio_enabled = true
-
-[[servers.proxied.stdio]]
-name = "filesystem"
-command = ["python", "-m", "mcp_server_filesystem", "./data"]
-working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
-
-[[servers.proxied.stdio]]
-name = "git"
-command = ["python", "-m", "mcp_server_git", "."]
-working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
-```
-
-### Production Setup with Authentication
+Export operational metrics in Prometheus format for integration with monitoring systems like Grafana. Track tool invocation counts and durations to understand usage patterns, monitor error rates to detect problems early, and observe resource consumption to plan capacity. The `collection_interval` controls how frequently metrics are sampled.
 
 ```toml
-[composer]
-name = "prod-composer"
-conflict_resolution = "prefix"
-log_level = "INFO"
-
-[transport]
-stdio_enabled = false
-streamable_http_enabled = true
-streamable_http_host = "0.0.0.0"
-streamable_http_port = 8080
-
-[auth]
+[monitoring.metrics]
 enabled = true
-provider = "jwt"
-
-[[servers.proxied.streamable_http]]
-name = "api-server"
-url = "http://internal-api:8080/mcp"
-auth_token = "${INTERNAL_API_TOKEN}"
-timeout = 60
+provider = "prometheus"
+endpoint = "/metrics"
+collection_interval = 15
+collect = [
+    "tool_invocation_count",
+    "tool_invocation_duration",
+    "tool_error_rate",
+    "server_health_status",
+    "process_cpu_usage",
+    "process_memory_usage",
+    "request_rate",
+    "response_time"
+]
 ```
 
-### Multiple Local Servers
+### Logging
+
+Configure structured logging for operational visibility and troubleshooting. JSON format is recommended for production as it's easily parsed by log aggregation systems like ELK or Splunk. Log rotation prevents disk space exhaustion—choose `daily` for time-based rotation or `size` to rotate when files reach the specified limit. Enable `aggregate_managed_logs` to include stdout/stderr from downstream servers in the main log stream.
 
 ```toml
-[composer]
-name = "multi-server"
-conflict_resolution = "prefix"
-
-[[servers.proxied.stdio]]
-name = "calculator"
-command = ["python", "calculator.py"]
-working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
-
-[[servers.proxied.stdio]]
-name = "weather"
-command = ["python", "weather.py"]
-working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
-env = { WEATHER_API_KEY = "${WEATHER_API_KEY}" }
-
-[[servers.proxied.stdio]]
-name = "database"
-command = ["python", "db_server.py"]
-working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
-env = { DATABASE_URL = "${DATABASE_URL}" }
+[monitoring.logging]
+level = "INFO"
+format = "json"                  # json or text
+output = "stdout"                # stdout or file
+log_file = "/var/log/mcp-compose/composer.log"
+rotation = "daily"               # daily, size, or none
+max_size_mb = 100
+max_files = 7
+aggregate_managed_logs = true
 ```
+
+### Distributed Tracing
+
+Distributed tracing helps you understand the flow of requests across your composed MCP servers. When enabled, MCP Compose generates trace spans for each tool invocation and propagates trace context to downstream servers. View traces in systems like Jaeger or Zipkin to identify bottlenecks, debug failures, and understand dependencies. The `sample_rate` controls what percentage of requests are traced—use 1.0 for full tracing or lower values in high-traffic production environments.
+
+```toml
+[monitoring.tracing]
+enabled = false
+provider = "opentelemetry"
+endpoint = "http://localhost:4317"
+sample_rate = 1.0
+```
+
+### Health Endpoints
+
+Health endpoints enable integration with load balancers, orchestrators like Kubernetes, and monitoring systems. The basic `/health` endpoint returns a simple status, while `/health/detailed` provides comprehensive information about each downstream server's health, making it easy to diagnose which component is causing issues.
+
+```toml
+[monitoring.health]
+endpoint = "/health"
+detailed_endpoint = "/health/detailed"
+```
+
+---
 
 ## Validating Configuration
 
@@ -224,10 +635,21 @@ Validate your configuration file without starting the server:
 mcp-compose validate --config mcp_compose.toml
 ```
 
-## Configuration Best Practices
+---
 
-1. **Use environment variables** for sensitive data like API keys and tokens
-2. **Use `${MCP_COMPOSE_CONFIG_DIR}`** for portable relative paths
-3. **Set appropriate restart policies** for production deployments
-4. **Enable health checks** for critical servers
+## Best Practices
+
+1. **Use environment variables** for sensitive data like API keys, tokens, and passwords
+2. **Use `${MCP_COMPOSE_CONFIG_DIR}`** for portable relative paths in `working_dir`
+3. **Set appropriate restart policies** for production deployments (`on-failure` recommended)
+4. **Enable health checks** for critical servers to detect failures early
 5. **Use `prefix` conflict resolution** to avoid tool name collisions
+6. **Enable monitoring** in production for observability
+7. **Use Streamable HTTP** instead of SSE for new deployments
+8. **Validate configuration** before deploying changes
+
+---
+
+## Next Steps
+
+See the [Examples](/examples) page for complete configuration examples including local development, authentication patterns, and production deployments.
