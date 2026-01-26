@@ -162,6 +162,50 @@ issuer = "mcp-compose"
 audience = "mcp-clients"
 ```
 
+### Anaconda Authentication
+
+Anaconda authentication validates bearer tokens using the Anaconda.org API. Clients must provide a valid Anaconda access token in the Authorization header. This is ideal for teams already using Anaconda for package management and want to leverage their existing Anaconda accounts for MCP access control.
+
+```toml
+[authentication]
+enabled = true
+providers = ["anaconda"]
+default_provider = "anaconda"
+
+[authentication.anaconda]
+domain = "anaconda.com"
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `domain` | string | `"anaconda.com"` | Anaconda domain. Use your custom domain for Anaconda Enterprise. |
+
+Clients authenticate by including their Anaconda token in the Authorization header:
+
+```
+Authorization: Bearer <your_anaconda_token>
+```
+
+#### Fallback Mode
+
+For local development, you can enable **fallback mode** which allows MCP Compose to use your locally stored Anaconda credentials (from `anaconda login`) when no Bearer token is provided by the client. This is useful for testing without explicitly passing tokens.
+
+Set the environment variable before starting MCP Compose:
+
+```bash
+export MCP_COMPOSE_ANACONDA_TOKEN="fallback"
+mcp-compose serve --config mcp_compose.toml
+```
+
+In fallback mode, the authenticator:
+1. First tries to use the Bearer token if provided by the client
+2. If no token is provided, attempts to retrieve the token from the local `anaconda-auth` library (your `anaconda login` session)
+3. Raises an authentication error if neither method succeeds
+
+:::warning
+Fallback mode is intended for local development only. In production, always require clients to provide explicit Bearer tokens.
+:::
+
 ### OAuth2 Authentication
 
 OAuth2 enables integration with enterprise identity providers like GitHub, Auth0, Okta, or any OpenID Connect-compatible service. Users authenticate through the identity provider's login flow, and MCP Compose receives tokens that can be validated and used to determine user identity. This is the recommended approach for production deployments where you want centralized user management and single sign-on (SSO) capabilities.

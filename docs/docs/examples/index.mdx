@@ -93,55 +93,47 @@ working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 
 This configuration composes three popular MCP servers into one. The `prefix` strategy ensures tools like `filesystem_read_file` and `git_status` are clearly distinguished. Setting `log_level = "DEBUG"` helps troubleshoot tool discovery issues during development.
 
-### Servers with Anaconda Token Authentication
+### Anaconda Token Authentication at Composer Level
 
-Compose multiple MCP servers while using Anaconda token authentication for servers that need access to Anaconda.org APIs. This pattern demonstrates passing API credentials via environment variables.
+Protect your MCP Compose endpoint with Anaconda authentication. Clients must provide a valid Anaconda bearer token to access any of the composed servers. Authentication happens at the composer level—the downstream servers don't need authentication logic.
 
 ```toml
 [composer]
-name = "data-science-tools"
+name = "anaconda-compose"
 conflict_resolution = "prefix"
 log_level = "INFO"
 
-[transport]
-stdio_enabled = true
+[authentication]
+enabled = true
+providers = ["anaconda"]
+default_provider = "anaconda"
+
+[authentication.anaconda]
+domain = "anaconda.com"
+
+[[servers.proxied.stdio]]
+name = "calculator"
+command = ["python", "mcp1.py"]
+restart_policy = "never"
 
 [[servers.proxied.stdio]]
 name = "filesystem"
-command = ["uvx", "mcp-server-filesystem", "./notebooks"]
+command = ["uvx", "mcp-server-filesystem", "./data"]
 working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
-
-[[servers.proxied.stdio]]
-name = "sqlite"
-command = ["uvx", "mcp-server-sqlite", "--db-path", "./data.db"]
-working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
-
-[[servers.proxied.stdio]]
-name = "fetch"
-command = ["uvx", "mcp-server-fetch"]
-env = { ANACONDA_API_TOKEN = "${ANACONDA_API_TOKEN}" }
-working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
-restart_policy = "on-failure"
-max_restarts = 3
 ```
 
-This configuration composes filesystem, SQLite, and fetch servers for a data science workflow. The fetch server is configured with an Anaconda API token, allowing it to access authenticated Anaconda.org endpoints. The token is passed via environment variable—set `ANACONDA_API_TOKEN` in your shell or in the MCP client configuration. The `restart_policy = "on-failure"` ensures servers recover from transient failures.
+This configuration enables Anaconda authentication at the MCP Compose level. Clients connecting to this endpoint must include a valid Anaconda token in the Authorization header. The composer validates tokens using the Anaconda API—no `ANACONDA_API_KEY` is required on the server side.
 
-To use this with Claude Desktop, add to your `claude_desktop_config.json`:
+Clients authenticate by including their Anaconda token:
 
-```json
-{
-  "mcpServers": {
-    "data-science-tools": {
-      "command": "mcp-compose",
-      "args": ["serve", "--config", "/path/to/mcp_compose.toml"],
-      "env": {
-        "ANACONDA_API_TOKEN": "your-anaconda-token-here"
-      }
-    }
-  }
-}
+```bash
+# Using curl
+curl -H "Authorization: Bearer <your_anaconda_token>" http://localhost:8080/mcp
+
+# Or configure in your MCP client
 ```
+
+See the [anaconda-token example](https://github.com/datalayer/mcp-compose/tree/main/examples/anaconda-token) for a complete runnable setup.
 
 ### Team Server with HTTP Transport and API Key Protection
 
