@@ -1,0 +1,24 @@
+# MCP Compose Configuration
+# Environments MCP Server Example - STDIO Transport
+
+[composer]
+name = "demo-composer"
+conflict_resolution = "prefix"  # Prefix tool names with server name
+log_level = "INFO"
+
+# ============================================================================
+# Transport Configuration - STDIO mode for subprocess communication
+# ============================================================================
+[transport]
+stdio_enabled = true
+streamable_http_enabled = false
+sse_enabled = false
+
+# ============================================================================
+# Environments MCP Server (Proxied via STDIO)
+# ============================================================================
+[[servers.proxied.stdio]]
+name = "environments"
+command = ["environments-mcp-server", "start", "--transport", "stdio"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+restart_policy = "never"
