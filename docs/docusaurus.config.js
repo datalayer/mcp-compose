@@ -10,7 +10,7 @@
 
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
-  title: 'Ξ MCP Compose',
+  title: '☰ MCP Compose',
   tagline: 'MCP Compose',
   url: 'https://mcp-compose.datalayer.tech',
   baseUrl: '/',
