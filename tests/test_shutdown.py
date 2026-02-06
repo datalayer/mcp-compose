@@ -8,7 +8,6 @@ Verifies that all downstream MCP servers (STDIO, SSE, Streamable HTTP)
 are properly killed when the composer stops.
 """
 
-import asyncio
 import subprocess
 import signal
 import sys
