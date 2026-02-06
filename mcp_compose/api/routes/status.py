@@ -20,8 +20,6 @@ from ...metrics import metrics_collector
 from ..dependencies import get_composer, get_config, require_auth
 from ..models import (
     CompositionResponse,
-    DetailedHealthResponse,
-    HealthStatus,
     ServerInfo,
     ServerStatus,
 )
@@ -224,85 +222,6 @@ async def get_composition(
         total_resources=total_resources,
         servers=servers,
         conflicts=conflicts,
-    )
-
-
-@router.get("/health/detailed", response_model=DetailedHealthResponse)
-async def get_detailed_health(
-    composer: MCPServerComposer = Depends(get_composer),
-    auth: AuthContext = Depends(require_auth),
-) -> DetailedHealthResponse:
-    """
-    Get detailed health information.
-
-    Returns comprehensive health information including server statuses,
-    uptime, and failure counts.
-
-    Args:
-        composer: MCPServerComposer instance.
-        auth: Authentication context.
-
-    Returns:
-        DetailedHealthResponse with comprehensive health information.
-    """
-    from ...__version__ import __version__
-
-    # Count servers from config
-    all_servers = []
-    if composer.config.servers:
-        if composer.config.servers.embedded and composer.config.servers.embedded.servers:
-            all_servers.extend(composer.config.servers.embedded.servers)
-        if composer.config.servers.proxied:
-            if composer.config.servers.proxied.stdio:
-                all_servers.extend(composer.config.servers.proxied.stdio)
-            if composer.config.servers.proxied.sse:
-                all_servers.extend(composer.config.servers.proxied.sse)
-            if composer.config.servers.proxied.http:
-                all_servers.extend(composer.config.servers.proxied.http)
-
-    total_servers = len(all_servers)
-
-    # Get process info to determine running servers
-    process_info = composer.get_proxied_servers_info() if composer.process_manager else {}
-    running_servers = sum(1 for info in process_info.values() if info.get("state") == "running")
-    failed_servers = sum(1 for info in process_info.values() if info.get("state") == "crashed")
-
-    # Get server statuses
-    server_statuses: dict[str, ServerStatus] = {}
-    for server in all_servers:
-        server_id = server.name
-        if server_id in process_info:
-            state = process_info[server_id].get("state", "stopped")
-            if state == "running":
-                server_statuses[server_id] = ServerStatus.RUNNING
-            elif state == "crashed":
-                server_statuses[server_id] = ServerStatus.CRASHED
-            elif state == "starting":
-                server_statuses[server_id] = ServerStatus.STARTING
-            elif state == "stopping":
-                server_statuses[server_id] = ServerStatus.STOPPING
-            else:
-                server_statuses[server_id] = ServerStatus.STOPPED
-        else:
-            server_statuses[server_id] = ServerStatus.STOPPED
-
-    # Determine overall health
-    if running_servers == 0:
-        overall_status = HealthStatus.UNHEALTHY
-    elif running_servers < total_servers:
-        overall_status = HealthStatus.DEGRADED
-    else:
-        overall_status = HealthStatus.HEALTHY
-
-    return DetailedHealthResponse(
-        status=overall_status,
-        timestamp=datetime.utcnow(),
-        version=__version__,
-        servers=server_statuses,
-        uptime_seconds=getattr(composer, "uptime_seconds", 0.0),
-        total_servers=total_servers,
-        running_servers=running_servers,
-        failed_servers=failed_servers,
     )
 
 

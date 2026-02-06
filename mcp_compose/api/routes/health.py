@@ -110,7 +110,7 @@ async def get_detailed_health(
         server_statuses[server_id] = server_status
 
     # Determine overall health
-    total_servers = len(servers)
+    total_servers = len(all_servers)
     if status_counts[ServerStatus.CRASHED] > 0:
         overall_status = HealthStatus.UNHEALTHY
     elif status_counts[ServerStatus.RUNNING] < total_servers:
