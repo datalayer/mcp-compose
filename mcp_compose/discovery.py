@@ -12,7 +12,7 @@ import importlib
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any
 
 try:
     import toml
@@ -35,9 +35,9 @@ class MCPServerInfo:
         self,
         package_name: str,
         version: str,
-        tools: Optional[Dict[str, Any]] = None,
-        prompts: Optional[Dict[str, Any]] = None,
-        resources: Optional[Dict[str, Any]] = None,
+        tools: dict[str, Any] | None = None,
+        prompts: dict[str, Any] | None = None,
+        resources: dict[str, Any] | None = None,
         server_instance: Any = None,
     ) -> None:
         self.package_name = package_name
@@ -57,7 +57,7 @@ class MCPServerInfo:
 class MCPServerDiscovery:
     """Discovers MCP servers from package dependencies."""
 
-    def __init__(self, project_root: Optional[Union[str, Path]] = None) -> None:
+    def __init__(self, project_root: str | Path | None = None) -> None:
         """
         Initialize MCP server discovery.
 
@@ -65,16 +65,18 @@ class MCPServerDiscovery:
             project_root: Root directory of the project. If None, uses current directory.
         """
         self.project_root = Path(project_root) if project_root else Path.cwd()
-        self.discovered_servers: Dict[str, MCPServerInfo] = {}
+        self.discovered_servers: dict[str, MCPServerInfo] = {}
         self._mcp_server_patterns = [
             "mcp-server",
-            "mcp_server", 
+            "mcp_server",
             "mcpserver",
             "-mcp-",
             "_mcp_",
         ]
 
-    def discover_from_pyproject(self, pyproject_path: Optional[Union[str, Path]] = None) -> Dict[str, MCPServerInfo]:
+    def discover_from_pyproject(
+        self, pyproject_path: str | Path | None = None
+    ) -> dict[str, MCPServerInfo]:
         """
         Discover MCP servers from pyproject.toml dependencies.
 
@@ -94,27 +96,25 @@ class MCPServerDiscovery:
 
         if not pyproject_path.exists():
             raise MCPDiscoveryError(
-                f"pyproject.toml not found at {pyproject_path}",
-                search_paths=[str(pyproject_path)]
+                f"pyproject.toml not found at {pyproject_path}", search_paths=[str(pyproject_path)]
             )
 
         logger.info(f"Discovering MCP servers from {pyproject_path}")
 
         try:
-            with open(pyproject_path, "r", encoding="utf-8") as f:
+            with open(pyproject_path, encoding="utf-8") as f:
                 pyproject_data = toml.load(f)
         except Exception as e:
             raise MCPDiscoveryError(
-                f"Failed to parse pyproject.toml: {e}",
-                search_paths=[str(pyproject_path)]
+                f"Failed to parse pyproject.toml: {e}", search_paths=[str(pyproject_path)]
             ) from e
 
         # Extract dependencies
         dependencies = self._extract_dependencies(pyproject_data)
-        
+
         # Discover MCP servers in dependencies
         mcp_dependencies = self._filter_mcp_dependencies(dependencies)
-        
+
         logger.info(f"Found {len(mcp_dependencies)} potential MCP server dependencies")
 
         # Analyze each potential MCP server dependency
@@ -130,9 +130,8 @@ class MCPServerDiscovery:
         return self.discovered_servers
 
     def discover_from_config(
-        self,
-        config: Union[MCPComposerConfig, List[EmbeddedServerConfig]]
-    ) -> Dict[str, MCPServerInfo]:
+        self, config: MCPComposerConfig | list[EmbeddedServerConfig]
+    ) -> dict[str, MCPServerInfo]:
         """
         Discover MCP servers from configuration.
 
@@ -161,8 +160,7 @@ class MCPServerDiscovery:
 
             try:
                 server_info = self._analyze_mcp_server(
-                    server_config.package,
-                    version=server_config.version or "latest"
+                    server_config.package, version=server_config.version or "latest"
                 )
                 if server_info:
                     # Use the configured name instead of package name
@@ -174,28 +172,26 @@ class MCPServerDiscovery:
                 logger.error(f"Failed to analyze MCP server '{server_config.name}': {e}")
                 raise MCPDiscoveryError(
                     f"Failed to discover server '{server_config.name}': {e}",
-                    package_name=server_config.package
+                    package_name=server_config.package,
                 ) from e
 
         return self.discovered_servers
 
-    def _parse_pyproject_dependencies(self, pyproject_path: Union[str, Path]) -> Set[str]:
+    def _parse_pyproject_dependencies(self, pyproject_path: str | Path) -> set[str]:
         """Parse dependencies from pyproject.toml file."""
         pyproject_path = Path(pyproject_path)
-        
+
         if not pyproject_path.exists():
             raise MCPDiscoveryError(
-                f"pyproject.toml not found at {pyproject_path}",
-                search_paths=[str(pyproject_path)]
+                f"pyproject.toml not found at {pyproject_path}", search_paths=[str(pyproject_path)]
             )
 
         try:
-            with open(pyproject_path, "r", encoding="utf-8") as f:
+            with open(pyproject_path, encoding="utf-8") as f:
                 pyproject_data = toml.load(f)
         except Exception as e:
             raise MCPDiscoveryError(
-                f"Failed to parse pyproject.toml: {e}",
-                search_paths=[str(pyproject_path)]
+                f"Failed to parse pyproject.toml: {e}", search_paths=[str(pyproject_path)]
             ) from e
 
         return self._extract_dependencies(pyproject_data)
@@ -203,33 +199,33 @@ class MCPServerDiscovery:
     def _is_mcp_server_package(self, package_name: str) -> bool:
         """Check if a package name indicates it might be an MCP server."""
         package_lower = package_name.lower().replace("-", "_")
-        
+
         # Check if package name contains MCP server patterns
         for pattern in self._mcp_server_patterns:
             pattern_normalized = pattern.replace("-", "_")
             if pattern_normalized in package_lower:
                 return True
-        
+
         return False
 
     def _get_package_version(self, dependency_spec: str) -> str:
         """Extract version specification from dependency string."""
         dep_name = dependency_spec.strip()
-        
+
         # Handle PEP 508 markers - split on semicolon first
         if ";" in dep_name:
             dep_name = dep_name.split(";")[0].strip()
-        
+
         # Find version specifiers
         for separator in [">=", "<=", "==", "!=", ">", "<", "~=", "^"]:
             if separator in dep_name:
                 version_part = dep_name.split(separator, 1)[1]
                 # Handle multiple constraints like ">=1.0,<2.0"
                 return separator + version_part.strip()
-        
+
         return "latest"
 
-    def _extract_dependencies(self, pyproject_data: Dict[str, Any]) -> Set[str]:
+    def _extract_dependencies(self, pyproject_data: dict[str, Any]) -> set[str]:
         """Extract all dependencies from pyproject.toml."""
         dependencies = set()
 
@@ -250,47 +246,49 @@ class MCPServerDiscovery:
 
         return dependencies
 
-    def _parse_dependency_name(self, dependency_spec: str) -> Optional[str]:
+    def _parse_dependency_name(self, dependency_spec: str) -> str | None:
         """Parse dependency name from dependency specification."""
         # Handle various dependency formats:
         # - package_name
         # - package_name>=1.0.0
         # - package_name[extra]>=1.0.0
-        
+
         dep_name = dependency_spec.strip()
-        
+
         # Remove version specifiers
         for separator in [">=", "<=", "==", "!=", ">", "<", "~=", "^"]:
             if separator in dep_name:
                 dep_name = dep_name.split(separator)[0]
                 break
-        
+
         # Remove extras
         if "[" in dep_name:
             dep_name = dep_name.split("[")[0]
-        
+
         # Clean up
         dep_name = dep_name.strip()
-        
+
         return dep_name if dep_name else None
 
-    def _filter_mcp_dependencies(self, dependencies: Set[str]) -> List[str]:
+    def _filter_mcp_dependencies(self, dependencies: set[str]) -> list[str]:
         """Filter dependencies that might be MCP servers."""
         mcp_deps = []
-        
+
         for dep in dependencies:
             dep_lower = dep.lower().replace("-", "_")
-            
+
             # Check if dependency name contains MCP server patterns
             for pattern in self._mcp_server_patterns:
                 pattern_normalized = pattern.replace("-", "_")
                 if pattern_normalized in dep_lower:
                     mcp_deps.append(dep)
                     break
-        
+
         return mcp_deps
 
-    def _analyze_mcp_server(self, package_name: str, version: str = "latest") -> Optional[MCPServerInfo]:
+    def _analyze_mcp_server(
+        self, package_name: str, version: str = "latest"
+    ) -> MCPServerInfo | None:
         """
         Analyze a package to determine if it's an MCP server and extract its components.
 
@@ -310,7 +308,7 @@ class MCPServerDiscovery:
                 sys.path.insert(0, project_root_str)
                 added_to_path = True
                 logger.debug(f"Added {project_root_str} to sys.path for local imports")
-            
+
             # Try different import patterns
             import_patterns = [
                 package_name,
@@ -332,7 +330,7 @@ class MCPServerDiscovery:
                 except ImportError as ie:
                     logger.debug(f"Failed to import {pattern}: {ie}")
                     continue
-            
+
             # Clean up sys.path if we added to it
             if added_to_path and project_root_str in sys.path:
                 sys.path.remove(project_root_str)
@@ -381,13 +379,13 @@ class MCPServerDiscovery:
                 import_error=e,
             ) from e
 
-    def _find_mcp_server_instance(self, module: Any) -> Optional[Any]:
+    def _find_mcp_server_instance(self, module: Any) -> Any | None:
         """Find MCP server instance in a module."""
         # Common variable names for MCP server instances
         server_names = ["app", "mcp", "server", "fastmcp", "mcp_server"]
-        
+
         candidates = []
-        
+
         for name in server_names:
             if hasattr(module, name):
                 instance = getattr(module, name)
@@ -395,15 +393,15 @@ class MCPServerDiscovery:
                 if self._is_mcp_server_instance(instance):
                     # Give preference to instances that actually have tools/prompts/resources
                     has_content = (
-                        len(self._extract_tools(instance)) > 0 or
-                        len(self._extract_prompts(instance)) > 0 or
-                        len(self._extract_resources(instance)) > 0
+                        len(self._extract_tools(instance)) > 0
+                        or len(self._extract_prompts(instance)) > 0
+                        or len(self._extract_resources(instance)) > 0
                     )
                     candidates.append((instance, has_content, name))
-        
+
         if not candidates:
             return None
-        
+
         # Sort by: has_content (True first), then by name priority
         candidates.sort(key=lambda x: (not x[1], server_names.index(x[2])))
         return candidates[0][0]
@@ -413,7 +411,7 @@ class MCPServerDiscovery:
         # Check for common MCP server attributes/methods
         mcp_indicators = [
             "_tool_manager",
-            "_prompt_manager", 
+            "_prompt_manager",
             "_resource_manager",
             "tools",
             "prompts",
@@ -421,23 +419,25 @@ class MCPServerDiscovery:
             "call_tool",
             "list_prompts",
         ]
-        
+
         indicator_count = sum(1 for indicator in mcp_indicators if hasattr(instance, indicator))
-        
+
         # If the instance has multiple MCP indicators, it's likely an MCP server
         return indicator_count >= 2
 
-    def _extract_tools(self, server_instance: Any) -> Dict[str, Any]:
+    def _extract_tools(self, server_instance: Any) -> dict[str, Any]:
         """Extract tools from MCP server instance."""
         tools = {}
-        
+
         # Try different patterns for accessing tools
         tool_sources = [
-            lambda: getattr(getattr(server_instance, "_tool_manager", None), "_tools", {}) if hasattr(server_instance, "_tool_manager") else {},
+            lambda: getattr(getattr(server_instance, "_tool_manager", None), "_tools", {})
+            if hasattr(server_instance, "_tool_manager")
+            else {},
             lambda: getattr(server_instance, "tools", {}),
             lambda: getattr(server_instance, "_tools", {}),
         ]
-        
+
         for source in tool_sources:
             try:
                 candidate_tools = source()
@@ -446,20 +446,22 @@ class MCPServerDiscovery:
                     break
             except (AttributeError, TypeError):
                 continue
-        
+
         return tools
 
-    def _extract_prompts(self, server_instance: Any) -> Dict[str, Any]:
+    def _extract_prompts(self, server_instance: Any) -> dict[str, Any]:
         """Extract prompts from MCP server instance."""
         prompts = {}
-        
+
         # Try different patterns for accessing prompts
         prompt_sources = [
-            lambda: getattr(getattr(server_instance, "_prompt_manager", None), "_prompts", {}) if hasattr(server_instance, "_prompt_manager") else {},
+            lambda: getattr(getattr(server_instance, "_prompt_manager", None), "_prompts", {})
+            if hasattr(server_instance, "_prompt_manager")
+            else {},
             lambda: getattr(server_instance, "prompts", {}),
             lambda: getattr(server_instance, "_prompts", {}),
         ]
-        
+
         for source in prompt_sources:
             try:
                 candidate_prompts = source()
@@ -468,20 +470,22 @@ class MCPServerDiscovery:
                     break
             except (AttributeError, TypeError):
                 continue
-        
+
         return prompts
 
-    def _extract_resources(self, server_instance: Any) -> Dict[str, Any]:
+    def _extract_resources(self, server_instance: Any) -> dict[str, Any]:
         """Extract resources from MCP server instance."""
         resources = {}
-        
+
         # Try different patterns for accessing resources
         resource_sources = [
-            lambda: getattr(getattr(server_instance, "_resource_manager", None), "_resources", {}) if hasattr(server_instance, "_resource_manager") else {},
+            lambda: getattr(getattr(server_instance, "_resource_manager", None), "_resources", {})
+            if hasattr(server_instance, "_resource_manager")
+            else {},
             lambda: getattr(server_instance, "resources", {}),
             lambda: getattr(server_instance, "_resources", {}),
         ]
-        
+
         for source in resource_sources:
             try:
                 candidate_resources = source()
@@ -490,40 +494,40 @@ class MCPServerDiscovery:
                     break
             except (AttributeError, TypeError):
                 continue
-        
+
         return resources
 
-    def list_discovered_servers(self) -> List[str]:
+    def list_discovered_servers(self) -> list[str]:
         """Get list of discovered server names."""
         return list(self.discovered_servers.keys())
 
-    def get_server_info(self, server_name: str) -> Optional[MCPServerInfo]:
+    def get_server_info(self, server_name: str) -> MCPServerInfo | None:
         """Get detailed information about a discovered server."""
         return self.discovered_servers.get(server_name)
 
-    def get_composition_summary(self) -> Dict[str, Any]:
+    def get_composition_summary(self) -> dict[str, Any]:
         """Get a summary of all discovered servers for composition."""
         total_tools = 0
         total_prompts = 0
         total_resources = 0
         server_details = {}
-        
+
         for name, info in self.discovered_servers.items():
             tool_count = len(info.tools)
             prompt_count = len(info.prompts)
             resource_count = len(info.resources)
-            
+
             total_tools += tool_count
             total_prompts += prompt_count
             total_resources += resource_count
-            
+
             server_details[name] = {
                 "tools": tool_count,
                 "prompts": prompt_count,
                 "resources": resource_count,
                 "module_path": info.module_path,
             }
-        
+
         return {
             "discovered_servers": len(self.discovered_servers),
             "total_tools": total_tools,

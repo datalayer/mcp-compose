@@ -10,7 +10,6 @@ Provides detailed version and build information.
 import platform
 import sys
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter
 
@@ -23,19 +22,20 @@ router = APIRouter(tags=["version"])
 async def get_version() -> VersionResponse:
     """
     Get version information.
-    
+
     Returns detailed information about the API version, build,
     and runtime environment.
-    
+
     Returns:
         VersionResponse with version details.
     """
     from ...__version__ import __version__
-    
+
     # Try to get git commit (in production, this would be set during build)
-    git_commit: Optional[str] = None
+    git_commit: str | None = None
     try:
         import subprocess
+
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True,
@@ -46,11 +46,11 @@ async def get_version() -> VersionResponse:
             git_commit = result.stdout.strip()
     except Exception:
         pass  # Git not available or not a git repo
-    
+
     # Build date (would be set during build in production)
     # For now, use a placeholder
-    build_date: Optional[datetime] = None
-    
+    build_date: datetime | None = None
+
     return VersionResponse(
         version=__version__,
         build_date=build_date,

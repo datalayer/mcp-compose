@@ -8,33 +8,31 @@ Verifies that all downstream MCP servers (STDIO, SSE, Streamable HTTP)
 are properly killed when the composer stops.
 """
 
-import subprocess
+import asyncio
 import signal
+import subprocess
 import sys
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, Mock
 
 from mcp_compose.composer import (
     MCPServerComposer,
-    ConflictResolution,
     _active_composers,
-    _install_signal_handlers,
-    _uninstall_signal_handlers,
-    _register_composer,
-    _unregister_composer,
     _module_signal_handler,
+    _uninstall_signal_handlers,
 )
-from mcp_compose.process import Process, ProcessState
+from mcp_compose.process import ProcessState
 from mcp_compose.process_manager import ProcessManager
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_popen_mock(*, alive: bool = True, pid: int = 12345) -> MagicMock:
     """Create a mock subprocess.Popen object.
-    
+
     Args:
         alive: If True, poll() returns None (running). Otherwise returns 0.
         pid: Process ID to assign.
@@ -55,6 +53,7 @@ def _make_popen_mock(*, alive: bool = True, pid: int = 12345) -> MagicMock:
 # ---------------------------------------------------------------------------
 # Tests for _kill_process
 # ---------------------------------------------------------------------------
+
 
 class TestKillProcess:
     """Tests for MCPServerComposer._kill_process."""
@@ -134,6 +133,7 @@ class TestKillProcess:
 # ---------------------------------------------------------------------------
 # Tests for _close_process_pipes
 # ---------------------------------------------------------------------------
+
 
 class TestCloseProcessPipes:
     """Tests for MCPServerComposer._close_process_pipes."""
@@ -266,6 +266,7 @@ class TestCloseProcessPipes:
 # Tests for shutdown_all_processes
 # ---------------------------------------------------------------------------
 
+
 class TestShutdownAllProcesses:
     """Tests for MCPServerComposer.shutdown_all_processes."""
 
@@ -344,6 +345,7 @@ class TestShutdownAllProcesses:
 # ---------------------------------------------------------------------------
 # Tests for composer stop() / context manager
 # ---------------------------------------------------------------------------
+
 
 class TestComposerStop:
     """Tests for MCPServerComposer.stop and context manager."""
@@ -437,6 +439,7 @@ class TestComposerStop:
 # ---------------------------------------------------------------------------
 # Integration test with real subprocesses
 # ---------------------------------------------------------------------------
+
 
 class TestShutdownIntegration:
     """Integration tests using real subprocesses."""
@@ -606,8 +609,11 @@ class TestShutdownIntegration:
 
         # Start a process that traps SIGTERM (ignores it)
         proc = subprocess.Popen(
-            [sys.executable, "-c",
-             "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(300)"],
+            [
+                sys.executable,
+                "-c",
+                "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(300)",
+            ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -625,6 +631,7 @@ class TestShutdownIntegration:
 # ---------------------------------------------------------------------------
 # Tests for module-level signal handler registry
 # ---------------------------------------------------------------------------
+
 
 class TestSignalHandlerRegistry:
     """Tests for the module-level composer registry and signal handlers."""

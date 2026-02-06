@@ -8,7 +8,7 @@ This module defines exception classes for different types of errors
 that can occur during MCP server composition and discovery.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class MCPComposerError(Exception):
@@ -25,8 +25,8 @@ class MCPDiscoveryError(MCPComposerError):
     def __init__(
         self,
         message: str,
-        package_name: Optional[str] = None,
-        search_paths: Optional[List[str]] = None,
+        package_name: str | None = None,
+        search_paths: list[str] | None = None,
     ) -> None:
         super().__init__(message)
         self.package_name = package_name
@@ -39,8 +39,8 @@ class MCPImportError(MCPComposerError):
     def __init__(
         self,
         message: str,
-        module_name: Optional[str] = None,
-        import_error: Optional[Exception] = None,
+        module_name: str | None = None,
+        import_error: Exception | None = None,
     ) -> None:
         super().__init__(message)
         self.module_name = module_name
@@ -53,8 +53,8 @@ class MCPCompositionError(MCPComposerError):
     def __init__(
         self,
         message: str,
-        server_name: Optional[str] = None,
-        failed_components: Optional[List[str]] = None,
+        server_name: str | None = None,
+        failed_components: list[str] | None = None,
     ) -> None:
         super().__init__(message)
         self.server_name = server_name
@@ -67,8 +67,8 @@ class MCPToolConflictError(MCPCompositionError):
     def __init__(
         self,
         tool_name: str,
-        conflicting_servers: List[str],
-        resolution_strategy: Optional[str] = None,
+        conflicting_servers: list[str],
+        resolution_strategy: str | None = None,
     ) -> None:
         message = f"Tool name conflict: '{tool_name}' found in multiple servers"
         super().__init__(message)
@@ -83,8 +83,8 @@ class MCPPromptConflictError(MCPCompositionError):
     def __init__(
         self,
         prompt_name: str,
-        conflicting_servers: List[str],
-        resolution_strategy: Optional[str] = None,
+        conflicting_servers: list[str],
+        resolution_strategy: str | None = None,
     ) -> None:
         message = f"Prompt name conflict: '{prompt_name}' found in multiple servers"
         super().__init__(message)
@@ -99,8 +99,8 @@ class MCPConfigurationError(MCPComposerError):
     def __init__(
         self,
         message: str,
-        config_path: Optional[str] = None,
-        validation_errors: Optional[List[str]] = None,
+        config_path: str | None = None,
+        validation_errors: list[str] | None = None,
     ) -> None:
         super().__init__(message)
         self.config_path = config_path
@@ -113,8 +113,8 @@ class ValidationError(MCPComposerError):
     def __init__(
         self,
         message: str,
-        field_name: Optional[str] = None,
-        invalid_value: Optional[Any] = None,
+        field_name: str | None = None,
+        invalid_value: Any | None = None,
     ) -> None:
         super().__init__(message)
         self.field_name = field_name

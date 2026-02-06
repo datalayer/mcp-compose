@@ -11,44 +11,44 @@ from multiple MCP server packages, creating unified servers with combined capabi
 """
 
 from .__version__ import __version__
-from .composer import MCPServerComposer, ConflictResolution
+from .composer import ConflictResolution, MCPServerComposer
 from .discovery import MCPServerDiscovery, MCPServerInfo
 from .exceptions import (
     MCPComposerError,
+    MCPCompositionError,
     MCPDiscoveryError,
     MCPImportError,
-    MCPCompositionError,
-    MCPToolConflictError,
     MCPPromptConflictError,
+    MCPToolConflictError,
 )
 from .oauth_client import (
-    OAuthClient,
-    GitHubOAuthClient,
     AnacondaOAuthClient,
     GenericOIDCClient,
-    get_oauth_client,
-    get_github_token,
+    GitHubOAuthClient,
+    OAuthClient,
     get_anaconda_token,
+    get_github_token,
+    get_oauth_client,
 )
 from .otel import (
-    setup_otel,
-    get_tracer,
-    get_meter,
-    instrument_mcp_compose,
-    uninstrument_mcp_compose,
-    get_server_tracer,
-    get_server_meter,
-    create_traced_tool_proxy,
-    trace_server_startup,
-    create_otel_middleware,
-    OTEL_AVAILABLE,
     METRICS_AVAILABLE,
+    OTEL_AVAILABLE,
+    create_otel_middleware,
+    create_traced_tool_proxy,
+    get_meter,
+    get_server_meter,
+    get_server_tracer,
+    get_tracer,
+    instrument_mcp_compose,
+    setup_otel,
+    trace_server_startup,
+    uninstrument_mcp_compose,
 )
 
 __all__ = [
     "MCPServerComposer",
     "ConflictResolution",
-    "MCPServerDiscovery", 
+    "MCPServerDiscovery",
     "MCPServerInfo",
     "MCPComposerError",
     "MCPDiscoveryError",
