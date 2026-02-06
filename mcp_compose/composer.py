@@ -84,28 +84,41 @@ def _module_signal_handler(sig, frame):
 
 
 def _install_signal_handlers() -> None:
-    """Install the module-level signal handlers (idempotent)."""
+    """Install the module-level signal handlers (idempotent).
+
+    On Windows, ``signal.SIGTERM`` does not exist so only ``SIGINT`` is
+    registered.  ``AttributeError`` is caught alongside ``OSError`` and
+    ``ValueError`` to cover platforms where specific signals are
+    unavailable.
+    """
     global _original_sigterm_handler, _original_sigint_handler, _signal_handlers_installed
     if _signal_handlers_installed:
         return
     try:
-        _original_sigterm_handler = signal.getsignal(signal.SIGTERM)
+        if hasattr(signal, "SIGTERM"):
+            _original_sigterm_handler = signal.getsignal(signal.SIGTERM)
+            signal.signal(signal.SIGTERM, _module_signal_handler)
         _original_sigint_handler = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGTERM, _module_signal_handler)
         signal.signal(signal.SIGINT, _module_signal_handler)
         _signal_handlers_installed = True
-        logger.debug("Module-level signal handlers installed for SIGTERM and SIGINT")
-    except (OSError, ValueError):
-        logger.debug("Could not install signal handlers (not on main thread)")
+        logger.debug("Module-level signal handlers installed for %sSIGINT",
+                     "SIGTERM and " if hasattr(signal, "SIGTERM") else "")
+    except (OSError, ValueError, AttributeError):
+        logger.debug("Could not install signal handlers (not on main thread or unsupported platform)")
 
 
 def _uninstall_signal_handlers() -> None:
-    """Restore original signal handlers when no composers remain."""
+    """Restore original signal handlers when no composers remain.
+
+    On Windows, ``signal.SIGTERM`` does not exist so only ``SIGINT`` is
+    restored.  ``AttributeError`` is caught for platforms where specific
+    signals are unavailable.
+    """
     global _original_sigterm_handler, _original_sigint_handler, _signal_handlers_installed
     if not _signal_handlers_installed:
         return
     try:
-        if _original_sigterm_handler is not None:
+        if _original_sigterm_handler is not None and hasattr(signal, "SIGTERM"):
             signal.signal(signal.SIGTERM, _original_sigterm_handler)
         if _original_sigint_handler is not None:
             signal.signal(signal.SIGINT, _original_sigint_handler)
@@ -113,7 +126,7 @@ def _uninstall_signal_handlers() -> None:
         _original_sigterm_handler = None
         _original_sigint_handler = None
         logger.debug("Module-level signal handlers restored to originals")
-    except (OSError, ValueError):
+    except (OSError, ValueError, AttributeError):
         logger.debug("Could not restore original signal handlers")
 
 
@@ -860,8 +873,12 @@ class MCPServerComposer:
             if pipe is not None:
                 try:
                     pipe.close()
+                except (OSError, ValueError):
+                    # Expected: pipe already closed or invalid file descriptor.
+                    logger.debug(f"Pipe {pipe_name} for process {name} already closed")
                 except Exception as e:
-                    logger.debug(f"Error closing {pipe_name} for process {name}: {e}")
+                    # Unexpected error – log at warning to aid production diagnosis.
+                    logger.warning(f"Unexpected error closing {pipe_name} for process {name}: {e}")
     
     async def restart_proxied_server(self, server_name: str) -> None:
         """

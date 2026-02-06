@@ -46,6 +46,9 @@ def _make_popen_mock(*, alive: bool = True, pid: int = 12345) -> MagicMock:
     proc.terminate.return_value = None
     proc.kill.return_value = None
     proc.wait.return_value = 0
+    proc.stdin = None
+    proc.stdout = None
+    proc.stderr = None
     return proc
 
 
@@ -683,6 +686,7 @@ class TestSignalHandlerRegistry:
             self._cleanup_registry()
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(sys.platform == "win32", reason="SIGTERM not available on Windows")
     async def test_signal_handlers_installed_on_first_registration(self):
         """Signal handlers are installed when the first composer is created."""
         self._cleanup_registry()
@@ -698,6 +702,7 @@ class TestSignalHandlerRegistry:
             signal.signal(signal.SIGINT, original_sigint)
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(sys.platform == "win32", reason="SIGTERM not available on Windows")
     async def test_signal_handlers_restored_on_last_unregister(self):
         """Original signal handlers are restored when the last composer stops."""
         self._cleanup_registry()
@@ -717,6 +722,7 @@ class TestSignalHandlerRegistry:
             signal.signal(signal.SIGINT, original_sigint)
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(sys.platform == "win32", reason="SIGTERM not available on Windows")
     async def test_handlers_not_registered_without_start(self):
         """Signal handlers are installed from __init__, no start() needed."""
         self._cleanup_registry()
