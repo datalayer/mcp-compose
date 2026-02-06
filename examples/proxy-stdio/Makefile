@@ -68,7 +68,10 @@ agent:
 	@echo "  - AZURE_OPENAI_ENDPOINT (base URL, e.g., https://your-resource.openai.azure.com)"
 	@echo "  - AZURE_OPENAI_API_VERSION (optional)"
 	@echo ""
-	python agent.py $(MODEL)
+	AWS_ACCESS_KEY_ID=${DATALAYER_BEDROCK_AWS_ACCESS_KEY_ID} \
+	AWS_SECRET_ACCESS_KEY=${DATALAYER_BEDROCK_AWS_SECRET_ACCESS_KEY} \
+	AWS_DEFAULT_REGION=${DATALAYER_BEDROCK_AWS_DEFAULT_REGION} \
+	  python agent.py "bedrock:us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 # Clean up
 clean:

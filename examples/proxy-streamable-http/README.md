@@ -26,14 +26,14 @@ This example shows:
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │              MCPServerStreamableHTTP                   │  │
-│  │        (connects to http://localhost:8080/mcp)         │  │
+│  │        (connects to http://localhost:8888/mcp)         │  │
 │  └──────────────────────┬─────────────────────────────────┘  │
 └─────────────────────────┼────────────────────────────────────┘
                           │ HTTP (Streamable HTTP transport)
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   MCP Compose Server                         │
-│              (http://localhost:8080/mcp)                     │
+│              (http://localhost:8888/mcp)                     │
 │                                                              │
 │  ┌─────────────────┐         ┌─────────────────┐            │
 │  │   Calculator    │         │      Echo       │            │
@@ -78,7 +78,7 @@ make start
 The composer will:
 - Read configuration from `mcp_compose.toml`
 - Start both Calculator and Echo MCP servers
-- Expose a unified Streamable HTTP endpoint at `http://localhost:8080/mcp`
+- Expose a unified Streamable HTTP endpoint at `http://localhost:8888/mcp`
 
 ### 3. Install Agent Dependencies
 
@@ -110,7 +110,7 @@ Press `Ctrl+C` in the terminal where the composer is running.
 With Streamable HTTP transport, the **server runs independently**:
 
 1. **Server starts**: `mcp-compose serve --transport streamable-http`
-2. **Endpoint exposed**: Server listens at `http://localhost:8080/mcp`
+2. **Endpoint exposed**: Server listens at `http://localhost:8888/mcp`
 3. **Clients connect**: Using `MCPServerStreamableHTTP` from pydantic-ai
 4. **Communication**: Standard HTTP requests with streaming responses
 
@@ -124,7 +124,7 @@ from pydantic_ai.mcp import MCPServerStreamableHTTP
 
 # Create MCP server connection with Streamable HTTP transport
 mcp_server = MCPServerStreamableHTTP(
-    url="http://localhost:8080/mcp",
+    url="http://localhost:8888/mcp",
     timeout=300.0,
 )
 
