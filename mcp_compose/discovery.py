@@ -431,9 +431,11 @@ class MCPServerDiscovery:
 
         # Try different patterns for accessing tools
         tool_sources = [
-            lambda: getattr(getattr(server_instance, "_tool_manager", None), "_tools", {})
-            if hasattr(server_instance, "_tool_manager")
-            else {},
+            lambda: (
+                getattr(getattr(server_instance, "_tool_manager", None), "_tools", {})
+                if hasattr(server_instance, "_tool_manager")
+                else {}
+            ),
             lambda: getattr(server_instance, "tools", {}),
             lambda: getattr(server_instance, "_tools", {}),
         ]
@@ -455,9 +457,11 @@ class MCPServerDiscovery:
 
         # Try different patterns for accessing prompts
         prompt_sources = [
-            lambda: getattr(getattr(server_instance, "_prompt_manager", None), "_prompts", {})
-            if hasattr(server_instance, "_prompt_manager")
-            else {},
+            lambda: (
+                getattr(getattr(server_instance, "_prompt_manager", None), "_prompts", {})
+                if hasattr(server_instance, "_prompt_manager")
+                else {}
+            ),
             lambda: getattr(server_instance, "prompts", {}),
             lambda: getattr(server_instance, "_prompts", {}),
         ]
@@ -479,9 +483,11 @@ class MCPServerDiscovery:
 
         # Try different patterns for accessing resources
         resource_sources = [
-            lambda: getattr(getattr(server_instance, "_resource_manager", None), "_resources", {})
-            if hasattr(server_instance, "_resource_manager")
-            else {},
+            lambda: (
+                getattr(getattr(server_instance, "_resource_manager", None), "_resources", {})
+                if hasattr(server_instance, "_resource_manager")
+                else {}
+            ),
             lambda: getattr(server_instance, "resources", {}),
             lambda: getattr(server_instance, "_resources", {}),
         ]
