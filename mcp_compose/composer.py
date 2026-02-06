@@ -10,6 +10,8 @@ into a single unified server instance.
 
 import asyncio
 import logging
+import signal
+import subprocess
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
@@ -76,7 +78,7 @@ class MCPServerComposer:
         self.composed_resources: Dict[str, Any] = {}
         self.source_mapping: Dict[str, str] = {}  # Maps component name to source server
         self.conflicts_resolved: List[Dict[str, Any]] = []
-        self.processes: Dict[str, Any] = {}  # Track auto-started processes for SSE/Streamable HTTP servers
+        self.processes: Dict[str, Any] = {}  # Track auto-started downstream server processes (SSE, Streamable HTTP via subprocess.Popen)
         
         # Optional enhanced managers
         self.tool_manager: Optional[ToolManager] = None
@@ -607,13 +609,130 @@ class MCPServerComposer:
         """Start the composer and all managed processes."""
         if self.process_manager:
             await self.process_manager.start()
+        self._register_signal_handlers()
         logger.info(f"Composer {self.composed_server_name} started")
     
+    def _register_signal_handlers(self) -> None:
+        """Register signal handlers for graceful shutdown.
+        
+        Installs handlers for SIGTERM and SIGINT that trigger
+        shutdown_all_processes() to ensure no downstream servers
+        are left running when the composer exits.
+        """
+        loop = asyncio.get_event_loop()
+
+        def _signal_handler(sig, frame):
+            logger.info(f"Received signal {sig}, scheduling shutdown of all downstream processes")
+            loop.call_soon_threadsafe(
+                lambda: asyncio.ensure_future(self.stop())
+            )
+
+        try:
+            signal.signal(signal.SIGTERM, _signal_handler)
+            signal.signal(signal.SIGINT, _signal_handler)
+            logger.debug("Signal handlers registered for SIGTERM and SIGINT")
+        except (OSError, ValueError):
+            # May fail if not on main thread
+            logger.debug("Could not register signal handlers (not on main thread)")
+    
     async def stop(self) -> None:
-        """Stop the composer and all managed processes."""
+        """Stop the composer, all managed processes, and all auto-started downstream servers."""
+        await self.shutdown_all_processes()
+        logger.info(f"Composer {self.composed_server_name} stopped")
+
+    async def shutdown_all_processes(self, timeout: float = 5.0) -> None:
+        """Shut down all downstream server processes.
+        
+        This ensures no ghost MCP server processes are left running when the
+        composer exits. It terminates every downstream regardless of transport:
+        
+        1. **STDIO proxied servers** – managed by ``ProcessManager``, each
+           running as an ``asyncio.subprocess.Process``.  Stopped via
+           ``ProcessManager.stop()``.
+        2. **Auto-started SSE servers** – launched as ``subprocess.Popen``
+           when ``auto_start = true`` in the SSE config.  Tracked in
+           ``self.processes``.
+        3. **Auto-started Streamable HTTP servers** – launched as
+           ``subprocess.Popen`` when ``auto_start = true`` in the
+           Streamable HTTP config.  Also tracked in ``self.processes``.
+        
+        Each ``subprocess.Popen`` process is sent SIGTERM first.  If it does
+        not exit within *timeout* seconds, SIGKILL is sent.
+        
+        Args:
+            timeout: Seconds to wait for graceful shutdown per process before
+                     sending SIGKILL.
+        """
+        logger.info("Shutting down all downstream MCP server processes")
+        
+        # 1. Stop STDIO proxied servers (managed by ProcessManager as asyncio subprocesses)
         if self.process_manager:
             await self.process_manager.stop()
-        logger.info(f"Composer {self.composed_server_name} stopped")
+            logger.info("ProcessManager stopped – all STDIO proxied servers terminated")
+        
+        # 2. Kill auto-started SSE and Streamable HTTP servers (subprocess.Popen)
+        if self.processes:
+            logger.info(f"Terminating {len(self.processes)} auto-started downstream server(s) "
+                        f"(SSE / Streamable HTTP)")
+            for name, process in list(self.processes.items()):
+                await self._kill_process(name, process, timeout)
+            self.processes.clear()
+            logger.info("All auto-started downstream servers terminated")
+
+    async def _kill_process(self, name: str, process: Any, timeout: float = 5.0) -> None:
+        """Kill a single subprocess.Popen process gracefully.
+        
+        Sends SIGTERM first, waits for the timeout, then sends SIGKILL
+        if the process is still running. Also closes any open pipes
+        (stdin, stdout, stderr) to avoid resource leaks.
+        
+        Args:
+            name: Human-readable name for the process.
+            process: subprocess.Popen instance.
+            timeout: Seconds to wait before escalating to SIGKILL.
+        """
+        if not hasattr(process, 'poll'):
+            logger.warning(f"Process {name} is not a subprocess.Popen instance, skipping")
+            return
+        
+        if process.poll() is not None:
+            logger.debug(f"Process {name} (PID {process.pid}) already exited with code {process.returncode}")
+            self._close_process_pipes(name, process)
+            return
+        
+        logger.info(f"Terminating process {name} (PID {process.pid})")
+        try:
+            process.terminate()
+            try:
+                process.wait(timeout=timeout)
+                logger.info(f"Process {name} (PID {process.pid}) terminated gracefully")
+            except subprocess.TimeoutExpired:
+                logger.warning(f"Process {name} (PID {process.pid}) did not terminate gracefully, sending SIGKILL")
+                process.kill()
+                process.wait(timeout=2.0)
+                logger.info(f"Process {name} (PID {process.pid}) killed")
+        except OSError as e:
+            logger.error(f"Error killing process {name} (PID {process.pid}): {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error killing process {name}: {e}")
+        finally:
+            self._close_process_pipes(name, process)
+
+    @staticmethod
+    def _close_process_pipes(name: str, process: Any) -> None:
+        """Close stdin, stdout, and stderr pipes of a subprocess.Popen.
+        
+        Args:
+            name: Human-readable name for the process (for logging).
+            process: subprocess.Popen instance.
+        """
+        for pipe_name in ("stdin", "stdout", "stderr"):
+            pipe = getattr(process, pipe_name, None)
+            if pipe is not None:
+                try:
+                    pipe.close()
+                except Exception as e:
+                    logger.debug(f"Error closing {pipe_name} for process {name}: {e}")
     
     async def restart_proxied_server(self, server_name: str) -> None:
         """

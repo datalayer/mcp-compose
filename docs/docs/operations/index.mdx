@@ -121,3 +121,65 @@ The Web UI exposes the same views with live updates for logs, metrics, and serve
 - Check server logs for startup failures.
 - Use the Tools page to confirm tool discovery.
 - Use the health endpoint for readiness checks.
+
+## Graceful Shutdown and Downstream Process Cleanup
+
+When MCP Compose exits — whether via `Ctrl+C`, `SIGTERM`, or normal termination — it automatically terminates **all** downstream MCP server processes it started. This prevents ghost or stale server processes from lingering on the host.
+
+### What gets cleaned up
+
+| Transport type | How it runs | Shutdown mechanism |
+|---|---|---|
+| **STDIO proxied servers** | Managed by `ProcessManager` as async subprocesses | `ProcessManager.stop()` closes stdin then sends SIGTERM/SIGKILL |
+| **Auto-started SSE servers** | Launched as `subprocess.Popen` when `auto_start = true` | SIGTERM → wait → SIGKILL escalation |
+| **Auto-started Streamable HTTP servers** | Launched as `subprocess.Popen` when `auto_start = true` | SIGTERM → wait → SIGKILL escalation |
+
+### Shutdown sequence
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Composer
+    participant ProcessManager
+    participant STDIO as STDIO Servers
+    participant HTTP as SSE / Streamable HTTP Servers
+
+    User->>Composer: Ctrl+C / SIGTERM / exit
+    Composer->>Composer: shutdown_all_processes()
+    Composer->>ProcessManager: stop()
+    ProcessManager->>STDIO: Close stdin + SIGTERM
+    STDIO-->>ProcessManager: Exit (or SIGKILL after timeout)
+    Composer->>HTTP: SIGTERM
+    HTTP-->>Composer: Exit (or SIGKILL after 5 s timeout)
+    Composer-->>User: ✓ All servers stopped
+```
+
+### Graceful then forced termination
+
+Each downstream process is given a chance to shut down gracefully:
+
+1. **SIGTERM** is sent first.
+2. MCP Compose waits up to **5 seconds** (configurable) for the process to exit.
+3. If the process is still running after the timeout, **SIGKILL** is sent to force termination.
+
+This two-step approach ensures well-behaved servers can clean up resources, while misbehaving servers are never left running.
+
+### Signal handling
+
+MCP Compose registers handlers for `SIGTERM` and `SIGINT` at startup. When either signal is received, the full shutdown sequence runs automatically. This means downstream servers are cleaned up even if MCP Compose is terminated by an orchestrator (e.g., Kubernetes, Docker, systemd).
+
+### Example log output
+
+```
+INFO  Shutting down all downstream MCP server processes
+INFO  ProcessManager stopped – all STDIO proxied servers terminated
+INFO  Terminating 2 auto-started downstream server(s) (SSE / Streamable HTTP)
+INFO  Terminating process my-sse-server (PID 42101)
+INFO  Process my-sse-server (PID 42101) terminated gracefully
+INFO  Terminating process my-http-server (PID 42102)
+WARN  Process my-http-server (PID 42102) did not terminate gracefully, sending SIGKILL
+INFO  Process my-http-server (PID 42102) killed
+INFO  All auto-started downstream servers terminated
+INFO  Composer my-compose stopped
+✓ All servers stopped
+```

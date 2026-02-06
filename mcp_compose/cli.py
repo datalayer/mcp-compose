@@ -1373,8 +1373,9 @@ async def run_server(config, args: argparse.Namespace) -> int:
         return 0
         
     finally:
-        # Clean shutdown
-        await process_manager.stop()
+        # Clean shutdown - stop composer which kills all downstreams
+        # (both ProcessManager-managed STDIO servers and auto-started SSE/Streamable HTTP servers)
+        await composer.stop()
         print("✓ All servers stopped", file=out)
         
         # Flush OTEL traces before exit
