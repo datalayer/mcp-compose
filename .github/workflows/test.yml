@@ -1,0 +1,126 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mcp_compose/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - '.github/workflows/test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'mcp_compose/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - '.github/workflows/test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+        os: [ubuntu-latest]
+        include:
+          - python-version: '3.12'
+            os: windows-latest
+          - python-version: '3.12'
+            os: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          python-version: ${{ matrix.python-version }}
+          activate-environment: true
+
+      - name: Install dependencies
+        run: |
+          uv pip install .
+          uv pip install .[test]
+
+      - name: Run tests
+        run: |
+          pytest tests/ --cov=mcp_compose --cov-report=term-missing --cov-report=xml --override-ini="addopts="
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            htmlcov/
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          python-version: '3.12'
+          activate-environment: true
+
+      - name: Install dependencies
+        run: |
+          uv pip install .
+          uv pip install .[lint]
+
+      - name: Run ruff check
+        run: |
+          ruff check mcp_compose/ tests/
+
+      - name: Run ruff format check
+        run: |
+          ruff format --check mcp_compose/ tests/
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          python-version: '3.12'
+          activate-environment: true
+
+      - name: Install dependencies
+        run: |
+          uv pip install .
+          uv pip install .[lint]
+
+      - name: Run mypy
+        run: |
+          mypy mcp_compose/
