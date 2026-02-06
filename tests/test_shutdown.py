@@ -16,7 +16,16 @@ import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from mcp_compose.composer import MCPServerComposer, ConflictResolution
+from mcp_compose.composer import (
+    MCPServerComposer,
+    ConflictResolution,
+    _active_composers,
+    _install_signal_handlers,
+    _uninstall_signal_handlers,
+    _register_composer,
+    _unregister_composer,
+    _module_signal_handler,
+)
 from mcp_compose.process import Process, ProcessState
 from mcp_compose.process_manager import ProcessManager
 
@@ -58,7 +67,7 @@ class TestKillProcess:
         await composer._kill_process("server-a", proc, timeout=5.0)
 
         proc.terminate.assert_called_once()
-        proc.wait.assert_called_once_with(timeout=5.0)
+        proc.wait.assert_called_once_with(5.0)
         # kill() should NOT have been called
         proc.kill.assert_not_called()
 
@@ -108,6 +117,148 @@ class TestKillProcess:
 
         # Should not raise
         await composer._kill_process("server-d", proc, timeout=5.0)
+
+    @pytest.mark.asyncio
+    async def test_kill_process_without_pid_attribute(self):
+        """Object with poll() but no pid attribute should not raise AttributeError."""
+        composer = MCPServerComposer()
+        # Custom object that has poll (so it passes the guard) but no pid
+        fake = MagicMock(spec=[])
+        fake.poll = MagicMock(return_value=0)  # already exited
+
+        # Should not raise
+        await composer._kill_process("no-pid-obj", fake, timeout=5.0)
+
+
+# ---------------------------------------------------------------------------
+# Tests for _close_process_pipes
+# ---------------------------------------------------------------------------
+
+class TestCloseProcessPipes:
+    """Tests for MCPServerComposer._close_process_pipes."""
+
+    def test_closes_all_three_pipes(self):
+        """stdin, stdout, and stderr are all closed."""
+        proc = MagicMock(spec=subprocess.Popen)
+        proc.stdin = MagicMock()
+        proc.stdout = MagicMock()
+        proc.stderr = MagicMock()
+
+        MCPServerComposer._close_process_pipes("server-a", proc)
+
+        proc.stdin.close.assert_called_once()
+        proc.stdout.close.assert_called_once()
+        proc.stderr.close.assert_called_once()
+
+    def test_handles_none_pipes(self):
+        """Pipes that are None are silently skipped."""
+        proc = MagicMock(spec=subprocess.Popen)
+        proc.stdin = None
+        proc.stdout = None
+        proc.stderr = None
+
+        # Should not raise
+        MCPServerComposer._close_process_pipes("server-b", proc)
+
+    def test_partial_none_pipes(self):
+        """Only non-None pipes are closed."""
+        proc = MagicMock(spec=subprocess.Popen)
+        proc.stdin = MagicMock()
+        proc.stdout = None
+        proc.stderr = MagicMock()
+
+        MCPServerComposer._close_process_pipes("server-c", proc)
+
+        proc.stdin.close.assert_called_once()
+        proc.stderr.close.assert_called_once()
+
+    def test_exception_during_close_is_swallowed(self):
+        """An exception from pipe.close() does not propagate."""
+        proc = MagicMock(spec=subprocess.Popen)
+        proc.stdin = MagicMock()
+        proc.stdin.close.side_effect = OSError("Broken pipe")
+        proc.stdout = MagicMock()
+        proc.stderr = MagicMock()
+
+        # Should not raise
+        MCPServerComposer._close_process_pipes("server-d", proc)
+
+        # stdout and stderr should still be closed despite stdin failure
+        proc.stdout.close.assert_called_once()
+        proc.stderr.close.assert_called_once()
+
+    def test_all_pipes_raise_exceptions(self):
+        """Even if every pipe.close() raises, no exception propagates."""
+        proc = MagicMock(spec=subprocess.Popen)
+        proc.stdin = MagicMock()
+        proc.stdin.close.side_effect = OSError("stdin broken")
+        proc.stdout = MagicMock()
+        proc.stdout.close.side_effect = BrokenPipeError("stdout broken")
+        proc.stderr = MagicMock()
+        proc.stderr.close.side_effect = RuntimeError("stderr broken")
+
+        # Should not raise
+        MCPServerComposer._close_process_pipes("server-e", proc)
+
+        proc.stdin.close.assert_called_once()
+        proc.stdout.close.assert_called_once()
+        proc.stderr.close.assert_called_once()
+
+    def test_already_closed_pipe(self):
+        """Closing an already-closed pipe (ValueError) is handled."""
+        proc = MagicMock(spec=subprocess.Popen)
+        proc.stdin = MagicMock()
+        proc.stdin.close.side_effect = ValueError("I/O operation on closed file")
+        proc.stdout = MagicMock()
+        proc.stderr = MagicMock()
+
+        # Should not raise
+        MCPServerComposer._close_process_pipes("server-f", proc)
+
+        proc.stdout.close.assert_called_once()
+        proc.stderr.close.assert_called_once()
+
+    def test_object_without_pipe_attributes(self):
+        """An object missing stdin/stdout/stderr attributes is handled."""
+        proc = MagicMock(spec=[])  # No attributes at all
+
+        # Should not raise
+        MCPServerComposer._close_process_pipes("bare-obj", proc)
+
+    def test_real_subprocess_pipes_closed(self):
+        """Pipes from a real subprocess.Popen are closed without error."""
+        proc = subprocess.Popen(
+            [sys.executable, "-c", "pass"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        proc.wait()  # Let it finish
+
+        MCPServerComposer._close_process_pipes("real-proc", proc)
+
+        # Pipes should be closed – writing to them should raise
+        assert proc.stdin.closed
+        assert proc.stdout.closed
+        assert proc.stderr.closed
+
+    def test_real_subprocess_double_close(self):
+        """Closing pipes twice on a real subprocess does not raise."""
+        proc = subprocess.Popen(
+            [sys.executable, "-c", "pass"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        proc.wait()
+
+        MCPServerComposer._close_process_pipes("real-proc", proc)
+        # Second call – pipes already closed
+        MCPServerComposer._close_process_pipes("real-proc", proc)
+
+        assert proc.stdin.closed
+        assert proc.stdout.closed
+        assert proc.stderr.closed
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +337,7 @@ class TestShutdownAllProcesses:
 
         await composer.shutdown_all_processes(timeout=10.0)
 
-        proc.wait.assert_called_once_with(timeout=10.0)
+        proc.wait.assert_called_once_with(10.0)
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +386,51 @@ class TestComposerStop:
         # Auto-started process should be terminated
         proc.terminate.assert_called_once()
         assert len(composer.processes) == 0
+
+    @pytest.mark.asyncio
+    async def test_stop_is_idempotent(self):
+        """Calling stop() twice does not terminate processes twice."""
+        composer = MCPServerComposer()
+        proc = _make_popen_mock(alive=True, pid=7000)
+        composer.processes = {"idempotent-server": proc}
+
+        await composer.stop()
+        proc.terminate.assert_called_once()
+        assert len(composer.processes) == 0
+
+        # Second call should be a no-op
+        await composer.stop()
+        # terminate should still have been called only once
+        proc.terminate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_concurrent_stop_calls(self):
+        """Two concurrent stop() calls do not both attempt shutdown."""
+        composer = MCPServerComposer()
+        proc = _make_popen_mock(alive=True, pid=8000)
+        composer.processes = {"concurrent-server": proc}
+
+        # Run two stop() calls concurrently
+        await asyncio.gather(composer.stop(), composer.stop())
+
+        # terminate should have been called exactly once
+        proc.terminate.assert_called_once()
+        assert len(composer.processes) == 0
+
+    @pytest.mark.asyncio
+    async def test_shutdown_all_processes_is_idempotent(self):
+        """Calling shutdown_all_processes() twice is safe."""
+        composer = MCPServerComposer()
+        proc = _make_popen_mock(alive=True, pid=9000)
+        composer.processes = {"idem-server": proc}
+
+        await composer.shutdown_all_processes()
+        proc.terminate.assert_called_once()
+        assert len(composer.processes) == 0
+
+        # Second call should be a no-op (flag is still set)
+        await composer.shutdown_all_processes()
+        proc.terminate.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -402,6 +598,7 @@ class TestShutdownIntegration:
         assert len(composer.processes) == 0
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(sys.platform == "win32", reason="SIGTERM not available on Windows")
     async def test_stubborn_process_gets_sigkill(self):
         """A process that ignores SIGTERM gets escalated to SIGKILL."""
         composer = MCPServerComposer()
@@ -425,39 +622,174 @@ class TestShutdownIntegration:
 
 
 # ---------------------------------------------------------------------------
-# Tests for signal handler registration
+# Tests for module-level signal handler registry
 # ---------------------------------------------------------------------------
 
-class TestSignalHandlers:
-    """Tests for signal handler registration."""
+class TestSignalHandlerRegistry:
+    """Tests for the module-level composer registry and signal handlers."""
+
+    def _cleanup_registry(self):
+        """Remove all composers from the registry and restore signals."""
+        _active_composers.clear()
+        _uninstall_signal_handlers()
 
     @pytest.mark.asyncio
-    async def test_register_signal_handlers(self):
-        """Signal handlers are registered for SIGTERM and SIGINT."""
-        composer = MCPServerComposer()
+    async def test_init_registers_composer(self):
+        """MCPServerComposer.__init__ registers the instance in the module registry."""
+        self._cleanup_registry()
+        try:
+            composer = MCPServerComposer()
+            assert composer in _active_composers
+        finally:
+            self._cleanup_registry()
 
+    @pytest.mark.asyncio
+    async def test_stop_unregisters_composer(self):
+        """stop() removes the composer from the module registry."""
+        self._cleanup_registry()
+        try:
+            composer = MCPServerComposer()
+            assert composer in _active_composers
+            await composer.stop()
+            assert composer not in _active_composers
+        finally:
+            self._cleanup_registry()
+
+    @pytest.mark.asyncio
+    async def test_multiple_instances_all_registered(self):
+        """Multiple composer instances all appear in the registry."""
+        self._cleanup_registry()
+        try:
+            c1 = MCPServerComposer(composed_server_name="c1")
+            c2 = MCPServerComposer(composed_server_name="c2")
+            c3 = MCPServerComposer(composed_server_name="c3")
+            assert c1 in _active_composers
+            assert c2 in _active_composers
+            assert c3 in _active_composers
+            assert len(_active_composers) == 3
+        finally:
+            self._cleanup_registry()
+
+    @pytest.mark.asyncio
+    async def test_stop_one_leaves_others_registered(self):
+        """Stopping one composer does not affect the others."""
+        self._cleanup_registry()
+        try:
+            c1 = MCPServerComposer(composed_server_name="c1")
+            c2 = MCPServerComposer(composed_server_name="c2")
+            await c1.stop()
+            assert c1 not in _active_composers
+            assert c2 in _active_composers
+            assert len(_active_composers) == 1
+        finally:
+            self._cleanup_registry()
+
+    @pytest.mark.asyncio
+    async def test_signal_handlers_installed_on_first_registration(self):
+        """Signal handlers are installed when the first composer is created."""
+        self._cleanup_registry()
         original_sigterm = signal.getsignal(signal.SIGTERM)
         original_sigint = signal.getsignal(signal.SIGINT)
-
         try:
-            composer._register_signal_handlers()
-
-            # Handlers should have changed
-            new_sigterm = signal.getsignal(signal.SIGTERM)
-            new_sigint = signal.getsignal(signal.SIGINT)
-            assert new_sigterm != original_sigterm
-            assert new_sigint != original_sigint
+            _composer = MCPServerComposer()
+            assert signal.getsignal(signal.SIGTERM) is _module_signal_handler
+            assert signal.getsignal(signal.SIGINT) is _module_signal_handler
         finally:
-            # Restore original handlers
+            self._cleanup_registry()
             signal.signal(signal.SIGTERM, original_sigterm)
             signal.signal(signal.SIGINT, original_sigint)
 
     @pytest.mark.asyncio
-    async def test_start_registers_signal_handlers(self):
-        """composer.start() registers signal handlers."""
-        composer = MCPServerComposer()
-        composer._register_signal_handlers = Mock()
+    async def test_signal_handlers_restored_on_last_unregister(self):
+        """Original signal handlers are restored when the last composer stops."""
+        self._cleanup_registry()
+        original_sigterm = signal.getsignal(signal.SIGTERM)
+        original_sigint = signal.getsignal(signal.SIGINT)
+        try:
+            composer = MCPServerComposer()
+            # Handlers are now _module_signal_handler
+            assert signal.getsignal(signal.SIGTERM) is _module_signal_handler
+            await composer.stop()
+            # After the last composer unregisters, originals should be restored
+            assert signal.getsignal(signal.SIGTERM) is not _module_signal_handler
+            assert signal.getsignal(signal.SIGINT) is not _module_signal_handler
+        finally:
+            self._cleanup_registry()
+            signal.signal(signal.SIGTERM, original_sigterm)
+            signal.signal(signal.SIGINT, original_sigint)
 
-        await composer.start()
+    @pytest.mark.asyncio
+    async def test_handlers_not_registered_without_start(self):
+        """Signal handlers are installed from __init__, no start() needed."""
+        self._cleanup_registry()
+        original_sigterm = signal.getsignal(signal.SIGTERM)
+        try:
+            # Just construct – never call start()
+            composer = MCPServerComposer()
+            assert composer in _active_composers
+            assert signal.getsignal(signal.SIGTERM) is _module_signal_handler
+        finally:
+            self._cleanup_registry()
+            signal.signal(signal.SIGTERM, original_sigterm)
 
-        composer._register_signal_handlers.assert_called_once()
+    @pytest.mark.asyncio
+    async def test_multiple_stops_are_safe(self):
+        """Calling stop() multiple times on the same composer is a no-op."""
+        self._cleanup_registry()
+        try:
+            composer = MCPServerComposer()
+            await composer.stop()
+            await composer.stop()  # Second call should not raise
+            assert composer not in _active_composers
+        finally:
+            self._cleanup_registry()
+
+    @pytest.mark.asyncio
+    async def test_signal_handler_schedules_stop_for_all(self):
+        """The module-level signal handler schedules stop() for every registered composer."""
+        self._cleanup_registry()
+        try:
+            c1 = MCPServerComposer(composed_server_name="c1")
+            c2 = MCPServerComposer(composed_server_name="c2")
+            c1.stop = AsyncMock()
+            c2.stop = AsyncMock()
+
+            # Simulate signal delivery
+            _module_signal_handler(signal.SIGTERM, None)
+
+            # Let the event loop run so the scheduled futures execute
+            await asyncio.sleep(0.05)
+
+            c1.stop.assert_awaited_once()
+            c2.stop.assert_awaited_once()
+        finally:
+            self._cleanup_registry()
+
+    def test_signal_handler_no_running_loop(self):
+        """Signal handler gracefully handles missing event loop (sync context)."""
+        self._cleanup_registry()
+        try:
+            _composer = MCPServerComposer(composed_server_name="no-loop")
+
+            # Called from a plain sync function — no running event loop.
+            # Should not raise; just logs a warning and returns.
+            _module_signal_handler(signal.SIGTERM, None)
+        finally:
+            self._cleanup_registry()
+
+    @pytest.mark.asyncio
+    async def test_signal_handler_closed_loop(self):
+        """Signal handler gracefully handles a closed event loop."""
+        self._cleanup_registry()
+        try:
+            _composer = MCPServerComposer(composed_server_name="closed-loop")
+
+            # Patch get_running_loop to return a closed loop
+            closed_loop = asyncio.new_event_loop()
+            closed_loop.close()
+
+            with patch("mcp_compose.composer.asyncio.get_running_loop", return_value=closed_loop):
+                # Should not raise
+                _module_signal_handler(signal.SIGTERM, None)
+        finally:
+            self._cleanup_registry()

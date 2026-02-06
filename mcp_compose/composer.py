@@ -31,6 +31,115 @@ from .config import MCPComposerConfig, ToolManagerConfig
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Module-level composer registry for signal-based graceful shutdown.
+#
+# Signal handlers are global per process, so we maintain a registry of all
+# active MCPServerComposer instances.  A *single* module-level handler
+# iterates the registry and shuts down every composer when SIGTERM or
+# SIGINT is received.  Composers are registered in __init__ (so they are
+# always covered, even if start() is never called) and unregistered in
+# stop().  The module-level handler is installed on the first registration
+# and restored to the original when the last composer unregisters.
+# ---------------------------------------------------------------------------
+
+_active_composers: Set["MCPServerComposer"] = set()
+_original_sigterm_handler: Any = None
+_original_sigint_handler: Any = None
+_signal_handlers_installed: bool = False
+
+
+def _module_signal_handler(sig, frame):
+    """Shut down every registered composer on SIGTERM / SIGINT.
+    
+    Uses ``asyncio.get_running_loop()`` to obtain the event loop.  This
+    is the recommended API since Python 3.10 (``get_event_loop()`` is
+    deprecated in non-async contexts).  If no loop is currently running
+    or the loop is already closed, the handler returns early — the
+    scheduled tasks would not execute anyway.
+    
+    Tasks are scheduled with ``loop.create_task()`` via
+    ``call_soon_threadsafe()`` because signal handlers run synchronously
+    on the main thread.  ``loop.create_task()`` is preferred over the
+    deprecated ``asyncio.ensure_future()`` as it is explicitly bound to
+    the target loop.
+    """
+    if not _active_composers:
+        return
+    logger.info(
+        "Received signal %s, scheduling shutdown of %d composer(s)",
+        sig,
+        len(_active_composers),
+    )
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        logger.warning("No running event loop, cannot schedule async shutdown")
+        return
+    if loop.is_closed():
+        logger.warning("Event loop is closed, cannot schedule async shutdown")
+        return
+    for composer in list(_active_composers):
+        loop.call_soon_threadsafe(loop.create_task, composer.stop())
+
+
+def _install_signal_handlers() -> None:
+    """Install the module-level signal handlers (idempotent)."""
+    global _original_sigterm_handler, _original_sigint_handler, _signal_handlers_installed
+    if _signal_handlers_installed:
+        return
+    try:
+        _original_sigterm_handler = signal.getsignal(signal.SIGTERM)
+        _original_sigint_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGTERM, _module_signal_handler)
+        signal.signal(signal.SIGINT, _module_signal_handler)
+        _signal_handlers_installed = True
+        logger.debug("Module-level signal handlers installed for SIGTERM and SIGINT")
+    except (OSError, ValueError):
+        logger.debug("Could not install signal handlers (not on main thread)")
+
+
+def _uninstall_signal_handlers() -> None:
+    """Restore original signal handlers when no composers remain."""
+    global _original_sigterm_handler, _original_sigint_handler, _signal_handlers_installed
+    if not _signal_handlers_installed:
+        return
+    try:
+        if _original_sigterm_handler is not None:
+            signal.signal(signal.SIGTERM, _original_sigterm_handler)
+        if _original_sigint_handler is not None:
+            signal.signal(signal.SIGINT, _original_sigint_handler)
+        _signal_handlers_installed = False
+        _original_sigterm_handler = None
+        _original_sigint_handler = None
+        logger.debug("Module-level signal handlers restored to originals")
+    except (OSError, ValueError):
+        logger.debug("Could not restore original signal handlers")
+
+
+def _register_composer(composer: "MCPServerComposer") -> None:
+    """Add a composer to the module-level shutdown registry."""
+    _active_composers.add(composer)
+    _install_signal_handlers()
+    logger.debug(
+        "Composer %r registered for signal-based shutdown (%d active)",
+        composer.composed_server_name,
+        len(_active_composers),
+    )
+
+
+def _unregister_composer(composer: "MCPServerComposer") -> None:
+    """Remove a composer from the module-level shutdown registry."""
+    _active_composers.discard(composer)
+    logger.debug(
+        "Composer %r unregistered (%d active)",
+        composer.composed_server_name,
+        len(_active_composers),
+    )
+    if not _active_composers:
+        _uninstall_signal_handlers()
+
+
 class ConflictResolution(Enum):
     """Strategies for resolving naming conflicts during composition."""
     
@@ -79,6 +188,7 @@ class MCPServerComposer:
         self.source_mapping: Dict[str, str] = {}  # Maps component name to source server
         self.conflicts_resolved: List[Dict[str, Any]] = []
         self.processes: Dict[str, Any] = {}  # Track auto-started downstream server processes (SSE, Streamable HTTP via subprocess.Popen)
+        self._shutting_down: bool = False  # Guard against concurrent shutdown
         
         # Optional enhanced managers
         self.tool_manager: Optional[ToolManager] = None
@@ -99,6 +209,11 @@ class MCPServerComposer:
                         auto_restart = True
                         break
             self.process_manager = ProcessManager(auto_restart=auto_restart)
+
+        # Register this instance for module-level signal-based shutdown so
+        # that all downstream servers are cleaned up on SIGTERM / SIGINT,
+        # even if start() is never called explicitly.
+        _register_composer(self)
 
     def compose_from_pyproject(
         self,
@@ -609,39 +724,26 @@ class MCPServerComposer:
         """Start the composer and all managed processes."""
         if self.process_manager:
             await self.process_manager.start()
-        self._register_signal_handlers()
         logger.info(f"Composer {self.composed_server_name} started")
     
-    def _register_signal_handlers(self) -> None:
-        """Register signal handlers for graceful shutdown.
-        
-        Installs handlers for SIGTERM and SIGINT that trigger
-        shutdown_all_processes() to ensure no downstream servers
-        are left running when the composer exits.
-        """
-        loop = asyncio.get_event_loop()
-
-        def _signal_handler(sig, frame):
-            logger.info(f"Received signal {sig}, scheduling shutdown of all downstream processes")
-            loop.call_soon_threadsafe(
-                lambda: asyncio.ensure_future(self.stop())
-            )
-
-        try:
-            signal.signal(signal.SIGTERM, _signal_handler)
-            signal.signal(signal.SIGINT, _signal_handler)
-            logger.debug("Signal handlers registered for SIGTERM and SIGINT")
-        except (OSError, ValueError):
-            # May fail if not on main thread
-            logger.debug("Could not register signal handlers (not on main thread)")
-    
     async def stop(self) -> None:
-        """Stop the composer, all managed processes, and all auto-started downstream servers."""
+        """Stop the composer, all managed processes, and all auto-started downstream servers.
+        
+        Safe to call multiple times — subsequent calls are no-ops.
+        """
+        if self._shutting_down:
+            logger.debug(f"Composer {self.composed_server_name} shutdown already in progress, skipping")
+            return
         await self.shutdown_all_processes()
+        _unregister_composer(self)
         logger.info(f"Composer {self.composed_server_name} stopped")
 
     async def shutdown_all_processes(self, timeout: float = 5.0) -> None:
         """Shut down all downstream server processes.
+        
+        This method is guarded by ``_shutting_down`` to prevent concurrent
+        execution (e.g. an explicit ``stop()`` racing with a signal handler).
+        Subsequent calls while a shutdown is in progress are no-ops.
         
         This ensures no ghost MCP server processes are left running when the
         composer exits. It terminates every downstream regardless of transport:
@@ -656,13 +758,26 @@ class MCPServerComposer:
            ``subprocess.Popen`` when ``auto_start = true`` in the
            Streamable HTTP config.  Also tracked in ``self.processes``.
         
-        Each ``subprocess.Popen`` process is sent SIGTERM first.  If it does
-        not exit within *timeout* seconds, SIGKILL is sent.
+        Each ``subprocess.Popen`` process is shut down via
+        ``Popen.terminate()`` first.  If it does not exit within *timeout*
+        seconds, ``Popen.kill()`` is used to force termination.
+        
+        .. note:: **Platform behaviour**
+        
+           On Unix/macOS, ``terminate()`` sends **SIGTERM** (which the child
+           can catch for graceful cleanup) and ``kill()`` sends **SIGKILL**
+           (which cannot be caught).  On Windows, both ``terminate()`` and
+           ``kill()`` call **TerminateProcess**, which cannot be caught or
+           ignored — the process is always forcefully terminated.
         
         Args:
             timeout: Seconds to wait for graceful shutdown per process before
-                     sending SIGKILL.
+                     escalating to ``Popen.kill()``.
         """
+        if self._shutting_down:
+            logger.debug("Shutdown already in progress, skipping")
+            return
+        self._shutting_down = True
         logger.info("Shutting down all downstream MCP server processes")
         
         # 1. Stop STDIO proxied servers (managed by ProcessManager as asyncio subprocesses)
@@ -670,49 +785,63 @@ class MCPServerComposer:
             await self.process_manager.stop()
             logger.info("ProcessManager stopped – all STDIO proxied servers terminated")
         
-        # 2. Kill auto-started SSE and Streamable HTTP servers (subprocess.Popen)
+        # 2. Kill auto-started SSE and Streamable HTTP servers concurrently
         if self.processes:
             logger.info(f"Terminating {len(self.processes)} auto-started downstream server(s) "
                         f"(SSE / Streamable HTTP)")
-            for name, process in list(self.processes.items()):
-                await self._kill_process(name, process, timeout)
+            kill_tasks = [
+                self._kill_process(name, process, timeout)
+                for name, process in self.processes.items()
+            ]
+            await asyncio.gather(*kill_tasks, return_exceptions=True)
             self.processes.clear()
             logger.info("All auto-started downstream servers terminated")
 
     async def _kill_process(self, name: str, process: Any, timeout: float = 5.0) -> None:
         """Kill a single subprocess.Popen process gracefully.
         
-        Sends SIGTERM first, waits for the timeout, then sends SIGKILL
-        if the process is still running. Also closes any open pipes
-        (stdin, stdout, stderr) to avoid resource leaks.
+        Calls ``Popen.terminate()`` first, then waits up to *timeout*
+        seconds using ``asyncio.to_thread()`` so the event loop is **not**
+        blocked while the child process shuts down.  If the process does
+        not exit in time, ``Popen.kill()`` is called to force termination.
+        Also closes any open pipes (stdin, stdout, stderr) to avoid
+        resource leaks.
+        
+        On Unix, ``terminate()`` sends SIGTERM (catchable) and ``kill()``
+        sends SIGKILL (not catchable).  On Windows, both map to
+        ``TerminateProcess`` — the child is always forcefully terminated
+        and cannot perform graceful cleanup.
         
         Args:
             name: Human-readable name for the process.
             process: subprocess.Popen instance.
-            timeout: Seconds to wait before escalating to SIGKILL.
+            timeout: Seconds to wait before escalating to ``Popen.kill()``.
         """
         if not hasattr(process, 'poll'):
             logger.warning(f"Process {name} is not a subprocess.Popen instance, skipping")
             return
         
+        pid = getattr(process, 'pid', 'unknown')
+        
         if process.poll() is not None:
-            logger.debug(f"Process {name} (PID {process.pid}) already exited with code {process.returncode}")
+            rc = getattr(process, 'returncode', 'unknown')
+            logger.debug(f"Process {name} (PID {pid}) already exited with code {rc}")
             self._close_process_pipes(name, process)
             return
         
-        logger.info(f"Terminating process {name} (PID {process.pid})")
+        logger.info(f"Terminating process {name} (PID {pid})")
         try:
             process.terminate()
             try:
-                process.wait(timeout=timeout)
-                logger.info(f"Process {name} (PID {process.pid}) terminated gracefully")
+                await asyncio.to_thread(process.wait, timeout)
+                logger.info(f"Process {name} (PID {pid}) terminated gracefully")
             except subprocess.TimeoutExpired:
-                logger.warning(f"Process {name} (PID {process.pid}) did not terminate gracefully, sending SIGKILL")
+                logger.warning(f"Process {name} (PID {pid}) did not terminate gracefully, sending SIGKILL")
                 process.kill()
-                process.wait(timeout=2.0)
-                logger.info(f"Process {name} (PID {process.pid}) killed")
+                await asyncio.to_thread(process.wait, 2.0)
+                logger.info(f"Process {name} (PID {pid}) killed")
         except OSError as e:
-            logger.error(f"Error killing process {name} (PID {process.pid}): {e}")
+            logger.error(f"Error killing process {name} (PID {pid}): {e}")
         except Exception as e:
             logger.error(f"Unexpected error killing process {name}: {e}")
         finally:
