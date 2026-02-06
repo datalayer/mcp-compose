@@ -7,11 +7,11 @@ Health check endpoints.
 Provides endpoints for monitoring API and server health.
 """
 
-from datetime import datetime, timedelta
-from typing import Dict
+from datetime import datetime
 
 from fastapi import APIRouter, Depends
 
+from ...composer import MCPServerComposer
 from ..dependencies import get_composer
 from ..models import (
     DetailedHealthResponse,
@@ -19,7 +19,6 @@ from ..models import (
     HealthStatus,
     ServerStatus,
 )
-from ...composer import MCPServerComposer
 
 router = APIRouter(tags=["health"])
 
@@ -28,15 +27,15 @@ router = APIRouter(tags=["health"])
 async def get_health() -> HealthResponse:
     """
     Simple health check.
-    
+
     Returns basic health status and version information.
     This endpoint is lightweight and suitable for load balancer health checks.
-    
+
     Returns:
         HealthResponse with status and version.
     """
     from ...__version__ import __version__
-    
+
     return HealthResponse(
         status=HealthStatus.HEALTHY,
         version=__version__,
@@ -50,18 +49,18 @@ async def get_detailed_health(
 ) -> DetailedHealthResponse:
     """
     Detailed health check.
-    
+
     Returns comprehensive health information including:
     - Overall health status
     - Server counts and statuses
     - System uptime
     - Configuration status
-    
+
     Returns:
         DetailedHealthResponse with comprehensive health data.
     """
     from ...__version__ import __version__
-    
+
     # Get all servers from config
     all_servers = []
     if composer.config.servers:
@@ -74,9 +73,9 @@ async def get_detailed_health(
                 all_servers.extend(composer.config.servers.proxied.sse)
             if composer.config.servers.proxied.http:
                 all_servers.extend(composer.config.servers.proxied.http)
-    
+
     # Count servers by status
-    status_counts: Dict[ServerStatus, int] = {
+    status_counts: dict[ServerStatus, int] = {
         ServerStatus.RUNNING: 0,
         ServerStatus.STOPPED: 0,
         ServerStatus.STARTING: 0,
@@ -84,44 +83,44 @@ async def get_detailed_health(
         ServerStatus.CRASHED: 0,
         ServerStatus.UNKNOWN: 0,
     }
-    
+
     # Get process info
     process_info = composer.get_proxied_servers_info() if composer.process_manager else {}
-    
+
     server_statuses = {}
     for server_config in all_servers:
         server_id = server_config.name
         # Determine status from process info
         if server_id in process_info:
-            state = process_info[server_id].get('state', 'stopped')
-            if state == 'running':
+            state = process_info[server_id].get("state", "stopped")
+            if state == "running":
                 server_status = ServerStatus.RUNNING
-            elif state == 'crashed':
+            elif state == "crashed":
                 server_status = ServerStatus.CRASHED
-            elif state == 'starting':
+            elif state == "starting":
                 server_status = ServerStatus.STARTING
-            elif state == 'stopping':
+            elif state == "stopping":
                 server_status = ServerStatus.STOPPING
             else:
                 server_status = ServerStatus.STOPPED
         else:
             server_status = ServerStatus.STOPPED
-        
+
         status_counts[server_status] += 1
         server_statuses[server_id] = server_status
-    
+
     # Determine overall health
-    total_servers = len(servers)
+    total_servers = len(all_servers)
     if status_counts[ServerStatus.CRASHED] > 0:
         overall_status = HealthStatus.UNHEALTHY
     elif status_counts[ServerStatus.RUNNING] < total_servers:
         overall_status = HealthStatus.DEGRADED
     else:
         overall_status = HealthStatus.HEALTHY
-    
+
     # Calculate uptime (simplified - would track actual start time)
     uptime_seconds = 3600.0  # Placeholder
-    
+
     return DetailedHealthResponse(
         status=overall_status,
         version=__version__,

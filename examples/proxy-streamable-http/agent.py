@@ -36,6 +36,7 @@ Servers:
 
 import sys
 import io
+import os
 import asyncio
 
 # Pydantic AI imports
@@ -122,6 +123,8 @@ def main():
     model = "anthropic:claude-sonnet-4-0"  # Default model
     if len(sys.argv) > 1:
         model = sys.argv[1]
+
+    server_url = os.environ.get("MCP_COMPOSE_URL", "http://localhost:8888")
     
     try:
         print("\n" + "=" * 70)
@@ -130,10 +133,10 @@ def main():
         print(f"\nUsing model: {model}")
         print("\n⚠️  IMPORTANT: Make sure the MCP Compose is running!")
         print("   Run in another terminal: make start")
-        print("\nConnecting to server at http://localhost:9456/mcp...")
+        print(f"\nConnecting to server at {server_url}/mcp...")
         
         # Create agent with MCP server connection
-        agent = create_agent(model=model)
+        agent = create_agent(model=model, server_url=server_url)
         
         # Launch interactive CLI
         print("\n" + "=" * 70)
@@ -175,13 +178,13 @@ def main():
         print("\nThe agent cannot connect to the MCP Compose.")
         print("\nTroubleshooting:")
         print("  1. Make sure mcp-compose is running: make start")
-        print("  2. Check that the endpoint is http://localhost:9456/mcp")
-        print("  3. Verify no firewall blocking port 9456")
+        print(f"  2. Check that the endpoint is {server_url}/mcp")
+        print("  3. Verify no firewall blocking the MCP Compose port")
         print("=" * 70)
         raise
     except ConnectionError as e:
         print(f"\n❌ Connection Error: {e}")
-        print("   Make sure the MCP Compose is running on port 9456")
+        print(f"   Make sure the MCP Compose is running at {server_url}")
         print("   (Run: make start in another terminal)")
     except Exception as e:
         print(f"\n❌ Error: {e}")

@@ -31,6 +31,7 @@ port = 9456  # UI port
 [[servers.proxied.stdio]]
 name = "calculator"
 command = ["python", "mcp1.py"]
+auto_start = true
 restart_policy = "never"
 # Calculator tools: add, subtract, multiply, divide
 
@@ -40,6 +41,7 @@ restart_policy = "never"
 [[servers.proxied.stdio]]
 name = "calculator_fastmcp"
 command = ["python", "mcp1_fastmcp.py"]
+auto_start = true
 restart_policy = "never"
 # Calculator tools: add, subtract, multiply, divide
 
@@ -49,6 +51,7 @@ restart_policy = "never"
 [[servers.proxied.stdio]]
 name = "echo"
 command = ["python", "mcp2.py"]
+auto_start = true
 restart_policy = "never"
 # Echo tools: ping, echo, reverse, uppercase, lowercase, count_words
 
@@ -69,6 +72,7 @@ mode = "proxy"
 # Auto-start configuration
 auto_start = true
 command = ["python", "mcp2_sse.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 startup_delay = 3
 # Echo tools: ping, echo, reverse, uppercase, lowercase, count_words
 
@@ -89,6 +93,7 @@ mode = "proxy"
 # Auto-start configuration
 auto_start = true
 command = ["python", "mcp2_streamable_http.py"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
 startup_delay = 3
 # Echo tools: ping, echo, reverse, uppercase, lowercase, count_words
 
@@ -109,17 +114,3 @@ startup_delay = 3
 # max_reconnect_attempts = 10
 # health_check_enabled = false
 # mode = "proxy"
-
-[[servers.proxied.streamable-http]]
-name = "environments"
-url = "http://localhost:4041/mcp"
-timeout = 30
-keep_alive = true
-reconnect_on_failure = true
-max_reconnect_attempts = 10
-health_check_enabled = false
-mode = "proxy"
-# Auto-start configuration
-auto_start = true
-command = ["environments-mcp-server", "start", "--transport", "streamable-http"]
-startup_delay = 3
