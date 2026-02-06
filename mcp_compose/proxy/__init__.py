@@ -16,7 +16,7 @@ from .translator import (
 
 __all__ = [
     "ProtocolTranslator",
-    "StdioToSseTranslator", 
+    "StdioToSseTranslator",
     "SseToStdioTranslator",
     "TranslatorManager",
 ]

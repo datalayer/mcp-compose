@@ -12,17 +12,13 @@ from pathlib import Path
 import pytest
 
 from mcp_compose.config import (
-    ApiConfig,
     AuthenticationConfig,
-    AuthorizationConfig,
     AuthProvider,
     ComposerConfig,
     ConflictResolutionStrategy,
     EmbeddedServerConfig,
-    EmbeddedServersConfig,
     HealthCheckMethod,
     MCPComposerConfig,
-    MonitoringConfig,
     ProxyMode,
     RestartPolicy,
     ServersConfig,
@@ -30,7 +26,6 @@ from mcp_compose.config import (
     StdioProxiedServerConfig,
     ToolManagerConfig,
     TransportConfig,
-    UiConfig,
 )
 from mcp_compose.config_loader import (
     find_config_file,
@@ -63,10 +58,7 @@ class TestConfigModels:
     def test_embedded_server_config(self):
         """Test EmbeddedServerConfig validation."""
         config = EmbeddedServerConfig(
-            name="test-server",
-            package="test_package",
-            enabled=True,
-            version=">=1.0.0"
+            name="test-server", package="test_package", enabled=True, version=">=1.0.0"
         )
         assert config.name == "test-server"
         assert config.package == "test_package"
@@ -82,7 +74,7 @@ class TestConfigModels:
             restart_policy=RestartPolicy.ON_FAILURE,
             health_check_enabled=True,
             health_check_method=HealthCheckMethod.TOOL,
-            health_check_tool="health"
+            health_check_tool="health",
         )
         assert config.name == "weather-server"
         assert config.command == ["uvx", "mcp-server-weather"]
@@ -97,7 +89,7 @@ class TestConfigModels:
             name="remote-server",
             url="https://example.com/mcp/sse",
             auth_token="secret123",
-            mode=ProxyMode.PROXY
+            mode=ProxyMode.PROXY,
         )
         assert config.name == "remote-server"
         assert config.url == "https://example.com/mcp/sse"
@@ -110,7 +102,7 @@ class TestConfigModels:
             authentication=AuthenticationConfig(
                 enabled=True,
                 providers=[AuthProvider.API_KEY],
-                api_key={"header_name": "X-API-Key", "keys": ["key1", "key2"]}
+                api_key={"header_name": "X-API-Key", "keys": ["key1", "key2"]},
             )
         )
         assert config.authentication.enabled is True
@@ -121,9 +113,7 @@ class TestConfigModels:
         with pytest.raises(ValueError, match="API Key authentication enabled"):
             MCPComposerConfig(
                 authentication=AuthenticationConfig(
-                    enabled=True,
-                    providers=[AuthProvider.API_KEY],
-                    api_key=None
+                    enabled=True, providers=[AuthProvider.API_KEY], api_key=None
                 )
             )
 
@@ -139,7 +129,7 @@ class TestConfigModels:
                                 command=["test"],
                                 health_check_enabled=True,
                                 health_check_method=HealthCheckMethod.TOOL,
-                                health_check_tool=None
+                                health_check_tool=None,
                             )
                         ]
                     }
@@ -149,8 +139,7 @@ class TestConfigModels:
     def test_tool_manager_config(self):
         """Test ToolManagerConfig."""
         config = ToolManagerConfig(
-            conflict_resolution=ConflictResolutionStrategy.CUSTOM,
-            aliases={"old_name": "new_name"}
+            conflict_resolution=ConflictResolutionStrategy.CUSTOM, aliases={"old_name": "new_name"}
         )
         assert config.conflict_resolution == ConflictResolutionStrategy.CUSTOM
         assert config.aliases == {"old_name": "new_name"}
@@ -177,7 +166,7 @@ name = "test-embedded"
 package = "test_package"
 enabled = true
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(config_content)
             f.flush()
             config_path = f.name
@@ -205,7 +194,7 @@ enabled = true
 [composer
 name = "test-server"  # Missing closing bracket
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(config_content)
             f.flush()
             config_path = f.name
@@ -223,7 +212,7 @@ name = "test-server"  # Missing closing bracket
 name = "test-server"
 port = "not_a_number"  # Should be integer
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(config_content)
             f.flush()
             config_path = f.name
@@ -237,14 +226,8 @@ port = "not_a_number"  # Should be integer
     def test_load_config_from_dict(self):
         """Test loading config from dictionary."""
         config_dict = {
-            "composer": {
-                "name": "test-server",
-                "port": 8080
-            },
-            "transport": {
-                "stdio_enabled": True,
-                "sse_enabled": True
-            }
+            "composer": {"name": "test-server", "port": 8080},
+            "transport": {"stdio_enabled": True, "sse_enabled": True},
         }
         config = load_config_from_dict(config_dict)
         assert config.composer.name == "test-server"
@@ -254,9 +237,9 @@ port = "not_a_number"  # Should be integer
     def test_env_var_substitution(self):
         """Test environment variable substitution."""
         # Set test environment variables
-        os.environ['TEST_SERVER_NAME'] = 'env-test-server'
-        os.environ['TEST_API_KEY'] = 'secret123'
-        
+        os.environ["TEST_SERVER_NAME"] = "env-test-server"
+        os.environ["TEST_API_KEY"] = "secret123"
+
         config_content = """
 [composer]
 name = "${TEST_SERVER_NAME}"
@@ -270,7 +253,7 @@ providers = ["api_key"]
 header_name = "X-API-Key"
 keys = ["${TEST_API_KEY}"]
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(config_content)
             f.flush()
             config_path = f.name
@@ -283,8 +266,8 @@ keys = ["${TEST_API_KEY}"]
             assert config.authentication.api_key.keys[0] == "secret123"
         finally:
             os.unlink(config_path)
-            del os.environ['TEST_SERVER_NAME']
-            del os.environ['TEST_API_KEY']
+            del os.environ["TEST_SERVER_NAME"]
+            del os.environ["TEST_API_KEY"]
 
     def test_env_var_not_found(self):
         """Test environment variable substitution when var not found."""
@@ -293,7 +276,7 @@ keys = ["${TEST_API_KEY}"]
 name = "${NONEXISTENT_VAR}"
 port = 8080
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(config_content)
             f.flush()
             config_path = f.name
@@ -310,7 +293,7 @@ port = 8080
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "mcp_compose.toml"
             config_path.write_text("[composer]\nname = 'test'")
-            
+
             found_path = find_config_file(start_dir=tmpdir)
             assert found_path == config_path
 
@@ -319,11 +302,11 @@ port = 8080
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "mcp_compose.toml"
             config_path.write_text("[composer]\nname = 'test'")
-            
+
             # Create subdirectory
             subdir = Path(tmpdir) / "subdir"
             subdir.mkdir()
-            
+
             found_path = find_config_file(start_dir=subdir)
             assert found_path == config_path
 
@@ -340,7 +323,7 @@ port = 8080
 name = "test-server"
 port = 8080
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(config_content)
             f.flush()
             config_path = f.name
@@ -358,7 +341,7 @@ port = 8080
 [composer]
 port = "not_a_number"
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(config_content)
             f.flush()
             config_path = f.name
@@ -382,49 +365,38 @@ class TestComplexConfigurations:
                 "name": "full-server",
                 "conflict_resolution": "custom",
                 "log_level": "DEBUG",
-                "port": 9000
+                "port": 9000,
             },
             "transport": {
                 "stdio_enabled": True,
                 "sse_enabled": True,
                 "sse_path": "/stream",
-                "sse_cors_enabled": True
+                "sse_cors_enabled": True,
             },
             "authentication": {
                 "enabled": True,
                 "providers": ["api_key", "jwt"],
                 "default_provider": "api_key",
-                "api_key": {
-                    "header_name": "X-API-Key",
-                    "keys": ["key1", "key2"]
-                },
-                "jwt": {
-                    "secret": "jwt_secret",
-                    "algorithm": "HS256",
-                    "issuer": "test-issuer"
-                }
+                "api_key": {"header_name": "X-API-Key", "keys": ["key1", "key2"]},
+                "jwt": {"secret": "jwt_secret", "algorithm": "HS256", "issuer": "test-issuer"},
             },
             "authorization": {
                 "enabled": True,
                 "model": "rbac",
                 "roles": [
                     {"name": "admin", "permissions": ["*"]},
-                    {"name": "user", "permissions": ["tools:execute"]}
+                    {"name": "user", "permissions": ["tools:execute"]},
                 ],
                 "rate_limiting": {
                     "enabled": True,
                     "default_limit": 100,
-                    "per_role_limits": {"admin": 1000, "user": 50}
-                }
+                    "per_role_limits": {"admin": 1000, "user": 50},
+                },
             },
             "servers": {
                 "embedded": {
                     "servers": [
-                        {
-                            "name": "jupyter-server",
-                            "package": "jupyter_mcp",
-                            "enabled": True
-                        }
+                        {"name": "jupyter-server", "package": "jupyter_mcp", "enabled": True}
                     ]
                 },
                 "proxied": {
@@ -434,55 +406,36 @@ class TestComplexConfigurations:
                             "command": ["python", "weather.py"],
                             "restart_policy": "always",
                             "health_check_enabled": True,
-                            "health_check_method": "ping"
+                            "health_check_method": "ping",
                         }
                     ],
                     "sse": [
-                        {
-                            "name": "remote-server",
-                            "url": "https://example.com/sse",
-                            "mode": "proxy"
-                        }
-                    ]
-                }
+                        {"name": "remote-server", "url": "https://example.com/sse", "mode": "proxy"}
+                    ],
+                },
             },
             "tool_manager": {
                 "conflict_resolution": "prefix",
                 "aliases": {"old_tool": "new_tool"},
-                "versioning": {
-                    "enabled": True,
-                    "allow_multiple_versions": True
-                }
+                "versioning": {"enabled": True, "allow_multiple_versions": True},
             },
             "api": {
                 "enabled": True,
                 "path_prefix": "/api/v2",
                 "cors_enabled": True,
-                "cors_origins": ["http://localhost:3000"]
+                "cors_origins": ["http://localhost:3000"],
             },
-            "ui": {
-                "enabled": True,
-                "framework": "react",
-                "mode": "embedded"
-            },
+            "ui": {"enabled": True, "framework": "react", "mode": "embedded"},
             "monitoring": {
                 "enabled": True,
-                "metrics": {
-                    "enabled": True,
-                    "provider": "prometheus"
-                },
-                "logging": {
-                    "level": "INFO",
-                    "format": "json"
-                },
-                "tracing": {
-                    "enabled": False
-                }
-            }
+                "metrics": {"enabled": True, "provider": "prometheus"},
+                "logging": {"level": "INFO", "format": "json"},
+                "tracing": {"enabled": False},
+            },
         }
-        
+
         config = load_config_from_dict(config_dict)
-        
+
         # Verify all sections loaded correctly
         assert config.composer.name == "full-server"
         assert config.transport.sse_path == "/stream"
@@ -500,14 +453,10 @@ class TestComplexConfigurations:
 
     def test_minimal_config(self):
         """Test loading a minimal config with defaults."""
-        config_dict = {
-            "composer": {
-                "name": "minimal-server"
-            }
-        }
-        
+        config_dict = {"composer": {"name": "minimal-server"}}
+
         config = load_config_from_dict(config_dict)
-        
+
         # Verify defaults are applied
         assert config.composer.name == "minimal-server"
         assert config.composer.port == 8080  # Default

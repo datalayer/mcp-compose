@@ -10,8 +10,7 @@ including conflict resolution, versioning, and aliasing.
 
 import fnmatch
 import logging
-import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from .config import ConflictResolutionStrategy, ToolManagerConfig
 from .exceptions import MCPToolConflictError
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 class ToolManager:
     """Manages tools from multiple MCP servers with conflict resolution."""
 
-    def __init__(self, config: Optional[ToolManagerConfig] = None) -> None:
+    def __init__(self, config: ToolManagerConfig | None = None) -> None:
         """
         Initialize Tool Manager.
 
@@ -30,18 +29,17 @@ class ToolManager:
             config: Tool manager configuration.
         """
         self.config = config or ToolManagerConfig()
-        self.tools: Dict[str, Any] = {}
-        self.tool_sources: Dict[str, str] = {}  # Maps tool name to source server
-        self.tool_versions: Dict[str, List[Tuple[str, str]]] = {}  # tool_name -> [(version, full_name)]
-        self.aliases: Dict[str, str] = dict(self.config.aliases)
-        self.conflicts_resolved: List[Dict[str, Any]] = []
+        self.tools: dict[str, Any] = {}
+        self.tool_sources: dict[str, str] = {}  # Maps tool name to source server
+        self.tool_versions: dict[
+            str, list[tuple[str, str]]
+        ] = {}  # tool_name -> [(version, full_name)]
+        self.aliases: dict[str, str] = dict(self.config.aliases)
+        self.conflicts_resolved: list[dict[str, Any]] = []
 
     def register_tools(
-        self,
-        server_name: str,
-        tools: Dict[str, Any],
-        server_version: Optional[str] = None
-    ) -> Dict[str, str]:
+        self, server_name: str, tools: dict[str, Any], server_version: str | None = None
+    ) -> dict[str, str]:
         """
         Register tools from a server with conflict resolution.
 
@@ -56,74 +54,68 @@ class ToolManager:
         Raises:
             MCPToolConflictError: If conflict resolution strategy is ERROR and conflicts exist.
         """
-        name_mapping: Dict[str, str] = {}
-        
+        name_mapping: dict[str, str] = {}
+
         for original_name, tool_def in tools.items():
             # Check for conflicts
             if original_name in self.tools:
                 # Conflict detected
                 conflicting_server = self.tool_sources[original_name]
                 resolved_name = self._resolve_conflict(
-                    original_name,
-                    server_name,
-                    conflicting_server
+                    original_name, server_name, conflicting_server
                 )
-                
+
                 # Check if we should skip registration (IGNORE strategy)
                 strategy = self._get_resolution_strategy(original_name)
                 if strategy == ConflictResolutionStrategy.IGNORE:
                     # Skip registration for IGNORE strategy
                     name_mapping[original_name] = original_name
                     # Record conflict resolution
-                    self.conflicts_resolved.append({
+                    self.conflicts_resolved.append(
+                        {
+                            "tool": original_name,
+                            "servers": [conflicting_server, server_name],
+                            "resolution": original_name,
+                            "strategy": strategy.value,
+                        }
+                    )
+                    continue
+
+                # Record conflict resolution
+                self.conflicts_resolved.append(
+                    {
                         "tool": original_name,
                         "servers": [conflicting_server, server_name],
-                        "resolution": original_name,
-                        "strategy": strategy.value
-                    })
-                    continue
-                
-                # Record conflict resolution
-                self.conflicts_resolved.append({
-                    "tool": original_name,
-                    "servers": [conflicting_server, server_name],
-                    "resolution": resolved_name,
-                    "strategy": strategy.value
-                })
-                
+                        "resolution": resolved_name,
+                        "strategy": strategy.value,
+                    }
+                )
+
                 name_mapping[original_name] = resolved_name
             else:
                 resolved_name = original_name
                 name_mapping[original_name] = resolved_name
-            
+
             # Handle versioning if enabled
             if self.config.versioning.enabled and server_version:
-                versioned_name = self._apply_versioning(
-                    resolved_name,
-                    server_version
-                )
+                versioned_name = self._apply_versioning(resolved_name, server_version)
                 self.tools[versioned_name] = tool_def
                 self.tool_sources[versioned_name] = server_name
-                
+
                 # Track versions
                 if resolved_name not in self.tool_versions:
                     self.tool_versions[resolved_name] = []
                 self.tool_versions[resolved_name].append((server_version, versioned_name))
-                
+
                 name_mapping[original_name] = versioned_name
             else:
                 self.tools[resolved_name] = tool_def
                 self.tool_sources[resolved_name] = server_name
-        
+
         logger.info(f"Registered {len(tools)} tools from {server_name}")
         return name_mapping
 
-    def _resolve_conflict(
-        self,
-        tool_name: str,
-        new_server: str,
-        existing_server: str
-    ) -> str:
+    def _resolve_conflict(self, tool_name: str, new_server: str, existing_server: str) -> str:
         """
         Resolve naming conflict between tools.
 
@@ -139,49 +131,43 @@ class ToolManager:
             MCPToolConflictError: If strategy is ERROR.
         """
         strategy = self._get_resolution_strategy(tool_name)
-        
+
         if strategy == ConflictResolutionStrategy.ERROR:
             raise MCPToolConflictError(
                 tool_name=tool_name,
                 conflicting_servers=[existing_server, new_server],
-                resolution_strategy="error"
+                resolution_strategy="error",
             )
-        
+
         elif strategy == ConflictResolutionStrategy.IGNORE:
             logger.warning(
                 f"Ignoring duplicate tool '{tool_name}' from {new_server} "
                 f"(already exists from {existing_server})"
             )
             return tool_name  # Keep existing
-        
+
         elif strategy == ConflictResolutionStrategy.OVERRIDE:
             logger.info(
                 f"Overriding tool '{tool_name}' from {existing_server} "
                 f"with version from {new_server}"
             )
             return tool_name  # Use new one
-        
+
         elif strategy == ConflictResolutionStrategy.PREFIX:
             resolved = f"{new_server}_{tool_name}"
-            logger.info(
-                f"Resolving conflict for '{tool_name}' with prefix: {resolved}"
-            )
+            logger.info(f"Resolving conflict for '{tool_name}' with prefix: {resolved}")
             return resolved
-        
+
         elif strategy == ConflictResolutionStrategy.SUFFIX:
             resolved = f"{tool_name}_{new_server}"
-            logger.info(
-                f"Resolving conflict for '{tool_name}' with suffix: {resolved}"
-            )
+            logger.info(f"Resolving conflict for '{tool_name}' with suffix: {resolved}")
             return resolved
-        
+
         elif strategy == ConflictResolutionStrategy.CUSTOM:
             resolved = self._apply_custom_template(tool_name, new_server)
-            logger.info(
-                f"Resolving conflict for '{tool_name}' with custom template: {resolved}"
-            )
+            logger.info(f"Resolving conflict for '{tool_name}' with custom template: {resolved}")
             return resolved
-        
+
         else:
             # Fallback to prefix
             return f"{new_server}_{tool_name}"
@@ -200,7 +186,7 @@ class ToolManager:
         for override in self.config.tool_overrides:
             if fnmatch.fnmatch(tool_name, override.tool_pattern):
                 return override.resolution
-        
+
         # Use global strategy
         return self.config.conflict_resolution
 
@@ -216,11 +202,11 @@ class ToolManager:
             Tool name formatted with template.
         """
         template = self.config.custom_template.template
-        
+
         # Replace template variables
         result = template.replace("{tool_name}", tool_name)
         result = result.replace("{server_name}", server_name)
-        
+
         return result
 
     def _apply_versioning(self, tool_name: str, version: str) -> str:
@@ -234,9 +220,7 @@ class ToolManager:
         Returns:
             Versioned tool name.
         """
-        version_suffix = self.config.versioning.version_suffix_format.format(
-            version=version
-        )
+        version_suffix = self.config.versioning.version_suffix_format.format(version=version)
         return f"{tool_name}{version_suffix}"
 
     def add_alias(self, alias: str, target: str) -> None:
@@ -250,7 +234,7 @@ class ToolManager:
         if target not in self.tools:
             logger.warning(f"Cannot create alias '{alias}': target '{target}' does not exist")
             return
-        
+
         self.aliases[alias] = target
         logger.info(f"Added alias: {alias} -> {target}")
 
@@ -266,7 +250,7 @@ class ToolManager:
         """
         return self.aliases.get(name, name)
 
-    def get_tool(self, name: str) -> Optional[Any]:
+    def get_tool(self, name: str) -> Any | None:
         """
         Get a tool by name or alias.
 
@@ -279,7 +263,7 @@ class ToolManager:
         resolved_name = self.resolve_alias(name)
         return self.tools.get(resolved_name)
 
-    def get_tools(self) -> Dict[str, Any]:
+    def get_tools(self) -> dict[str, Any]:
         """
         Get all registered tools.
 
@@ -288,7 +272,7 @@ class ToolManager:
         """
         return dict(self.tools)
 
-    def get_tool_source(self, name: str) -> Optional[str]:
+    def get_tool_source(self, name: str) -> str | None:
         """
         Get the source server for a tool.
 
@@ -301,7 +285,7 @@ class ToolManager:
         resolved_name = self.resolve_alias(name)
         return self.tool_sources.get(resolved_name)
 
-    def get_tool_versions(self, base_name: str) -> List[Tuple[str, str]]:
+    def get_tool_versions(self, base_name: str) -> list[tuple[str, str]]:
         """
         Get all versions of a tool.
 
@@ -313,7 +297,7 @@ class ToolManager:
         """
         return self.tool_versions.get(base_name, [])
 
-    def list_tools(self, server_name: Optional[str] = None) -> List[str]:
+    def list_tools(self, server_name: str | None = None) -> list[str]:
         """
         List all tool names, optionally filtered by server.
 
@@ -324,13 +308,10 @@ class ToolManager:
             List of tool names.
         """
         if server_name:
-            return [
-                name for name, source in self.tool_sources.items()
-                if source == server_name
-            ]
+            return [name for name, source in self.tool_sources.items() if source == server_name]
         return list(self.tools.keys())
 
-    def list_aliases(self) -> Dict[str, str]:
+    def list_aliases(self) -> dict[str, str]:
         """
         List all tool aliases.
 
@@ -339,7 +320,7 @@ class ToolManager:
         """
         return dict(self.aliases)
 
-    def get_conflicts(self) -> List[Dict[str, Any]]:
+    def get_conflicts(self) -> list[dict[str, Any]]:
         """
         Get list of resolved conflicts.
 
@@ -348,7 +329,7 @@ class ToolManager:
         """
         return list(self.conflicts_resolved)
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """
         Get a summary of the tool manager state.
 
@@ -361,7 +342,7 @@ class ToolManager:
             "conflicts_resolved": len(self.conflicts_resolved),
             "servers": len(set(self.tool_sources.values())),
             "versioning_enabled": self.config.versioning.enabled,
-            "versioned_tools": len(self.tool_versions) if self.config.versioning.enabled else 0
+            "versioned_tools": len(self.tool_versions) if self.config.versioning.enabled else 0,
         }
 
     def clear(self) -> None:

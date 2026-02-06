@@ -9,16 +9,15 @@ performance, and usage patterns.
 """
 
 from datetime import datetime
-from typing import Dict, Optional
 
 from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
     Counter,
     Gauge,
     Histogram,
     Info,
-    CollectorRegistry,
     generate_latest,
-    CONTENT_TYPE_LATEST,
 )
 
 # Create registry
@@ -293,34 +292,37 @@ config_validation_errors_total = Counter(
 # Utility Functions
 # ============================================================================
 
+
 class MetricsCollector:
     """Collector for MCP Compose metrics."""
-    
+
     def __init__(self):
         """Initialize metrics collector."""
         self.start_time = datetime.utcnow()
         self._initialized = False
-    
+
     def initialize(self, version: str, platform: str):
         """
         Initialize system metrics.
-        
+
         Args:
             version: MCP Compose version.
             platform: Platform information.
         """
         if not self._initialized:
-            composer_info.info({
-                "version": version,
-                "platform": platform,
-            })
+            composer_info.info(
+                {
+                    "version": version,
+                    "platform": platform,
+                }
+            )
             self._initialized = True
-    
+
     def update_uptime(self):
         """Update system uptime metric."""
         uptime = (datetime.utcnow() - self.start_time).total_seconds()
         composer_uptime_seconds.set(uptime)
-    
+
     def update_server_counts(
         self,
         total: int,
@@ -330,7 +332,7 @@ class MetricsCollector:
     ):
         """
         Update server count metrics.
-        
+
         Args:
             total: Total number of servers.
             running: Number of running servers.
@@ -341,7 +343,7 @@ class MetricsCollector:
         servers_running.set(running)
         servers_stopped.set(stopped)
         servers_failed.set(failed)
-    
+
     def update_capability_counts(
         self,
         tools: int,
@@ -350,7 +352,7 @@ class MetricsCollector:
     ):
         """
         Update capability count metrics.
-        
+
         Args:
             tools: Total number of tools.
             prompts: Total number of prompts.
@@ -359,88 +361,88 @@ class MetricsCollector:
         tools_total.set(tools)
         prompts_total.set(prompts)
         resources_total.set(resources)
-    
-    def update_per_server_tools(self, server_tools: Dict[str, int]):
+
+    def update_per_server_tools(self, server_tools: dict[str, int]):
         """
         Update per-server tool counts.
-        
+
         Args:
             server_tools: Dictionary mapping server ID to tool count.
         """
         for server_id, count in server_tools.items():
             tools_by_server.labels(server_id=server_id).set(count)
-    
-    def update_per_server_prompts(self, server_prompts: Dict[str, int]):
+
+    def update_per_server_prompts(self, server_prompts: dict[str, int]):
         """
         Update per-server prompt counts.
-        
+
         Args:
             server_prompts: Dictionary mapping server ID to prompt count.
         """
         for server_id, count in server_prompts.items():
             prompts_by_server.labels(server_id=server_id).set(count)
-    
-    def update_per_server_resources(self, server_resources: Dict[str, int]):
+
+    def update_per_server_resources(self, server_resources: dict[str, int]):
         """
         Update per-server resource counts.
-        
+
         Args:
             server_resources: Dictionary mapping server ID to resource count.
         """
         for server_id, count in server_resources.items():
             resources_by_server.labels(server_id=server_id).set(count)
-    
+
     def record_server_start(self, server_id: str, success: bool):
         """
         Record server start event.
-        
+
         Args:
             server_id: Server identifier.
             success: Whether start was successful.
         """
         status = "success" if success else "failed"
         server_starts_total.labels(server_id=server_id, status=status).inc()
-    
+
     def record_server_stop(self, server_id: str, success: bool):
         """
         Record server stop event.
-        
+
         Args:
             server_id: Server identifier.
             success: Whether stop was successful.
         """
         status = "success" if success else "failed"
         server_stops_total.labels(server_id=server_id, status=status).inc()
-    
+
     def record_server_restart(self, server_id: str, reason: str = "manual"):
         """
         Record server restart event.
-        
+
         Args:
             server_id: Server identifier.
             reason: Reason for restart (manual, crash, config_change).
         """
         server_restarts_total.labels(server_id=server_id, reason=reason).inc()
-    
+
     def record_server_crash(self, server_id: str):
         """
         Record server crash event.
-        
+
         Args:
             server_id: Server identifier.
         """
         server_crashes_total.labels(server_id=server_id).inc()
-    
+
     def record_tool_invocation(
         self,
         tool_id: str,
         duration_seconds: float,
         success: bool,
-        error_type: Optional[str] = None,
+        error_type: str | None = None,
     ):
         """
         Record tool invocation.
-        
+
         Args:
             tool_id: Tool identifier.
             duration_seconds: Invocation duration in seconds.
@@ -450,13 +452,13 @@ class MetricsCollector:
         status = "success" if success else "error"
         tool_invocations_total.labels(tool_id=tool_id, status=status).inc()
         tool_invocation_duration_seconds.labels(tool_id=tool_id).observe(duration_seconds)
-        
+
         if not success and error_type:
             tool_invocation_errors_total.labels(
                 tool_id=tool_id,
                 error_type=error_type,
             ).inc()
-    
+
     def record_resource_read(
         self,
         resource_uri: str,
@@ -465,7 +467,7 @@ class MetricsCollector:
     ):
         """
         Record resource read operation.
-        
+
         Args:
             resource_uri: Resource URI.
             duration_seconds: Read duration in seconds.
@@ -474,7 +476,7 @@ class MetricsCollector:
         status = "success" if success else "error"
         resource_reads_total.labels(resource_uri=resource_uri, status=status).inc()
         resource_read_duration_seconds.labels(resource_uri=resource_uri).observe(duration_seconds)
-    
+
     def record_http_request(
         self,
         method: str,
@@ -486,7 +488,7 @@ class MetricsCollector:
     ):
         """
         Record HTTP request.
-        
+
         Args:
             method: HTTP method.
             endpoint: Endpoint path.
@@ -500,28 +502,28 @@ class MetricsCollector:
             endpoint=endpoint,
             status_code=status_code,
         ).inc()
-        
+
         http_request_duration_seconds.labels(
             method=method,
             endpoint=endpoint,
         ).observe(duration_seconds)
-        
+
         if request_size_bytes > 0:
             http_request_size_bytes.labels(
                 method=method,
                 endpoint=endpoint,
             ).observe(request_size_bytes)
-        
+
         if response_size_bytes > 0:
             http_response_size_bytes.labels(
                 method=method,
                 endpoint=endpoint,
             ).observe(response_size_bytes)
-    
-    def record_auth_attempt(self, method: str, success: bool, reason: Optional[str] = None):
+
+    def record_auth_attempt(self, method: str, success: bool, reason: str | None = None):
         """
         Record authentication attempt.
-        
+
         Args:
             method: Authentication method.
             success: Whether authentication was successful.
@@ -529,14 +531,14 @@ class MetricsCollector:
         """
         status = "success" if success else "failed"
         auth_attempts_total.labels(method=method, status=status).inc()
-        
+
         if not success and reason:
             auth_failures_total.labels(method=method, reason=reason).inc()
-    
-    def record_authz_check(self, resource_type: str, allowed: bool, reason: Optional[str] = None):
+
+    def record_authz_check(self, resource_type: str, allowed: bool, reason: str | None = None):
         """
         Record authorization check.
-        
+
         Args:
             resource_type: Type of resource being accessed.
             allowed: Whether access was allowed.
@@ -544,52 +546,52 @@ class MetricsCollector:
         """
         status = "allowed" if allowed else "denied"
         authz_checks_total.labels(resource_type=resource_type, status=status).inc()
-        
+
         if not allowed and reason:
             authz_denials_total.labels(resource_type=resource_type, reason=reason).inc()
-    
+
     def record_rate_limit_exceeded(self, endpoint: str, user_id: str):
         """
         Record rate limit violation.
-        
+
         Args:
             endpoint: Endpoint that was rate limited.
             user_id: User identifier.
         """
         rate_limit_exceeded_total.labels(endpoint=endpoint, user_id=user_id).inc()
-    
+
     def record_config_reload(self, success: bool):
         """
         Record configuration reload attempt.
-        
+
         Args:
             success: Whether reload was successful.
         """
         status = "success" if success else "failed"
         config_reloads_total.labels(status=status).inc()
-    
+
     def record_config_validation_error(self, error_type: str):
         """
         Record configuration validation error.
-        
+
         Args:
             error_type: Type of validation error.
         """
         config_validation_errors_total.labels(error_type=error_type).inc()
-    
+
     def get_metrics(self) -> bytes:
         """
         Get metrics in Prometheus format.
-        
+
         Returns:
             Metrics in Prometheus text format.
         """
         return generate_latest(registry)
-    
+
     def get_content_type(self) -> str:
         """
         Get metrics content type.
-        
+
         Returns:
             Content type for Prometheus metrics.
         """

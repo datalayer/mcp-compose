@@ -5,17 +5,15 @@
 Test suite for MCP Compose.
 """
 
-import json
-import pytest
 from unittest.mock import Mock, patch
-from pathlib import Path
+
+import pytest
 
 from mcp_compose import (
-    MCPServerComposer,
     ConflictResolution,
+    MCPServerComposer,
     MCPServerDiscovery,
     MCPServerInfo,
-    MCPComposerError,
     MCPToolConflictError,
 )
 
@@ -26,7 +24,7 @@ class TestMCPServerComposer:
     def test_init_default(self):
         """Test composer initialization with defaults."""
         composer = MCPServerComposer()
-        
+
         assert composer.composed_server_name == "composed-mcp-server"
         assert composer.conflict_resolution == ConflictResolution.PREFIX
         assert isinstance(composer.discovery, MCPServerDiscovery)
@@ -40,23 +38,23 @@ class TestMCPServerComposer:
             conflict_resolution=ConflictResolution.OVERRIDE,
             discovery=custom_discovery,
         )
-        
+
         assert composer.composed_server_name == "my-custom-server"
         assert composer.conflict_resolution == ConflictResolution.OVERRIDE
         assert composer.discovery is custom_discovery
 
-    @patch('mcp_compose.discovery.MCPServerDiscovery.discover_from_pyproject')
+    @patch("mcp_compose.discovery.MCPServerDiscovery.discover_from_pyproject")
     def test_compose_from_pyproject_no_servers(self, mock_discover):
         """Test composition when no servers are discovered."""
         mock_discover.return_value = {}
-        
+
         composer = MCPServerComposer()
         result = composer.compose_from_pyproject()
-        
+
         assert result is composer.composed_server
         assert len(composer.composed_tools) == 0
 
-    @patch('mcp_compose.discovery.MCPServerDiscovery.discover_from_pyproject')
+    @patch("mcp_compose.discovery.MCPServerDiscovery.discover_from_pyproject")
     def test_compose_from_pyproject_with_servers(self, mock_discover):
         """Test composition with discovered servers."""
         # Mock discovered servers
@@ -68,15 +66,15 @@ class TestMCPServerComposer:
             resources={"test_resource": Mock()},
         )
         mock_discover.return_value = {"test-server": mock_server_info}
-        
+
         composer = MCPServerComposer()
-        
+
         # Mock the composed server's managers
         composer.composed_server._tool_manager = Mock()
         composer.composed_server._tool_manager._tools = {}
-        
+
         result = composer.compose_from_pyproject()
-        
+
         assert result is composer.composed_server
         assert len(composer.composed_tools) == 1
         assert "test_tool" in composer.composed_tools
@@ -84,18 +82,15 @@ class TestMCPServerComposer:
     def test_filter_servers_include(self):
         """Test server filtering with include list."""
         composer = MCPServerComposer()
-        
+
         servers = {
             "server1": Mock(),
             "server2": Mock(),
             "server3": Mock(),
         }
-        
-        filtered = composer._filter_servers(
-            servers,
-            include_servers=["server1", "server3"]
-        )
-        
+
+        filtered = composer._filter_servers(servers, include_servers=["server1", "server3"])
+
         assert len(filtered) == 2
         assert "server1" in filtered
         assert "server3" in filtered
@@ -104,18 +99,15 @@ class TestMCPServerComposer:
     def test_filter_servers_exclude(self):
         """Test server filtering with exclude list."""
         composer = MCPServerComposer()
-        
+
         servers = {
             "server1": Mock(),
             "server2": Mock(),
             "server3": Mock(),
         }
-        
-        filtered = composer._filter_servers(
-            servers,
-            exclude_servers=["server2"]
-        )
-        
+
+        filtered = composer._filter_servers(servers, exclude_servers=["server2"])
+
         assert len(filtered) == 2
         assert "server1" in filtered
         assert "server3" in filtered
@@ -124,22 +116,20 @@ class TestMCPServerComposer:
     def test_resolve_name_conflict_no_conflict(self):
         """Test name conflict resolution when there's no conflict."""
         composer = MCPServerComposer()
-        
-        resolved = composer._resolve_name_conflict(
-            "tool", "unique_tool", "server1", {}
-        )
-        
+
+        resolved = composer._resolve_name_conflict("tool", "unique_tool", "server1", {})
+
         assert resolved == "unique_tool"
 
     def test_resolve_name_conflict_prefix(self):
         """Test name conflict resolution with prefix strategy."""
         composer = MCPServerComposer(conflict_resolution=ConflictResolution.PREFIX)
         composer.source_mapping = {"existing_tool": "other_server"}
-        
+
         resolved = composer._resolve_name_conflict(
             "tool", "existing_tool", "server1", {"existing_tool": Mock()}
         )
-        
+
         assert resolved == "server1_existing_tool"
         assert len(composer.conflicts_resolved) == 1
 
@@ -147,11 +137,11 @@ class TestMCPServerComposer:
         """Test name conflict resolution with suffix strategy."""
         composer = MCPServerComposer(conflict_resolution=ConflictResolution.SUFFIX)
         composer.source_mapping = {"existing_tool": "other_server"}
-        
+
         resolved = composer._resolve_name_conflict(
             "tool", "existing_tool", "server1", {"existing_tool": Mock()}
         )
-        
+
         assert resolved == "existing_tool_server1"
         assert len(composer.conflicts_resolved) == 1
 
@@ -159,29 +149,29 @@ class TestMCPServerComposer:
         """Test name conflict resolution with override strategy."""
         composer = MCPServerComposer(conflict_resolution=ConflictResolution.OVERRIDE)
         composer.source_mapping = {"existing_tool": "other_server"}
-        
+
         resolved = composer._resolve_name_conflict(
             "tool", "existing_tool", "server1", {"existing_tool": Mock()}
         )
-        
+
         assert resolved == "existing_tool"
         assert len(composer.conflicts_resolved) == 1
 
     def test_resolve_name_conflict_ignore(self):
         """Test name conflict resolution with ignore strategy."""
         composer = MCPServerComposer(conflict_resolution=ConflictResolution.IGNORE)
-        
+
         resolved = composer._resolve_name_conflict(
             "tool", "existing_tool", "server1", {"existing_tool": Mock()}
         )
-        
+
         assert resolved is None
 
     def test_resolve_name_conflict_error(self):
         """Test name conflict resolution with error strategy."""
         composer = MCPServerComposer(conflict_resolution=ConflictResolution.ERROR)
         composer.source_mapping = {"existing_tool": "other_server"}
-        
+
         with pytest.raises(MCPToolConflictError):
             composer._resolve_name_conflict(
                 "tool", "existing_tool", "server1", {"existing_tool": Mock()}
@@ -192,15 +182,11 @@ class TestMCPServerComposer:
         composer = MCPServerComposer()
         composer.composed_tools = {"tool1": Mock(), "tool2": Mock()}
         composer.composed_prompts = {"prompt1": Mock()}
-        composer.source_mapping = {
-            "tool1": "server1",
-            "tool2": "server2", 
-            "prompt1": "server1"
-        }
+        composer.source_mapping = {"tool1": "server1", "tool2": "server2", "prompt1": "server1"}
         composer.conflicts_resolved = [{"type": "prefix", "name": "test"}]
-        
+
         summary = composer.get_composition_summary()
-        
+
         assert summary["total_tools"] == 2
         assert summary["total_prompts"] == 1
         assert summary["total_resources"] == 0
@@ -213,7 +199,7 @@ class TestMCPServerComposer:
         composer.composed_tools = {"tool1": Mock(), "tool2": Mock()}
         composer.composed_prompts = {"prompt1": Mock()}
         composer.composed_resources = {"resource1": Mock()}
-        
+
         assert set(composer.list_tools()) == {"tool1", "tool2"}
         assert composer.list_prompts() == ["prompt1"]
         assert composer.list_resources() == ["resource1"]
@@ -221,12 +207,8 @@ class TestMCPServerComposer:
     def test_get_source_methods(self):
         """Test source retrieval methods."""
         composer = MCPServerComposer()
-        composer.source_mapping = {
-            "tool1": "server1",
-            "prompt1": "server2",
-            "resource1": "server3"
-        }
-        
+        composer.source_mapping = {"tool1": "server1", "prompt1": "server2", "resource1": "server3"}
+
         assert composer.get_tool_source("tool1") == "server1"
         assert composer.get_prompt_source("prompt1") == "server2"
         assert composer.get_resource_source("resource1") == "server3"
@@ -241,7 +223,7 @@ class TestMCPServerInfo:
         tools = {"tool1": Mock()}
         prompts = {"prompt1": Mock()}
         resources = {"resource1": Mock()}
-        
+
         info = MCPServerInfo(
             package_name="test-package",
             version="1.0.0",
@@ -249,7 +231,7 @@ class TestMCPServerInfo:
             prompts=prompts,
             resources=resources,
         )
-        
+
         assert info.package_name == "test-package"
         assert info.version == "1.0.0"
         assert info.tools is tools
@@ -262,7 +244,7 @@ class TestMCPServerInfo:
             package_name="test-package",
             version="1.0.0",
         )
-        
+
         assert info.tools == {}
         assert info.prompts == {}
         assert info.resources == {}

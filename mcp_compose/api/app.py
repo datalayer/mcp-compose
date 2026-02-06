@@ -11,13 +11,13 @@ middleware, and configuration for the REST API server.
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
+from ..__version__ import __version__
 from ..auth import AuthenticationError, InsufficientScopesError
 from ..exceptions import (
     MCPComposerError,
@@ -25,7 +25,6 @@ from ..exceptions import (
     MCPDiscoveryError,
     MCPToolConflictError,
 )
-from ..__version__ import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """
     Lifespan context manager for FastAPI application.
-    
+
     Handles startup and shutdown events.
     """
     # Startup
@@ -42,9 +41,10 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     logger.info("Shutting down MCP Compose API")
-    
+
     # Stop all translators
     from .routes.translators import shutdown_translators
+
     await shutdown_translators()
 
 
@@ -52,15 +52,15 @@ def create_app(
     title: str = "MCP Compose API",
     description: str = "REST API for managing MCP Compose",
     version: str = __version__,
-    cors_origins: Optional[list] = None,
+    cors_origins: list | None = None,
     cors_credentials: bool = True,
-    cors_methods: Optional[list] = None,
-    cors_headers: Optional[list] = None,
-    lifespan: Optional[Any] = None,
+    cors_methods: list | None = None,
+    cors_headers: list | None = None,
+    lifespan: Any | None = None,
 ) -> FastAPI:
     """
     Create and configure FastAPI application.
-    
+
     Args:
         title: API title.
         description: API description.
@@ -70,14 +70,15 @@ def create_app(
         cors_methods: List of allowed HTTP methods (default: ["*"]).
         cors_headers: List of allowed HTTP headers (default: ["*"]).
         lifespan: Optional custom lifespan context manager.
-    
+
     Returns:
         Configured FastAPI application.
     """
     # Use custom lifespan if provided, otherwise use default
     from .app import lifespan as default_lifespan
+
     app_lifespan = lifespan if lifespan is not None else default_lifespan
-    
+
     app = FastAPI(
         title=title,
         description=description,
@@ -87,7 +88,7 @@ def create_app(
         redoc_url="/redoc",
         openapi_url="/openapi.json",
     )
-    
+
     # Configure CORS
     app.add_middleware(
         CORSMiddleware,
@@ -96,128 +97,111 @@ def create_app(
         allow_methods=cors_methods or ["*"],
         allow_headers=cors_headers or ["*"],
     )
-    
+
     # Add authentication middleware (before metrics)
     from .middleware import AuthenticationMiddleware
+
     app.add_middleware(AuthenticationMiddleware)
-    
+
     # Add metrics middleware
     from .middleware import MetricsMiddleware
+
     app.add_middleware(MetricsMiddleware)
-    
+
     # Initialize metrics
-    from ..metrics import metrics_collector
     import platform
+
+    from ..metrics import metrics_collector
+
     metrics_collector.initialize(version=version, platform=platform.system())
-    
+
     # Register exception handlers
     register_exception_handlers(app)
-    
+
     # Register routes
     register_routes(app)
-    
+
     return app
 
 
 def register_exception_handlers(app: FastAPI) -> None:
     """
     Register exception handlers for the application.
-    
+
     Args:
         app: FastAPI application.
     """
-    
+
     @app.exception_handler(AuthenticationError)
-    async def authentication_error_handler(
-        request: Request,
-        exc: AuthenticationError
-    ):
+    async def authentication_error_handler(request: Request, exc: AuthenticationError):
         """Handle authentication errors."""
         return JSONResponse(
             status_code=401,
             content={
                 "error": "authentication_failed",
                 "message": str(exc),
-                "details": exc.details if hasattr(exc, 'details') else None,
-            }
+                "details": exc.details if hasattr(exc, "details") else None,
+            },
         )
-    
+
     @app.exception_handler(InsufficientScopesError)
-    async def insufficient_scopes_handler(
-        request: Request,
-        exc: InsufficientScopesError
-    ):
+    async def insufficient_scopes_handler(request: Request, exc: InsufficientScopesError):
         """Handle authorization errors."""
         return JSONResponse(
             status_code=403,
             content={
                 "error": "insufficient_permissions",
                 "message": str(exc),
-                "required_scopes": exc.required_scopes if hasattr(exc, 'required_scopes') else None,
-            }
+                "required_scopes": exc.required_scopes if hasattr(exc, "required_scopes") else None,
+            },
         )
-    
+
     @app.exception_handler(MCPConfigurationError)
-    async def configuration_error_handler(
-        request: Request,
-        exc: MCPConfigurationError
-    ):
+    async def configuration_error_handler(request: Request, exc: MCPConfigurationError):
         """Handle configuration errors."""
         return JSONResponse(
             status_code=400,
             content={
                 "error": "configuration_error",
                 "message": str(exc),
-            }
+            },
         )
-    
+
     @app.exception_handler(MCPDiscoveryError)
-    async def discovery_error_handler(
-        request: Request,
-        exc: MCPDiscoveryError
-    ):
+    async def discovery_error_handler(request: Request, exc: MCPDiscoveryError):
         """Handle discovery errors."""
         return JSONResponse(
             status_code=500,
             content={
                 "error": "discovery_error",
                 "message": str(exc),
-            }
+            },
         )
-    
+
     @app.exception_handler(MCPToolConflictError)
-    async def tool_conflict_handler(
-        request: Request,
-        exc: MCPToolConflictError
-    ):
+    async def tool_conflict_handler(request: Request, exc: MCPToolConflictError):
         """Handle tool conflict errors."""
         return JSONResponse(
             status_code=409,
             content={
                 "error": "tool_conflict",
                 "message": str(exc),
-            }
+            },
         )
-    
+
     @app.exception_handler(MCPComposerError)
-    async def mcp_error_handler(
-        request: Request,
-        exc: MCPComposerError
-    ):
+    async def mcp_error_handler(request: Request, exc: MCPComposerError):
         """Handle general MCP errors."""
         return JSONResponse(
             status_code=500,
             content={
                 "error": "mcp_error",
                 "message": str(exc),
-            }
+            },
         )
-    
+
     @app.exception_handler(Exception)
-    async def general_exception_handler(
-        request: Request,
-        exc: Exception
-    ):
+    async def general_exception_handler(request: Request, exc: Exception):
         """Handle unexpected exceptions."""
         logger.exception("Unhandled exception in API request")
         return JSONResponse(
@@ -225,19 +209,19 @@ def register_exception_handlers(app: FastAPI) -> None:
             content={
                 "error": "internal_server_error",
                 "message": "An unexpected error occurred",
-            }
+            },
         )
 
 
 def register_routes(app: FastAPI) -> None:
     """
     Register API routes.
-    
+
     Args:
         app: FastAPI application.
     """
     from .routes import auth, config, health, servers, settings, status, tools, translators, version
-    
+
     # Register route modules
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
@@ -248,14 +232,14 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(translators.router, prefix="/api/v1", tags=["translators"])
     app.include_router(version.router, prefix="/api/v1", tags=["version"])
     app.include_router(settings.router, prefix="/api/v1", tags=["settings"])
-    
+
     # Serve UI static files if available
     ui_dist_path = Path(__file__).parent.parent.parent / "ui" / "dist"
     if ui_dist_path.exists() and ui_dist_path.is_dir():
         logger.info(f"Serving UI from {ui_dist_path}")
-        
+
         from starlette.responses import FileResponse
-        
+
         # Serve static assets (js, css, images, etc.)
         @app.get("/ui/assets/{file_path:path}", include_in_schema=False)
         async def serve_ui_assets(file_path: str):
@@ -264,19 +248,19 @@ def register_routes(app: FastAPI) -> None:
             if full_path.is_file():
                 return FileResponse(full_path)
             return {"detail": "Not Found"}
-        
+
         # Catch-all route for SPA - serves index.html for all other /ui paths
         @app.get("/ui/{full_path:path}", include_in_schema=False)
         async def serve_spa(full_path: str):
             """Serve index.html for all UI routes to support SPA routing."""
             # Check if it's a specific file request (like vite.svg)
-            if full_path and not full_path.endswith('/'):
+            if full_path and not full_path.endswith("/"):
                 file_path = ui_dist_path / full_path
                 if file_path.is_file():
                     return FileResponse(file_path)
             # Otherwise serve index.html for SPA routing
             return FileResponse(ui_dist_path / "index.html")
-        
+
         # Root UI path
         @app.get("/ui", include_in_schema=False)
         @app.get("/ui/", include_in_schema=False)
@@ -285,7 +269,7 @@ def register_routes(app: FastAPI) -> None:
             return FileResponse(ui_dist_path / "index.html")
     else:
         logger.warning(f"UI dist folder not found at {ui_dist_path}")
-    
+
     # Root endpoint
     @app.get("/", include_in_schema=False)
     async def root():

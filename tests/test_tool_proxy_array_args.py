@@ -9,22 +9,19 @@ servers when using STDIO transport, rather than being converted to space-separat
 strings.
 """
 
-import pytest
-from typing import List, Dict, Any
-from unittest.mock import MagicMock, patch
-from pydantic import BaseModel
-
 from mcp_compose.tool_proxy import fix_tool_argument_model
 
 
 class MockFnMetadata:
     """Mock function metadata for testing."""
+
     def __init__(self):
         self.arg_model = None
 
 
 class MockTool:
     """Mock Tool object for testing."""
+
     def __init__(self, name: str):
         self.name = name
         self.fn_metadata = MockFnMetadata()
@@ -43,21 +40,21 @@ class TestFixToolArgumentModel:
                 "packages": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of packages to install"
+                    "description": "List of packages to install",
                 }
             },
-            "required": ["packages"]
+            "required": ["packages"],
         }
-        
+
         fix_tool_argument_model(tool, input_schema)
-        
+
         # Verify the arg_model was created
         assert tool.fn_metadata.arg_model is not None
-        
+
         # Verify the model accepts a list of strings
         model_instance = tool.fn_metadata.arg_model(packages=["faker", "flask"])
         assert model_instance.packages == ["faker", "flask"]
-        
+
         # Verify the model schema has correct type
         schema = tool.fn_metadata.arg_model.model_json_schema()
         assert schema["properties"]["packages"]["type"] == "array"
@@ -72,14 +69,14 @@ class TestFixToolArgumentModel:
                 "numbers": {
                     "type": "array",
                     "items": {"type": "integer"},
-                    "description": "List of numbers"
+                    "description": "List of numbers",
                 }
             },
-            "required": ["numbers"]
+            "required": ["numbers"],
         }
-        
+
         fix_tool_argument_model(tool, input_schema)
-        
+
         model_instance = tool.fn_metadata.arg_model(numbers=[1, 2, 3])
         assert model_instance.numbers == [1, 2, 3]
 
@@ -92,14 +89,14 @@ class TestFixToolArgumentModel:
                 "items": {
                     "type": "array",
                     "items": {"type": "object"},
-                    "description": "List of objects"
+                    "description": "List of objects",
                 }
             },
-            "required": ["items"]
+            "required": ["items"],
         }
-        
+
         fix_tool_argument_model(tool, input_schema)
-        
+
         model_instance = tool.fn_metadata.arg_model(items=[{"key": "value"}])
         assert model_instance.items == [{"key": "value"}]
 
@@ -112,19 +109,19 @@ class TestFixToolArgumentModel:
                 "packages": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Optional list of packages"
+                    "description": "Optional list of packages",
                 }
             },
-            "required": []  # Not required
+            "required": [],  # Not required
         }
-        
+
         fix_tool_argument_model(tool, input_schema)
-        
+
         # Should have a default value of None for optional fields
         # When not provided, it defaults to None
         model_instance = tool.fn_metadata.arg_model()
         assert model_instance.packages is None
-        
+
         # Should also accept list
         model_instance = tool.fn_metadata.arg_model(packages=["faker"])
         assert model_instance.packages == ["faker"]
@@ -136,22 +133,19 @@ class TestFixToolArgumentModel:
             "type": "object",
             "properties": {
                 "packages": {
-                    "anyOf": [
-                        {"type": "array", "items": {"type": "string"}},
-                        {"type": "null"}
-                    ],
-                    "description": "Optional list of packages"
+                    "anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}],
+                    "description": "Optional list of packages",
                 }
             },
-            "required": []
+            "required": [],
         }
-        
+
         fix_tool_argument_model(tool, input_schema)
-        
+
         # Should accept None
         model_instance = tool.fn_metadata.arg_model(packages=None)
         assert model_instance.packages is None
-        
+
         # Should also accept list
         model_instance = tool.fn_metadata.arg_model(packages=["faker", "flask"])
         assert model_instance.packages == ["faker", "flask"]
@@ -164,24 +158,17 @@ class TestFixToolArgumentModel:
             "properties": {
                 "name": {"type": "string"},
                 "count": {"type": "integer"},
-                "packages": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
+                "packages": {"type": "array", "items": {"type": "string"}},
                 "options": {"type": "object"},
-                "enabled": {"type": "boolean"}
+                "enabled": {"type": "boolean"},
             },
-            "required": ["name", "packages"]
+            "required": ["name", "packages"],
         }
-        
+
         fix_tool_argument_model(tool, input_schema)
-        
+
         model_instance = tool.fn_metadata.arg_model(
-            name="test",
-            count=5,
-            packages=["a", "b"],
-            options={"key": "value"},
-            enabled=True
+            name="test", count=5, packages=["a", "b"], options={"key": "value"}, enabled=True
         )
         assert model_instance.name == "test"
         assert model_instance.count == 5
@@ -192,22 +179,18 @@ class TestFixToolArgumentModel:
     def test_fix_empty_schema(self):
         """Test that empty schema doesn't cause errors."""
         tool = MockTool("test_tool")
-        input_schema = {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
-        
+        input_schema = {"type": "object", "properties": {}, "required": []}
+
         # Should not raise an error
         fix_tool_argument_model(tool, input_schema)
-        
+
         # arg_model should be created (even if empty)
         assert tool.fn_metadata.arg_model is not None
 
     def test_array_not_converted_to_string(self):
         """
         Critical test: Verify arrays are NOT converted to space-separated strings.
-        
+
         This is the main issue reported: packages=['faker', 'flask'] was being
         converted to packages='faker flask'.
         """
@@ -218,20 +201,21 @@ class TestFixToolArgumentModel:
                 "packages": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "List of package names to install"
+                    "description": "List of package names to install",
                 }
             },
-            "required": ["packages"]
+            "required": ["packages"],
         }
-        
+
         fix_tool_argument_model(tool, input_schema)
-        
+
         # Create instance with list
         model_instance = tool.fn_metadata.arg_model(packages=["faker", "flask"])
-        
+
         # Verify it's still a list, NOT a string
-        assert isinstance(model_instance.packages, list), \
+        assert isinstance(model_instance.packages, list), (
             f"Expected list, got {type(model_instance.packages)}: {model_instance.packages}"
+        )
         assert model_instance.packages == ["faker", "flask"]
         assert model_instance.packages != "faker flask"  # This was the bug
 
@@ -242,29 +226,24 @@ class TestArrayArgumentSerialization:
     def test_list_serializable_to_json(self):
         """Test that the model's dict output is JSON-serializable with arrays."""
         import json
-        
+
         tool = MockTool("test_tool")
         input_schema = {
             "type": "object",
-            "properties": {
-                "packages": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                }
-            },
-            "required": ["packages"]
+            "properties": {"packages": {"type": "array", "items": {"type": "string"}}},
+            "required": ["packages"],
         }
-        
+
         fix_tool_argument_model(tool, input_schema)
-        
+
         model_instance = tool.fn_metadata.arg_model(packages=["faker", "flask"])
-        
+
         # Convert to dict (as would happen in tool call)
         data = model_instance.model_dump()
-        
+
         # Should be JSON serializable
         json_str = json.dumps(data)
-        
+
         # Should deserialize back to list
         parsed = json.loads(json_str)
         assert parsed["packages"] == ["faker", "flask"]

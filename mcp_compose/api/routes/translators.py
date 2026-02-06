@@ -7,19 +7,15 @@ API routes for proxy/translator functionality.
 Provides endpoints for managing protocol translators.
 """
 
-from typing import Dict, List, Optional
-
 from fastapi import APIRouter, HTTPException, Request, status
 
-from ...exceptions import ValidationError
 from ...proxy import TranslatorManager
-from ..dependencies import get_composer
 from ..models import ErrorResponse
 
 router = APIRouter(prefix="/translators", tags=["translators"])
 
 # Global translator manager
-_translator_manager: Optional[TranslatorManager] = None
+_translator_manager: TranslatorManager | None = None
 
 
 def get_translator_manager() -> TranslatorManager:
@@ -41,32 +37,32 @@ def get_translator_manager() -> TranslatorManager:
 async def create_stdio_to_sse_translator(
     name: str,
     sse_url: str,
-    headers: Optional[Dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
     timeout: float = 30.0,
 ):
     """
     Create a STDIO→SSE translator.
-    
+
     Enables STDIO clients to communicate with SSE servers.
-    
+
     Args:
         name: Unique translator identifier.
         sse_url: URL of the SSE server endpoint.
         headers: Optional HTTP headers (e.g., authentication).
         timeout: Request timeout in seconds.
-    
+
     Returns:
         Translator configuration.
     """
     manager = get_translator_manager()
-    
+
     # Check if translator already exists
     if manager.get_translator(name):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Translator '{name}' already exists",
         )
-    
+
     try:
         translator = await manager.add_stdio_to_sse(
             name=name,
@@ -74,7 +70,7 @@ async def create_stdio_to_sse_translator(
             headers=headers,
             timeout=timeout,
         )
-        
+
         return {
             "name": name,
             "type": "stdio-to-sse",
@@ -82,7 +78,7 @@ async def create_stdio_to_sse_translator(
             "timeout": timeout,
             "status": "running",
         }
-    
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -101,34 +97,34 @@ async def create_stdio_to_sse_translator(
 async def create_sse_to_stdio_translator(
     name: str,
     command: str,
-    args: Optional[List[str]] = None,
-    env: Optional[Dict[str, str]] = None,
-    cwd: Optional[str] = None,
+    args: list[str] | None = None,
+    env: dict[str, str] | None = None,
+    cwd: str | None = None,
 ):
     """
     Create an SSE→STDIO translator.
-    
+
     Enables SSE clients to communicate with STDIO servers.
-    
+
     Args:
         name: Unique translator identifier.
         command: Command to run STDIO server.
         args: Command arguments.
         env: Environment variables.
         cwd: Working directory.
-    
+
     Returns:
         Translator configuration.
     """
     manager = get_translator_manager()
-    
+
     # Check if translator already exists
     if manager.get_translator(name):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Translator '{name}' already exists",
         )
-    
+
     try:
         translator = await manager.add_sse_to_stdio(
             name=name,
@@ -137,7 +133,7 @@ async def create_sse_to_stdio_translator(
             env=env,
             cwd=cwd,
         )
-        
+
         return {
             "name": name,
             "type": "sse-to-stdio",
@@ -145,7 +141,7 @@ async def create_sse_to_stdio_translator(
             "args": args or [],
             "status": "running",
         }
-    
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -162,12 +158,12 @@ async def create_sse_to_stdio_translator(
 async def list_translators():
     """
     List all active translators.
-    
+
     Returns:
         List of translator configurations.
     """
     manager = get_translator_manager()
-    
+
     translators = []
     for name, translator in manager.translators.items():
         translator_type = (
@@ -175,13 +171,15 @@ async def list_translators():
             if translator.__class__.__name__ == "StdioToSseTranslator"
             else "sse-to-stdio"
         )
-        
-        translators.append({
-            "name": name,
-            "type": translator_type,
-            "status": "running" if translator.running else "stopped",
-        })
-    
+
+        translators.append(
+            {
+                "name": name,
+                "type": translator_type,
+                "status": "running" if translator.running else "stopped",
+            }
+        )
+
     return {
         "translators": translators,
         "total": len(translators),
@@ -199,18 +197,18 @@ async def list_translators():
 async def delete_translator(name: str):
     """
     Stop and remove a translator.
-    
+
     Args:
         name: Translator identifier.
     """
     manager = get_translator_manager()
-    
+
     if not manager.get_translator(name):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Translator '{name}' not found",
         )
-    
+
     try:
         await manager.remove_translator(name)
     except Exception as e:
@@ -230,32 +228,32 @@ async def delete_translator(name: str):
 async def translate_message(name: str, request: Request):
     """
     Translate a message through the specified translator.
-    
+
     Args:
         name: Translator identifier.
         request: FastAPI request containing message.
-    
+
     Returns:
         Translated message.
     """
     manager = get_translator_manager()
-    
+
     translator = manager.get_translator(name)
     if not translator:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Translator '{name}' not found",
         )
-    
+
     try:
         # Get message from request body
         message = await request.json()
-        
+
         # Translate message
         response = await translator.translate(message)
-        
+
         return response
-    
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
