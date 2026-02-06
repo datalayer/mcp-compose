@@ -12,7 +12,7 @@ import subprocess
 import signal
 import sys
 import pytest
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 from mcp_compose.composer import (
     MCPServerComposer,
