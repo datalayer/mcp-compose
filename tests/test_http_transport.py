@@ -36,6 +36,18 @@ def mock_httpx_client():
         mock_client.post.return_value = mock_response
         mock_client.aclose = AsyncMock()
 
+        # Mock client.stream() to return a proper async context manager.
+        # httpx's stream() is a sync method that returns an async context
+        # manager, so we use MagicMock (not AsyncMock) to avoid wrapping
+        # the return value in a coroutine.
+        mock_stream_context = AsyncMock()
+        mock_stream_context.__aenter__.return_value = mock_response
+        mock_stream_context.__aexit__.return_value = None
+        mock_client.stream = MagicMock(return_value=mock_stream_context)
+
+        # Also expose httpx.TimeoutException for tests that catch it
+        mock_httpx.TimeoutException = type("TimeoutException", (Exception,), {})
+
         yield mock_httpx, mock_client
 
 
@@ -68,7 +80,8 @@ class TestHttpStreamTransport:
 
         await transport.connect()
         assert transport.is_connected
-        assert mock_client.head.called
+        # connect() calls _test_connection which uses GET (not HEAD)
+        assert mock_client.get.called
 
         await transport.disconnect()
         assert not transport.is_connected
@@ -213,6 +226,7 @@ class TestHttpStreamTransport:
         transport = HttpStreamTransport(
             name="test",
             url="http://localhost:8080/stream",
+            protocol=HttpStreamProtocol.POLL,
         )
 
         async with transport:
@@ -282,7 +296,10 @@ class TestHttpStreamProtocols:
             protocol=HttpStreamProtocol.LINES,
         )
 
-        await transport.connect()
+        # Set up client directly without connect() to avoid a background
+        # _stream_messages task competing with the explicit task below.
+        transport.client = mock_client
+        transport._connected = True
 
         # Run streaming for a short time
         task = asyncio.create_task(transport._stream_lines())
@@ -331,7 +348,10 @@ class TestHttpStreamProtocols:
             protocol=HttpStreamProtocol.CHUNKED,
         )
 
-        await transport.connect()
+        # Set up client directly without connect() to avoid a background
+        # _stream_messages task competing with the explicit task below.
+        transport.client = mock_client
+        transport._connected = True
 
         # Run streaming for a short time
         task = asyncio.create_task(transport._stream_chunked())
@@ -362,7 +382,7 @@ class TestCreateHttpStreamTransport:
         transport = await create_http_stream_transport(
             name="test",
             url="http://localhost:8080/stream",
-            protocol=HttpStreamProtocol.LINES,
+            protocol=HttpStreamProtocol.POLL,
         )
 
         assert transport.is_connected

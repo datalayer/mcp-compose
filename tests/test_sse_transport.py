@@ -134,8 +134,11 @@ class TestSSETransport:
         # Start client
         client_task = asyncio.create_task(sse_client())
 
-        # Wait for client to connect
-        await asyncio.sleep(0.5)
+        # Poll for client to connect (with timeout)
+        for _ in range(20):
+            if transport.client_count >= 1:
+                break
+            await asyncio.sleep(0.25)
 
         # Send message
         await transport.send(test_message)
@@ -152,21 +155,29 @@ class TestSSETransport:
         transport = SSETransport(name="test", host="127.0.0.1", port=8107)
         await transport.connect()
 
-        # Connect multiple clients
+        connected_events = [asyncio.Event() for _ in range(3)]
+
+        # Connect multiple clients — keep reading so the stream stays alive
         async def connect_client(client_id):
             async with httpx.AsyncClient() as client:
                 async with client.stream("GET", "http://127.0.0.1:8107/sse") as response:
                     async for line in response.aiter_lines():
                         if line.startswith("data:"):
-                            break
-                    # Keep connection open
-                    await asyncio.sleep(2.0)
+                            connected_events[client_id].set()
+                            # Keep consuming the stream to maintain the
+                            # connection (don't break out of the iterator)
 
         # Start 3 clients
         tasks = [asyncio.create_task(connect_client(i)) for i in range(3)]
 
-        # Wait for clients to connect
-        await asyncio.sleep(0.5)
+        # Wait for all clients to signal they received their first data line
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*(e.wait() for e in connected_events)),
+                timeout=5.0,
+            )
+        except asyncio.TimeoutError:
+            pass
 
         # Check client count
         assert transport.client_count == 3
@@ -202,8 +213,11 @@ class TestSSETransport:
         # Start 2 clients
         client_tasks = [asyncio.create_task(sse_client(i)) for i in range(2)]
 
-        # Wait for clients to connect
-        await asyncio.sleep(0.5)
+        # Poll for clients to connect (with timeout)
+        for _ in range(20):
+            if transport.client_count >= 2:
+                break
+            await asyncio.sleep(0.25)
 
         # Broadcast message
         await transport.send(test_message)

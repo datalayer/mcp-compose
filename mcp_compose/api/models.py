@@ -75,13 +75,17 @@ class ServerInfo(BaseModel):
     id: str
     name: str
     status: ServerStatus
-    type: str  # "stdio", "sse", "embedded"
+    type: str = "stdio"  # "stdio", "sse", "embedded"
     command: str | None = None
     url: str | None = None
     pid: int | None = None
     uptime_seconds: float | None = None
     restart_count: int = 0
     last_error: str | None = None
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, str] = Field(default_factory=dict)
+    transport: str | None = None
+    auto_start: bool = False
 
 
 class ServerListResponse(BaseModel):
@@ -89,17 +93,18 @@ class ServerListResponse(BaseModel):
 
     servers: list[ServerInfo]
     total: int
+    offset: int = 0
+    limit: int = 100
 
 
-class ServerDetailResponse(ServerInfo):
+class ServerDetailResponse(BaseModel):
     """Detailed server information."""
 
-    config: dict[str, Any]
-    tools: list[str]
-    prompts: list[str]
-    resources: list[str]
-    health: HealthStatus
-    metrics: dict[str, Any] | None = None
+    server: ServerInfo
+    tools_count: int = 0
+    prompts_count: int = 0
+    resources_count: int = 0
+    uptime_seconds: float = 0.0
 
 
 class ServerStartRequest(BaseModel):
@@ -121,7 +126,7 @@ class ServerActionResponse(BaseModel):
     success: bool
     message: str
     server_id: str
-    status: ServerStatus
+    status: ServerStatus | None = None
 
 
 # Tool Models

@@ -32,6 +32,31 @@ def mock_composer():
     """Create a mock composer."""
     composer = MagicMock()
     composer.list_servers.return_value = ["server1", "server2", "server3"]
+
+    # Build a ServersConfig-shaped mock so the health endpoint can iterate
+    # over all_servers properly (instead of trying to extend with a MagicMock).
+    srv1 = MagicMock()
+    srv1.name = "server1"
+    srv2 = MagicMock()
+    srv2.name = "server2"
+    srv3 = MagicMock()
+    srv3.name = "server3"
+
+    servers_config = MagicMock()
+    servers_config.embedded = MagicMock()
+    servers_config.embedded.servers = []
+
+    servers_config.proxied = MagicMock()
+    servers_config.proxied.stdio = [srv1, srv2, srv3]
+    servers_config.proxied.sse = []
+    servers_config.proxied.http = []
+
+    composer.config.servers = servers_config
+
+    # Process manager info (none running by default)
+    composer.get_proxied_servers_info.return_value = {}
+    composer.process_manager = MagicMock()
+
     return composer
 
 

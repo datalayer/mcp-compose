@@ -225,7 +225,18 @@ class TestSseToStdioTranslator:
             # Should return an error response
             assert "error" in response or "id" in response
         finally:
-            await translator.stop()
+            # The cat process may have already exited after stdin close,
+            # so stop() may raise when trying to terminate. Handle gracefully.
+            translator.running = False
+            if translator.process:
+                try:
+                    translator.process.terminate()
+                except ProcessLookupError:
+                    pass
+                try:
+                    await asyncio.wait_for(translator.process.wait(), timeout=2.0)
+                except (asyncio.TimeoutError, ProcessLookupError):
+                    pass
 
     async def test_id_generation(self):
         """Test automatic ID generation."""

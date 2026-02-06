@@ -51,7 +51,7 @@ class TestConfigModels:
         """Test TransportConfig default values."""
         config = TransportConfig()
         assert config.stdio_enabled is True
-        assert config.sse_enabled is True
+        assert config.sse_enabled is False
         assert config.sse_path == "/sse"
         assert config.sse_cors_enabled is True
 

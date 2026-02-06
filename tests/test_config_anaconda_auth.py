@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("anaconda_auth", reason="anaconda-auth is not installed")
+
 from mcp_compose.auth import AuthType, create_authenticator
 from mcp_compose.config import AuthProvider
 from mcp_compose.config_loader import load_config_from_dict

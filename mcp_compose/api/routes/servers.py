@@ -159,6 +159,8 @@ async def list_servers(
     return ServerListResponse(
         servers=paginated_servers,
         total=total,
+        offset=offset,
+        limit=limit,
     )
 
 

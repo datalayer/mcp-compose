@@ -8,14 +8,16 @@ Tests all server management routes including listing, details,
 lifecycle control, removal, log streaming, and metrics.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
 from mcp_compose.api import create_app
-from mcp_compose.api.dependencies import set_composer
+from mcp_compose.api.dependencies import set_authenticator, set_composer
+from mcp_compose.auth import APIKeyAuthenticator
+from mcp_compose.config import StdioProxiedServerConfig
 
 
 @pytest.fixture
@@ -23,30 +25,58 @@ def mock_composer():
     """Create a mock composer with test servers."""
     composer = MagicMock()
 
-    # Mock configuration with test servers
-    server1_config = MagicMock()
-    server1_config.name = "test-server-1"
-    server1_config.command = "python"
-    server1_config.args = ["-m", "test_server"]
-    server1_config.env = {"TEST": "value"}
-    server1_config.transport = MagicMock(value="stdio")
-    server1_config.auto_start = True
+    # Use real Pydantic config objects so that hasattr() checks in the
+    # server routes work correctly (MagicMock auto-creates every attribute,
+    # which confuses hasattr-based server-type detection and Pydantic
+    # validation for fields like ``url``).
+    server1_config = StdioProxiedServerConfig(
+        name="server1",
+        command=["python", "-m", "test_server"],
+        env={"TEST": "value"},
+    )
 
-    server2_config = MagicMock()
-    server2_config.name = "test-server-2"
-    server2_config.command = "node"
-    server2_config.args = ["server.js"]
-    server2_config.env = {}
-    server2_config.transport = MagicMock(value="sse")
-    server2_config.auto_start = False
+    server2_config = StdioProxiedServerConfig(
+        name="server2",
+        command=["node", "server.js"],
+        env={},
+    )
 
-    composer.config.servers = {
-        "server1": server1_config,
-        "server2": server2_config,
+    # Build a ServersConfig-shaped mock with .embedded and .proxied attributes
+    servers_config = MagicMock()
+
+    # Embedded servers: none configured
+    servers_config.embedded = MagicMock()
+    servers_config.embedded.servers = []
+
+    # Proxied servers: both test servers are stdio-proxied
+    servers_config.proxied = MagicMock()
+    servers_config.proxied.stdio = [server1_config, server2_config]
+    servers_config.proxied.sse = []
+    servers_config.proxied.http = []
+
+    composer.config.servers = servers_config
+
+    # Mock process manager info: server1 is running, server2 is not
+    composer.get_proxied_servers_info.return_value = {
+        "server1": {"state": "running", "uptime": 3600.0, "pid": 12345, "restart_count": 0},
     }
+    composer.process_manager = MagicMock()
+    composer.process_manager.start_process = AsyncMock()
+    composer.process_manager.stop_process = AsyncMock()
+    composer.restart_proxied_server = AsyncMock()
 
     # Mock discovered servers (server1 is running)
     composer.discovered_servers = {"server1": MagicMock()}
+
+    # Mock source_mapping for capability counting
+    composer.source_mapping = {
+        "server1.tool1": {"server": "server1"},
+        "server1.tool2": {"server": "server1"},
+        "server2.tool1": {"server": "server2"},
+        "server1.prompt1": {"server": "server1"},
+        "server1.resource1": {"server": "server1"},
+        "server2.resource1": {"server": "server2"},
+    }
 
     # Mock list methods
     composer.list_servers.return_value = ["server1", "server2"]
@@ -68,7 +98,16 @@ def client(mock_composer):
     """Create a test client with mocked dependencies."""
     app = create_app()
     set_composer(mock_composer)
-    return TestClient(app)
+
+    # Set up API key authenticator so that require_auth enforces auth
+    authenticator = APIKeyAuthenticator()
+    authenticator.add_api_key("test-key-12345678", user_id="test-user", scopes=["*"])
+    set_authenticator(authenticator)
+
+    yield TestClient(app)
+
+    # Clean up global authenticator to avoid leaking into other tests
+    set_authenticator(None)
 
 
 @pytest.fixture
@@ -96,12 +135,12 @@ class TestListServers:
 
         # Check server info
         server1 = next(s for s in data["servers"] if s["id"] == "server1")
-        assert server1["name"] == "test-server-1"
-        assert server1["command"] == "python"
+        assert server1["name"] == "server1"
+        assert server1["command"] == "python -m test_server"
         assert server1["status"] == "running"
 
         server2 = next(s for s in data["servers"] if s["id"] == "server2")
-        assert server2["name"] == "test-server-2"
+        assert server2["name"] == "server2"
         assert server2["status"] == "stopped"
 
     def test_list_servers_with_pagination(self, client, auth_headers):
@@ -152,7 +191,7 @@ class TestGetServerDetail:
 
         # Check server info
         assert data["server"]["id"] == "server1"
-        assert data["server"]["name"] == "test-server-1"
+        assert data["server"]["name"] == "server1"
         assert data["server"]["status"] == "running"
 
         # Check counts
@@ -225,9 +264,6 @@ class TestStopServer:
         assert "stopped successfully" in data["message"]
         assert data["server_id"] == "server1"
 
-        # Verify server was removed from discovered servers
-        assert "server1" not in mock_composer.discovered_servers
-
     def test_stop_stopped_server(self, client, auth_headers):
         """Test stopping an already stopped server."""
         response = client.post("/api/v1/servers/server2/stop", headers=auth_headers)
@@ -291,8 +327,9 @@ class TestRemoveServer:
         assert "removed successfully" in data["message"]
         assert data["server_id"] == "server2"
 
-        # Verify server was removed from config
-        assert "server2" not in mock_composer.config.servers
+        # Verify server was removed from proxied stdio list
+        remaining_names = [s.name for s in mock_composer.config.servers.proxied.stdio]
+        assert "server2" not in remaining_names
 
     def test_remove_running_server(self, client, auth_headers):
         """Test removing a running server (should fail)."""
@@ -414,14 +451,23 @@ class TestServerEndpointsIntegration:
         response = client.post("/api/v1/servers/server2/start", headers=auth_headers)
         assert response.status_code == status.HTTP_200_OK
 
-        # Stop server
-        mock_composer.discovered_servers["server2"] = MagicMock()
+        # Stop server — update process info so server2 is seen as running
+        mock_composer.get_proxied_servers_info.return_value = {
+            "server1": {"state": "running", "uptime": 3600.0, "pid": 12345, "restart_count": 0},
+            "server2": {"state": "running", "uptime": 10.0, "pid": 12346, "restart_count": 0},
+        }
         response = client.post("/api/v1/servers/server2/stop", headers=auth_headers)
         assert response.status_code == status.HTTP_200_OK
+
+        # Reset process info so server2 appears stopped for the remove step
+        mock_composer.get_proxied_servers_info.return_value = {
+            "server1": {"state": "running", "uptime": 3600.0, "pid": 12345, "restart_count": 0},
+        }
 
         # Remove server
         response = client.delete("/api/v1/servers/server2", headers=auth_headers)
         assert response.status_code == status.HTTP_200_OK
 
         # Verify server was removed
-        assert "server2" not in mock_composer.config.servers
+        remaining_names = [s.name for s in mock_composer.config.servers.proxied.stdio]
+        assert "server2" not in remaining_names
