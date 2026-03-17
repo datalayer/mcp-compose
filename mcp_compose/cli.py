@@ -464,6 +464,29 @@ async def run_server(config, args: argparse.Namespace) -> int:
             print("   ✓ Authenticator initialized", file=out)
         print(file=out)
 
+    # Prune dangling downstream processes if requested
+    prune = getattr(args, "prune_downstreams_on_start", None)
+    if prune is None:
+        # Fall back to config file setting
+        prune = config.composer.prune_downstreams_on_start
+    if prune:
+        from .composer import MCPServerComposer as _PruneComposer
+
+        pruner = _PruneComposer(
+            composed_server_name=config.composer.name,
+            config=config,
+        )
+        pruned = await pruner.prune_downstreams()
+        if pruned:
+            print(f"🧹 Pruned {pruned} dangling downstream process(es)", file=out)
+        else:
+            print("🧹 No dangling downstream processes found", file=out)
+        print(file=out)
+        # Unregister the temporary pruner so signal handlers don't hold it
+        from .composer import _unregister_composer
+
+        _unregister_composer(pruner)
+
     # Create process manager
     process_manager = ProcessManager(auto_restart=False)
 
@@ -1622,6 +1645,12 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["stdio", "sse", "streamable-http"],
         default=None,
         help="Transport mode: stdio (subprocess), sse (deprecated), or streamable-http (recommended HTTP transport). If not specified, uses config file settings.",
+    )
+    serve_parser.add_argument(
+        "--prune-downstreams-on-start",
+        action="store_true",
+        default=None,
+        help="Kill any dangling downstream server processes from a previous run before starting new ones. Overrides the prune_downstreams_on_start config setting.",
     )
 
     # Compose command
