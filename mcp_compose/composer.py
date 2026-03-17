@@ -787,10 +787,14 @@ class MCPServerComposer:
 
         pruned = 0
         my_pid = os.getpid()
+        seen_pids: set[int] = set()
 
         for server_name, command in target_commands:
             pids = self._find_matching_pids(command, my_pid)
             for pid in pids:
+                if pid in seen_pids:
+                    continue
+                seen_pids.add(pid)
                 logger.info(
                     "Pruning dangling downstream process for %s (PID %d)",
                     server_name,
@@ -820,8 +824,13 @@ class MCPServerComposer:
         Returns:
             List of matching PIDs.
         """
-        target_cmdline = " ".join(command)
         matching: list[int] = []
+
+        def _argv_matches(cmdline_parts: list[str]) -> bool:
+            """Return True if *cmdline_parts* starts with the given *command* sequence."""
+            if not cmdline_parts or len(cmdline_parts) < len(command):
+                return False
+            return cmdline_parts[: len(command)] == command
 
         try:
             # Try /proc first (Linux)
@@ -840,8 +849,7 @@ class MCPServerComposer:
                             continue
                         # /proc/<pid>/cmdline uses \0 as separator
                         cmdline_parts = cmdline_raw.decode("utf-8", errors="replace").rstrip("\x00").split("\x00")
-                        proc_cmdline = " ".join(cmdline_parts)
-                        if target_cmdline in proc_cmdline:
+                        if _argv_matches(cmdline_parts):
                             matching.append(pid)
                     except (OSError, PermissionError, ValueError):
                         continue
@@ -866,7 +874,9 @@ class MCPServerComposer:
                         continue
                     if pid == exclude_pid:
                         continue
-                    if target_cmdline in parts[1]:
+                    # Approximate argv by splitting the command string on whitespace
+                    ps_cmdline_parts = parts[1].split()
+                    if _argv_matches(ps_cmdline_parts):
                         matching.append(pid)
         except Exception as exc:
             logger.warning("Failed to scan for dangling processes: %s", exc)

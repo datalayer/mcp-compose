@@ -14,8 +14,9 @@ Covers:
 import os
 import signal
 import subprocess
+import sys
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -461,9 +462,11 @@ class TestKillPidEdgeCases:
 
     def test_kill_pid_permission_error(self):
         """Should handle PermissionError gracefully (e.g. PID 1)."""
-        # PID 1 (init/systemd) is always running but we can't kill it
-        # This should not raise
-        MCPServerComposer._kill_pid(1, timeout=0.5)
+        # Simulate a PermissionError from os.kill (as would happen for PID 1)
+        # without actually signalling PID 1 in the test environment.
+        with patch("os.kill", side_effect=PermissionError):
+            # This should not raise, even when os.kill fails with PermissionError.
+            MCPServerComposer._kill_pid(1, timeout=0.5)
 
     @pytest.mark.skipif(
         not os.path.exists("/proc"),
@@ -473,7 +476,7 @@ class TestKillPidEdgeCases:
         """Process that traps SIGTERM should be escalated to SIGKILL."""
         # Start a process that ignores SIGTERM
         proc = subprocess.Popen(
-            ["python3", "-c",
+            [sys.executable, "-c",
              "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(300)"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
