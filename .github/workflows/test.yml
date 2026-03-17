@@ -27,6 +27,8 @@ jobs:
   test:
     name: Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      MCP_COMPOSE_SKIP_UI_BUILD: ${{ matrix.skip-ui-build || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +37,7 @@ jobs:
         include:
           - python-version: '3.12'
             os: windows-latest
+            skip-ui-build: '1'
           - python-version: '3.12'
             os: macos-latest
 

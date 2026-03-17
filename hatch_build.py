@@ -13,6 +13,17 @@ class CustomBuildHook(BuildHookInterface):
 
     PLUGIN_NAME = "custom"
 
+    @staticmethod
+    def _ensure_placeholder_dist(dist_dir: Path) -> None:
+        """Create a minimal dist directory so wheel force-include always succeeds."""
+        dist_dir.mkdir(parents=True, exist_ok=True)
+        placeholder = dist_dir / ".placeholder"
+        if not placeholder.exists():
+            placeholder.write_text(
+                "UI assets were not built in this environment.\n",
+                encoding="utf-8",
+            )
+
     def initialize(self, version: str, build_data: dict) -> None:
         """Build the UI before packaging."""
         import os
@@ -24,6 +35,7 @@ class CustomBuildHook(BuildHookInterface):
         # Useful in CI environments where Node.js/npm may not be available.
         if os.environ.get("MCP_COMPOSE_SKIP_UI_BUILD", "").lower() in ("1", "true", "yes"):
             print("⏭  Skipping UI build (MCP_COMPOSE_SKIP_UI_BUILD is set)", file=sys.stderr)
+            self._ensure_placeholder_dist(dist_dir)
             return
 
         # Check if UI dist exists and has content
@@ -45,6 +57,7 @@ class CustomBuildHook(BuildHookInterface):
                     sys.exit(1)
                 except FileNotFoundError:
                     print("⚠ npm not found, skipping UI build. The web UI will not be available.", file=sys.stderr)
+                    self._ensure_placeholder_dist(dist_dir)
                     return
             
             # Build the UI
@@ -61,6 +74,7 @@ class CustomBuildHook(BuildHookInterface):
                 sys.exit(1)
             except FileNotFoundError:
                 print("⚠ npm not found, skipping UI build. The web UI will not be available.", file=sys.stderr)
+                self._ensure_placeholder_dist(dist_dir)
                 return
         else:
             print("✓ UI already built, skipping build step", file=sys.stderr)
