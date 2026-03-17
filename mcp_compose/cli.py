@@ -20,12 +20,10 @@ from .composer import ConflictResolution, MCPServerComposer
 from .config_loader import find_config_file, load_config
 from .discovery import MCPServerDiscovery
 from .exceptions import MCPComposerError
+from .http_client import streamable_http_client_compat
 from .process_manager import ProcessManager
 
 logger = logging.getLogger(__name__)
-
-
-from .http_client import streamable_http_client_compat
 
 
 def setup_logging(verbose: bool = False) -> None:

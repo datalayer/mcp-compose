@@ -848,7 +848,11 @@ class MCPServerComposer:
                         if not cmdline_raw:
                             continue
                         # /proc/<pid>/cmdline uses \0 as separator
-                        cmdline_parts = cmdline_raw.decode("utf-8", errors="replace").rstrip("\x00").split("\x00")
+                        cmdline_parts = (
+                            cmdline_raw.decode("utf-8", errors="replace")
+                            .rstrip("\x00")
+                            .split("\x00")
+                        )
                         if _argv_matches(cmdline_parts):
                             matching.append(pid)
                     except (OSError, PermissionError, ValueError):

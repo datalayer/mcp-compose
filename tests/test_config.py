@@ -288,9 +288,7 @@ port = 8080
         finally:
             os.unlink(config_path)
 
-    @pytest.mark.skip(
-        reason="Temporarily disabled: path normalization differs on some platforms."
-    )
+    @pytest.mark.skip(reason="Temporarily disabled: path normalization differs on some platforms.")
     def test_find_config_file_in_current_dir(self):
         """Test finding config file in current directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -300,9 +298,7 @@ port = 8080
             found_path = find_config_file(start_dir=tmpdir)
             assert found_path == config_path
 
-    @pytest.mark.skip(
-        reason="Temporarily disabled: path normalization differs on some platforms."
-    )
+    @pytest.mark.skip(reason="Temporarily disabled: path normalization differs on some platforms.")
     def test_find_config_file_in_parent_dir(self):
         """Test finding config file in parent directory."""
         with tempfile.TemporaryDirectory() as tmpdir:

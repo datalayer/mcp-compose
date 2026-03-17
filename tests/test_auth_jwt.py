@@ -10,10 +10,6 @@ from datetime import datetime, timedelta
 
 import pytest
 
-pytestmark = pytest.mark.skip(
-    reason="Temporarily disabled due to PyJWT InsecureKeyLengthWarning failures."
-)
-
 from mcp_compose.auth import (
     AuthContext,
     AuthType,
@@ -23,6 +19,10 @@ from mcp_compose.auth import (
 from mcp_compose.auth_jwt import (
     JWTAuthenticator,
     create_jwt_authenticator,
+)
+
+pytestmark = pytest.mark.skip(
+    reason="Temporarily disabled due to PyJWT InsecureKeyLengthWarning failures."
 )
 
 

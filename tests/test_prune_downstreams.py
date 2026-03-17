@@ -32,7 +32,6 @@ from mcp_compose.config import (
     StreamableHttpProxiedServerConfig,
 )
 
-
 # ---------------------------------------------------------------------------
 # Config tests
 # ---------------------------------------------------------------------------
@@ -286,9 +285,7 @@ class TestPruneDownstreams:
         )
         composer = MCPServerComposer(config=config)
         # Should not even look for this command
-        with patch.object(
-            MCPServerComposer, "_find_matching_pids", return_value=[]
-        ) as mock_find:
+        with patch.object(MCPServerComposer, "_find_matching_pids", return_value=[]) as mock_find:
             result = await composer.prune_downstreams()
             assert result == 0
             mock_find.assert_not_called()
@@ -359,9 +356,7 @@ class TestPruneDownstreams:
             )
         )
         composer = MCPServerComposer(config=config)
-        with patch.object(
-            MCPServerComposer, "_find_matching_pids", return_value=[]
-        ) as mock_find:
+        with patch.object(MCPServerComposer, "_find_matching_pids", return_value=[]) as mock_find:
             result = await composer.prune_downstreams()
             assert result == 0
             mock_find.assert_not_called()
@@ -476,8 +471,11 @@ class TestKillPidEdgeCases:
         """Process that traps SIGTERM should be escalated to SIGKILL."""
         # Start a process that ignores SIGTERM
         proc = subprocess.Popen(
-            [sys.executable, "-c",
-             "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(300)"],
+            [
+                sys.executable,
+                "-c",
+                "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(300)",
+            ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
