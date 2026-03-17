@@ -51,6 +51,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           activate-environment: true
 
+      - name: Setup Node.js
+        if: matrix.os != 'ubuntu-latest'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Install dependencies
         run: |
           uv pip install .
