@@ -909,6 +909,11 @@ class MCPServerComposer:
         except PermissionError:
             logger.warning("No permission to terminate PID %d", pid)
             return
+        except OSError as e:
+            # On Windows, invalid/non-existent PIDs may raise OSError
+            # (e.g. WinError 87) instead of ProcessLookupError.
+            logger.debug("PID %d not terminable (likely already exited): %s", pid, e)
+            return
 
         # Wait for process to exit
         deadline = time.monotonic() + timeout
@@ -920,6 +925,9 @@ class MCPServerComposer:
                 return
             except PermissionError:
                 return
+            except OSError as e:
+                logger.debug("PID %d no longer valid during liveness check: %s", pid, e)
+                return
             time.sleep(0.2)
 
         # Still alive — escalate to SIGKILL
@@ -930,6 +938,8 @@ class MCPServerComposer:
             logger.debug("PID %d exited just before SIGKILL", pid)
         except PermissionError:
             logger.warning("No permission to SIGKILL PID %d", pid)
+        except OSError as e:
+            logger.debug("PID %d not killable (likely already exited): %s", pid, e)
 
     async def start(self) -> None:
         """Start the composer and all managed processes."""

@@ -463,6 +463,12 @@ class TestKillPidEdgeCases:
             # This should not raise, even when os.kill fails with PermissionError.
             MCPServerComposer._kill_pid(1, timeout=0.5)
 
+    def test_kill_nonexistent_pid_windows_oserror(self):
+        """Should handle Windows invalid-parameter OSError for non-existent PID."""
+        with patch("os.kill", side_effect=OSError("[WinError 87] The parameter is incorrect")):
+            # This should not raise on Windows-style invalid PID errors.
+            MCPServerComposer._kill_pid(2**30, timeout=0.5)
+
     @pytest.mark.skipif(
         not os.path.exists("/proc"),
         reason="Requires /proc filesystem (Linux)",
