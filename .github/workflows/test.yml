@@ -27,6 +27,8 @@ jobs:
   test:
     name: Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      MCP_COMPOSE_SKIP_UI_BUILD: ${{ matrix.skip-ui-build || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +37,7 @@ jobs:
         include:
           - python-version: '3.12'
             os: windows-latest
+            skip-ui-build: '1'
           - python-version: '3.12'
             os: macos-latest
 
@@ -50,6 +53,12 @@ jobs:
           version: "latest"
           python-version: ${{ matrix.python-version }}
           activate-environment: true
+
+      - name: Setup Node.js
+        if: matrix.os != 'ubuntu-latest'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Install dependencies
         run: |

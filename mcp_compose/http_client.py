@@ -7,8 +7,9 @@ HTTP client utilities for MCP Compose.
 Provides compatibility wrapper for the MCP SDK's streamable HTTP client.
 """
 
-import httpx
 from contextlib import asynccontextmanager
+
+import httpx
 from mcp.client.streamable_http import streamable_http_client
 
 

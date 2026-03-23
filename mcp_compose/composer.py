@@ -10,6 +10,7 @@ into a single unified server instance.
 
 import asyncio
 import logging
+import os
 import signal
 import subprocess
 from enum import Enum
@@ -741,6 +742,204 @@ class MCPServerComposer:
     def get_resource_source(self, resource_name: str) -> str | None:
         """Get the source server name for a specific resource."""
         return self.source_mapping.get(resource_name)
+
+    async def prune_downstreams(self) -> int:
+        """Find and kill dangling downstream processes from a previous run.
+
+        Scans the system process table for processes whose command lines match
+        any downstream server defined in the current configuration.  Matching
+        processes are terminated (SIGTERM) then killed (SIGKILL) if they do not
+        exit within a short timeout.
+
+        This is useful when a previous mcp-compose instance was killed without
+        a clean shutdown (e.g. ``kill -9``), leaving orphaned downstream MCP
+        servers running.
+
+        Returns:
+            The number of processes that were pruned.
+        """
+        if not self.config:
+            logger.debug("No config available, skipping downstream pruning")
+            return 0
+
+        # Collect the commands of all configured downstream servers
+        target_commands: list[tuple[str, list[str]]] = []
+
+        # STDIO proxied servers
+        if self.config.servers and self.config.servers.proxied:
+            for srv in self.config.servers.proxied.stdio:
+                if srv.command:
+                    target_commands.append((srv.name, srv.command))
+
+            # SSE auto-start servers
+            for srv in self.config.servers.proxied.sse:
+                if getattr(srv, "auto_start", False) and srv.command:
+                    target_commands.append((srv.name, srv.command))
+
+            # Streamable HTTP auto-start servers
+            for srv in self.config.servers.proxied.streamable_http:
+                if getattr(srv, "auto_start", False) and srv.command:
+                    target_commands.append((srv.name, srv.command))
+
+        if not target_commands:
+            logger.debug("No downstream server commands configured, nothing to prune")
+            return 0
+
+        pruned = 0
+        my_pid = os.getpid()
+        seen_pids: set[int] = set()
+
+        for server_name, command in target_commands:
+            pids = self._find_matching_pids(command, my_pid)
+            for pid in pids:
+                if pid in seen_pids:
+                    continue
+                seen_pids.add(pid)
+                logger.info(
+                    "Pruning dangling downstream process for %s (PID %d)",
+                    server_name,
+                    pid,
+                )
+                self._kill_pid(pid)
+                pruned += 1
+
+        if pruned:
+            logger.info("Pruned %d dangling downstream process(es)", pruned)
+        else:
+            logger.debug("No dangling downstream processes found")
+
+        return pruned
+
+    @staticmethod
+    def _find_matching_pids(command: list[str], exclude_pid: int) -> list[int]:
+        """Find PIDs whose command line matches *command*.
+
+        Uses ``/proc`` on Linux for a direct, dependency-free lookup.
+        Falls back to ``ps`` on other platforms.
+
+        Args:
+            command: The command list to search for.
+            exclude_pid: PID to exclude (our own process).
+
+        Returns:
+            List of matching PIDs.
+        """
+        matching: list[int] = []
+
+        def _argv_matches(cmdline_parts: list[str]) -> bool:
+            """Return True if *cmdline_parts* starts with the given *command* sequence."""
+            if not cmdline_parts or len(cmdline_parts) < len(command):
+                return False
+            return cmdline_parts[: len(command)] == command
+
+        try:
+            # Try /proc first (Linux)
+            proc_path = Path("/proc")
+            if proc_path.exists():
+                for entry in proc_path.iterdir():
+                    if not entry.name.isdigit():
+                        continue
+                    pid = int(entry.name)
+                    if pid == exclude_pid:
+                        continue
+                    try:
+                        cmdline_file = entry / "cmdline"
+                        cmdline_raw = cmdline_file.read_bytes()
+                        if not cmdline_raw:
+                            continue
+                        # /proc/<pid>/cmdline uses \0 as separator
+                        cmdline_parts = (
+                            cmdline_raw.decode("utf-8", errors="replace")
+                            .rstrip("\x00")
+                            .split("\x00")
+                        )
+                        if _argv_matches(cmdline_parts):
+                            matching.append(pid)
+                    except (OSError, PermissionError, ValueError):
+                        continue
+                return matching
+
+            # Fallback: use ps on macOS / other Unices
+            result = subprocess.run(
+                ["ps", "ax", "-o", "pid,command"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                for line in result.stdout.strip().splitlines()[1:]:
+                    line = line.strip()
+                    parts = line.split(None, 1)
+                    if len(parts) < 2:
+                        continue
+                    try:
+                        pid = int(parts[0])
+                    except ValueError:
+                        continue
+                    if pid == exclude_pid:
+                        continue
+                    # Approximate argv by splitting the command string on whitespace
+                    ps_cmdline_parts = parts[1].split()
+                    if _argv_matches(ps_cmdline_parts):
+                        matching.append(pid)
+        except Exception as exc:
+            logger.warning("Failed to scan for dangling processes: %s", exc)
+
+        return matching
+
+    @staticmethod
+    def _kill_pid(pid: int, timeout: float = 5.0) -> None:
+        """Terminate then kill a process by PID.
+
+        Sends SIGTERM first, waits up to *timeout* seconds, then escalates
+        to SIGKILL if the process is still alive.
+
+        Args:
+            pid: Process ID to kill.
+            timeout: Seconds to wait before SIGKILL.
+        """
+        import time
+
+        try:
+            os.kill(pid, signal.SIGTERM)
+            logger.debug("Sent SIGTERM to PID %d", pid)
+        except ProcessLookupError:
+            logger.debug("PID %d already exited", pid)
+            return
+        except PermissionError:
+            logger.warning("No permission to terminate PID %d", pid)
+            return
+        except OSError as e:
+            # On Windows, invalid/non-existent PIDs may raise OSError
+            # (e.g. WinError 87) instead of ProcessLookupError.
+            logger.debug("PID %d not terminable (likely already exited): %s", pid, e)
+            return
+
+        # Wait for process to exit
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                os.kill(pid, 0)  # Check if process is still alive
+            except ProcessLookupError:
+                logger.debug("PID %d exited after SIGTERM", pid)
+                return
+            except PermissionError:
+                return
+            except OSError as e:
+                logger.debug("PID %d no longer valid during liveness check: %s", pid, e)
+                return
+            time.sleep(0.2)
+
+        # Still alive — escalate to SIGKILL
+        try:
+            os.kill(pid, signal.SIGKILL)
+            logger.warning("Sent SIGKILL to PID %d (did not exit after SIGTERM)", pid)
+        except ProcessLookupError:
+            logger.debug("PID %d exited just before SIGKILL", pid)
+        except PermissionError:
+            logger.warning("No permission to SIGKILL PID %d", pid)
+        except OSError as e:
+            logger.debug("PID %d not killable (likely already exited): %s", pid, e)
 
     async def start(self) -> None:
         """Start the composer and all managed processes."""

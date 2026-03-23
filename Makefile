@@ -30,6 +30,13 @@ dev:
 test: ## run the integration tests
 	hatch test
 
+lint: ## run ruff linter checks
+	ruff check mcp_compose/ tests/
+
+format: ## fix formatting with ruff
+	ruff format mcp_compose/ tests/
+	ruff check --fix mcp_compose/ tests/
+
 build: build-ui ## build Python package (UI is built first)
 	pip install build
 	python -m build .

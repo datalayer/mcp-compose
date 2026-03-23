@@ -90,6 +90,10 @@ class ComposerConfig(BaseModel):
     )
     log_level: str = Field(default="INFO", description="Logging level")
     port: int = Field(default=8080, description="Port for HTTP/SSE transport and REST API")
+    prune_downstreams_on_start: bool = Field(
+        default=False,
+        description="Kill any dangling downstream server processes from a previous run before starting new ones",
+    )
 
 
 # ============================================================================

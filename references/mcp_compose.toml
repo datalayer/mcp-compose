@@ -9,6 +9,7 @@ name = "my-unified-server"
 conflict_resolution = "prefix"  # prefix, suffix, ignore, error, override, custom
 log_level = "INFO"
 port = 8080
+prune_downstreams_on_start = false  # Kill dangling downstream processes from a previous run before starting
 
 # ============================================================================
 # Transport Configuration

@@ -59,6 +59,7 @@ name = "my-unified-server"       # Server name (required)
 conflict_resolution = "prefix"   # Tool name conflict strategy
 log_level = "INFO"               # Logging level
 port = 8080                      # Default port for HTTP transports
+prune_downstreams_on_start = false  # Kill dangling downstreams before starting
 ```
 
 ### Conflict Resolution Strategies
@@ -84,6 +85,28 @@ The log level controls how much information MCP Compose outputs during operation
 | `INFO` | General operational messages |
 | `WARNING` | Warning messages |
 | `ERROR` | Error messages only |
+
+### Prune Downstreams on Start
+
+When `prune_downstreams_on_start` is enabled, MCP Compose will scan the system process table at startup for any running processes whose command lines match the downstream servers defined in the configuration. Any matching processes are killed before new downstream servers are started.
+
+This is useful in environments where a previous mcp-compose instance may have been terminated uncleanly (e.g. `kill -9`, OOM kill, or a host crash), leaving orphaned downstream MCP server processes still running and potentially holding ports or resources.
+
+```toml
+[composer]
+name = "my-server"
+prune_downstreams_on_start = true
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `prune_downstreams_on_start` | bool | `false` | Kill dangling downstream processes from a previous run before starting new ones |
+
+The same behaviour can be triggered on a per-invocation basis with the CLI flag `--prune-downstreams-on-start`, which overrides the config file setting:
+
+```bash
+mcp-compose serve --prune-downstreams-on-start
+```
 
 ---
 

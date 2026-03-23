@@ -122,6 +122,56 @@ The Web UI exposes the same views with live updates for logs, metrics, and serve
 - Use the Tools page to confirm tool discovery.
 - Use the health endpoint for readiness checks.
 
+## Pruning Dangling Downstream Processes
+
+If MCP Compose is terminated without a clean shutdown (e.g. `kill -9`, OOM kill, power loss), downstream MCP servers it started may be left running as orphaned processes. These dangling processes can hold ports, consume resources, or cause conflicts when MCP Compose is restarted.
+
+The **prune downstreams on start** feature detects and kills any such orphaned processes before new downstream servers are launched.
+
+### How it works
+
+1. On startup MCP Compose collects the commands of every downstream server defined in `mcp_compose.toml` (STDIO, auto-start SSE, and auto-start Streamable HTTP).
+2. It scans the system process table (via `/proc` on Linux, `ps` on macOS) for processes whose command line matches.
+3. Every matching process is sent `SIGTERM`. If it does not exit within 5 seconds, `SIGKILL` is sent.
+4. Once pruning completes, normal server startup continues.
+
+### Enabling pruning
+
+**In the configuration file** — set once and forget:
+
+```toml
+[composer]
+name = "my-server"
+prune_downstreams_on_start = true
+```
+
+**Via the CLI flag** — per-invocation, overrides the config file:
+
+```bash
+mcp-compose serve --prune-downstreams-on-start
+```
+
+### Example output
+
+```
+🧹 Pruned 2 dangling downstream process(es)
+
+🚀 MCP Compose: my-server
+...
+```
+
+If no dangling processes are found, MCP Compose prints a confirmation and continues:
+
+```
+🧹 No dangling downstream processes found
+```
+
+:::tip[When to enable this]
+
+Enable `prune_downstreams_on_start` in production or CI environments where unclean shutdowns are possible. In local development it is usually not needed because `Ctrl+C` triggers a clean shutdown.
+
+:::
+
 ## Graceful Shutdown and Downstream Process Cleanup
 
 When MCP Compose exits — whether via `Ctrl+C`, `SIGTERM`, or normal termination — it automatically terminates **all** downstream MCP server processes it started. This prevents ghost or stale server processes from lingering on the host.
