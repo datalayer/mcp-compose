@@ -12,7 +12,7 @@ import pytest
 
 from mcp_compose.client_info import FALLBACK_CLIENT_INFO, resolve_client_info
 
-RECORDING_MCP_SERVER = '''
+RECORDING_MCP_SERVER = """
 import sys
 import json
 
@@ -56,7 +56,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-'''
+"""
 
 
 def _make_ctx(name: str = "test-agent", version: str = "2.0.0"):
@@ -82,7 +82,6 @@ def recording_script(tmp_path):
 
 
 class TestResolveClientInfo:
-
     def test_returns_fallback_when_ctx_is_none(self):
         result = resolve_client_info(None)
         assert result is FALLBACK_CLIENT_INFO
@@ -111,13 +110,11 @@ class TestResolveClientInfo:
 
 
 class TestToolProxyDiscoverToolsClientInfo:
-
     @pytest.mark.asyncio
     async def test_discover_tools_sends_upstream_client_info(self, recording_script):
         from unittest.mock import MagicMock
 
         from mcp_compose.composer import MCPServerComposer
-        from mcp_compose.process import Process
         from mcp_compose.process_manager import ProcessManager
         from mcp_compose.tool_proxy import ToolProxy
 
@@ -197,11 +194,11 @@ class TestToolProxyDiscoverToolsClientInfo:
 
 
 class TestToolProxyProxyFunctionSignature:
-
     def test_proxy_function_has_ctx_parameter(self, recording_script):
         from unittest.mock import MagicMock
 
         from mcp.server.fastmcp import Context
+
         from mcp_compose.composer import MCPServerComposer
         from mcp_compose.process import Process
         from mcp_compose.process_manager import ProcessManager

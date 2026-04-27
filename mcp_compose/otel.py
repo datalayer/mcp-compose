@@ -566,7 +566,9 @@ def _instrument_tool_proxy(
     original_discover_tools = ToolProxy.discover_tools
 
     @functools.wraps(original_discover_tools)
-    async def traced_discover_tools(self: Any, server_name: str, process: Any, ctx: Any = None) -> None:
+    async def traced_discover_tools(
+        self: Any, server_name: str, process: Any, ctx: Any = None
+    ) -> None:
         start_time = time.time()
 
         with tracer.start_as_current_span(
@@ -583,7 +585,9 @@ def _instrument_tool_proxy(
                         client_params = ctx.session.client_params
                         if client_params is not None:
                             span.set_attribute("mcp.client.name", client_params.clientInfo.name)
-                            span.set_attribute("mcp.client.version", client_params.clientInfo.version)
+                            span.set_attribute(
+                                "mcp.client.version", client_params.clientInfo.version
+                            )
                     except AttributeError:
                         pass
 

@@ -6,7 +6,6 @@ Tests for upstream clientInfo propagation through SSE and Streamable HTTP proxy 
 """
 
 import asyncio
-import sys
 
 import pytest
 import uvicorn
@@ -53,7 +52,6 @@ async def _start_uvicorn(app, port: int):
 
 
 class TestSseProxyClientInfo:
-
     @pytest.mark.asyncio
     async def test_sse_proxy_passes_upstream_client_info(self):
         port = 19201
@@ -125,7 +123,6 @@ class TestSseProxyClientInfo:
 
 
 class TestStreamableHttpProxyClientInfo:
-
     @pytest.mark.asyncio
     async def test_streamable_http_proxy_passes_upstream_client_info(self):
         port = 19203

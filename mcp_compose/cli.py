@@ -16,9 +16,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .client_info import resolve_client_info
 from .composer import ConflictResolution, MCPServerComposer
 from .config_loader import find_config_file, load_config
-from .client_info import resolve_client_info
 from .discovery import MCPServerDiscovery
 from .exceptions import MCPComposerError
 from .http_client import streamable_http_client_compat
@@ -865,7 +865,9 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                             ):
                                                 """Create a proxy function that calls the remote streamable HTTP server."""
 
-                                                async def streamable_http_tool_proxy(ctx=None, **kwargs):
+                                                async def streamable_http_tool_proxy(
+                                                    ctx=None, **kwargs
+                                                ):
                                                     """Proxy function for streamable HTTP tool."""
                                                     from mcp import ClientSession
 
@@ -901,7 +903,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                                         get_session_id,
                                                     ):
                                                         async with ClientSession(
-                                                            read_stream, write_stream,
+                                                            read_stream,
+                                                            write_stream,
                                                             client_info=client_info,
                                                         ) as session:
                                                             await session.initialize()
@@ -1028,7 +1031,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
 
                                                 try:
                                                     async with ClientSession(
-                                                        transport.messages(), transport.send,
+                                                        transport.messages(),
+                                                        transport.send,
                                                         client_info=client_info,
                                                     ) as session:
                                                         await session.initialize()
@@ -1231,7 +1235,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                                 timeout=float(http_config.timeout),
                                             ) as (read_stream, write_stream, get_session_id):
                                                 async with ClientSession(
-                                                    read_stream, write_stream,
+                                                    read_stream,
+                                                    write_stream,
                                                     client_info=client_info,
                                                 ) as session:
                                                     await session.initialize()
