@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .client_info import resolve_client_info
 from .composer import ConflictResolution, MCPServerComposer
 from .config_loader import find_config_file, load_config
 from .discovery import MCPServerDiscovery
@@ -675,14 +676,17 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     def make_sse_proxy(sse_url: str, original_tool_name: str):
                                         """Create a proxy function that calls the remote SSE server."""
 
-                                        async def sse_tool_proxy(**kwargs):
+                                        async def sse_tool_proxy(ctx=None, **kwargs):
                                             """Proxy function for SSE tool."""
                                             from mcp import ClientSession
                                             from mcp.client.sse import sse_client
 
+                                            client_info = resolve_client_info(ctx)
                                             # Connect to SSE server and call the tool
                                             async with sse_client(sse_url) as (read, write):
-                                                async with ClientSession(read, write) as session:
+                                                async with ClientSession(
+                                                    read, write, client_info=client_info
+                                                ) as session:
                                                     await session.initialize()
                                                     result = await session.call_tool(
                                                         original_tool_name, kwargs
@@ -861,10 +865,13 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                             ):
                                                 """Create a proxy function that calls the remote streamable HTTP server."""
 
-                                                async def streamable_http_tool_proxy(**kwargs):
+                                                async def streamable_http_tool_proxy(
+                                                    ctx=None, **kwargs
+                                                ):
                                                     """Proxy function for streamable HTTP tool."""
                                                     from mcp import ClientSession
 
+                                                    client_info = resolve_client_info(ctx)
                                                     # Build headers for authentication
                                                     hdrs = {}
                                                     if http_config.auth_token:
@@ -896,7 +903,9 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                                         get_session_id,
                                                     ):
                                                         async with ClientSession(
-                                                            read_stream, write_stream
+                                                            read_stream,
+                                                            write_stream,
+                                                            client_info=client_info,
                                                         ) as session:
                                                             await session.initialize()
                                                             result = await session.call_tool(
@@ -1001,7 +1010,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                         def make_http_proxy(http_config, original_tool_name: str):
                                             """Create a proxy function that calls the remote HTTP server."""
 
-                                            async def http_tool_proxy(**kwargs):
+                                            async def http_tool_proxy(ctx=None, **kwargs):
                                                 """Proxy function for HTTP tool."""
                                                 from mcp import ClientSession
 
@@ -1009,6 +1018,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                                     create_http_stream_transport,
                                                 )
 
+                                                client_info = resolve_client_info(ctx)
                                                 # Connect to HTTP server and call the tool
                                                 transport = await create_http_stream_transport(
                                                     name=http_config.name,
@@ -1021,7 +1031,9 @@ async def run_server(config, args: argparse.Namespace) -> int:
 
                                                 try:
                                                     async with ClientSession(
-                                                        transport.messages(), transport.send
+                                                        transport.messages(),
+                                                        transport.send,
+                                                        client_info=client_info,
                                                     ) as session:
                                                         await session.initialize()
                                                         result = await session.call_tool(
@@ -1198,10 +1210,11 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     ):
                                         """Create a proxy function that calls the remote streamable HTTP server."""
 
-                                        async def streamable_http_tool_proxy(**kwargs):
+                                        async def streamable_http_tool_proxy(ctx=None, **kwargs):
                                             """Proxy function for streamable HTTP tool."""
                                             from mcp import ClientSession
 
+                                            client_info = resolve_client_info(ctx)
                                             # Build headers for authentication
                                             hdrs = {}
                                             if http_config.auth_token:
@@ -1222,7 +1235,9 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                                 timeout=float(http_config.timeout),
                                             ) as (read_stream, write_stream, get_session_id):
                                                 async with ClientSession(
-                                                    read_stream, write_stream
+                                                    read_stream,
+                                                    write_stream,
+                                                    client_info=client_info,
                                                 ) as session:
                                                     await session.initialize()
                                                     result = await session.call_tool(

@@ -14,8 +14,10 @@ import json
 import logging
 from typing import Any
 
+from mcp.server.fastmcp import Context
 from mcp.server.fastmcp.tools.base import Tool
 
+from .client_info import resolve_client_info
 from .process import Process
 from .process_manager import ProcessManager
 
@@ -42,7 +44,7 @@ class ToolProxy:
         self.composer = composer
         self.server_tools: dict[str, dict[str, Any]] = {}
 
-    async def discover_tools(self, server_name: str, process: Process) -> None:
+    async def discover_tools(self, server_name: str, process: Process, ctx: Any = None) -> None:
         """
         Discover tools from a child MCP server via STDIO.
 
@@ -54,6 +56,7 @@ class ToolProxy:
             logger.info(f"Starting tool discovery for {server_name}")
 
             # Send MCP initialize request
+            client_info = resolve_client_info(ctx)
             init_request = {
                 "jsonrpc": "2.0",
                 "id": 1,
@@ -61,7 +64,7 @@ class ToolProxy:
                 "params": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "clientInfo": {"name": "mcp-compose", "version": "0.1.0"},
+                    "clientInfo": {"name": client_info.name, "version": client_info.version},
                 },
             }
 
@@ -180,8 +183,13 @@ class ToolProxy:
             # Add return annotation
             annotations["return"] = str
 
+            # ctx is injected by FastMCP at call time; exclude from tool schema
+            ctx_param = inspect.Parameter(
+                "ctx", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Context
+            )
+
             # Create the actual async function that will be called
-            async def _proxy_impl(**kwargs) -> str:
+            async def _proxy_impl(ctx: Context = None, **kwargs) -> str:
                 """Proxy function that forwards tool calls to child process."""
                 try:
                     logger.info(f"Tool {tl_name} called with arguments: {kwargs}")
@@ -223,15 +231,17 @@ class ToolProxy:
 
             # Create wrapper function with proper signature
             # This function will have the correct parameters in its signature
-            async def proxy_tool(*args, **kwargs) -> str:
+            async def proxy_tool(ctx: Context = None, *args, **kwargs) -> str:
                 # Convert positional args to kwargs based on parameter order
                 for i, param in enumerate(params):
                     if i < len(args):
                         kwargs[param.name] = args[i]
-                return await _proxy_impl(**kwargs)
+                return await _proxy_impl(ctx=ctx, **kwargs)
 
-            # Set the proper signature on the wrapper
-            proxy_tool.__signature__ = inspect.Signature(parameters=params, return_annotation=str)
+            # Set the proper signature on the wrapper — ctx first, then tool params
+            proxy_tool.__signature__ = inspect.Signature(
+                parameters=[ctx_param] + params, return_annotation=str
+            )
             proxy_tool.__annotations__ = annotations
 
             return proxy_tool
