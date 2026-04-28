@@ -9,7 +9,7 @@ import json
 import tempfile
 from io import StringIO
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -21,7 +21,9 @@ from mcp_compose.cli import (
     main,
     print_discovery_results,
     print_summary,
+    serve_command,
 )
+from mcp_compose.config import ComposerConfig, MCPComposerConfig
 
 
 class TestCLI:
@@ -322,6 +324,76 @@ class TestCLI:
 
         assert result == 0
         mock_discover.assert_called_once_with(mock_args)
+
+    def test_parser_serve_port_default(self):
+        """Test serve command --port defaults to None (unset) when not provided."""
+        parser = create_parser()
+
+        args = parser.parse_args(["serve"])
+
+        assert args.port is None
+
+    def test_parser_serve_port_explicit_non_default(self):
+        """Test serve command --port accepts an explicit non-default value."""
+        parser = create_parser()
+
+        args = parser.parse_args(["serve", "--port", "9000"])
+
+        assert args.port == 9000
+
+    @pytest.mark.parametrize("cli_port", [8000, 9000])
+    @patch("uvicorn.Config")
+    @patch("mcp_compose.cli.setup_otel_tracing")
+    @patch("mcp_compose.api.dependencies.set_authenticator")
+    @patch("mcp_compose.api.dependencies.set_config")
+    @patch("mcp_compose.api.dependencies.set_composer")
+    @patch("mcp_compose.api.create_app")
+    @patch("mcp_compose.cli.MCPServerComposer")
+    def test_serve_port_overrides_toml(
+        self,
+        mock_composer_class,
+        mock_create_app,
+        mock_set_composer,
+        mock_set_config,
+        mock_set_authenticator,
+        mock_setup_otel,
+        mock_uvicorn_config,
+        cli_port,
+    ):
+        """--port=<N> passed on CLI must override the port in TOML config."""
+        mock_composer = MagicMock()
+        mock_composer.composed_tools = {}
+        mock_composer.composed_server.streamable_http_app.return_value = MagicMock(routes=[])
+        mock_composer_class.return_value = mock_composer
+
+        mock_app = MagicMock()
+        mock_app.routes = []
+        mock_create_app.return_value = mock_app
+
+        mock_setup_otel.return_value = None
+
+        mock_uvicorn_server = AsyncMock()
+        mock_uvicorn_server.serve = AsyncMock()
+        mock_uvicorn_config.return_value = MagicMock()
+
+        config = MCPComposerConfig(composer=ComposerConfig(port=9090))
+
+        parser = create_parser()
+        args = parser.parse_args(["serve", "--port", str(cli_port), "--transport", "streamable-http"])
+        args.config = None
+        args.config_path = None
+        args.verbose = False
+
+        with patch("mcp_compose.cli.load_config", return_value=config), \
+             patch("mcp_compose.cli.find_config_file", return_value=Path("fake.toml")), \
+             patch("uvicorn.Server", return_value=mock_uvicorn_server):
+            serve_command(args)
+
+        _, kwargs = mock_uvicorn_config.call_args
+        assert kwargs["port"] == cli_port, (
+            f"Expected uvicorn to bind on port {cli_port} (explicit CLI flag), "
+            f"but got {kwargs['port']} (TOML config port leaked through)"
+        )
 
 
 if __name__ == "__main__":
