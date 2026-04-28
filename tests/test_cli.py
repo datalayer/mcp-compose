@@ -379,14 +379,18 @@ class TestCLI:
         config = MCPComposerConfig(composer=ComposerConfig(port=9090))
 
         parser = create_parser()
-        args = parser.parse_args(["serve", "--port", str(cli_port), "--transport", "streamable-http"])
+        args = parser.parse_args(
+            ["serve", "--port", str(cli_port), "--transport", "streamable-http"]
+        )
         args.config = None
         args.config_path = None
         args.verbose = False
 
-        with patch("mcp_compose.cli.load_config", return_value=config), \
-             patch("mcp_compose.cli.find_config_file", return_value=Path("fake.toml")), \
-             patch("uvicorn.Server", return_value=mock_uvicorn_server):
+        with (
+            patch("mcp_compose.cli.load_config", return_value=config),
+            patch("mcp_compose.cli.find_config_file", return_value=Path("fake.toml")),
+            patch("uvicorn.Server", return_value=mock_uvicorn_server),
+        ):
             serve_command(args)
 
         _, kwargs = mock_uvicorn_config.call_args
