@@ -20,23 +20,18 @@ COPY ui/ ./
 # Build UI
 RUN npm run build
 
-# Stage 2: Python dependencies
+# Stage 2: Build Python wheel
 FROM python:3.10-slim AS python-builder
 
 WORKDIR /build
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy Python package files
 COPY pyproject.toml README.md LICENSE hatch_build.py ./
 COPY mcp_compose/ ./mcp_compose/
-COPY tests/ ./tests/
 
-# Install Python dependencies
-RUN pip install --user --no-cache-dir -e .
+# Build the wheel
+RUN pip install --upgrade build \
+    && python -m build --wheel --outdir dist
 
 # Stage 3: Runtime
 FROM python:3.10-slim
@@ -48,21 +43,15 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy Python installation from builder
-COPY --from=python-builder /root/.local /root/.local
+# Copy and install the wheel from the builder stage
+COPY --from=python-builder /build/dist/*.whl /tmp/
+RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
 
 # Copy UI build from ui-builder
 COPY --from=ui-builder /ui/dist /app/ui/dist
 
-# Copy application code
-COPY mcp_compose/ /app/mcp_compose/
-COPY pyproject.toml README.md /app/
-
 # Copy example configuration
 COPY examples/ui/mcp_compose.toml /app/config.toml
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
 
 # Create directories
 RUN mkdir -p /var/log/mcp-compose /data /etc/mcp-compose

@@ -234,7 +234,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(settings.router, prefix="/api/v1", tags=["settings"])
 
     # Serve UI static files if available
-    ui_dist_path = Path(__file__).parent.parent.parent / "ui" / "dist"
+    ui_dist_path = Path.cwd() / "ui" / "dist"
     if ui_dist_path.exists() and ui_dist_path.is_dir():
         logger.info(f"Serving UI from {ui_dist_path}")
 
