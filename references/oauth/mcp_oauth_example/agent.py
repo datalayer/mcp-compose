@@ -226,7 +226,7 @@ def main():
     except FileNotFoundError:
         print("\n❌ Error: config.json not found")
         print("   Please create config.json with your GitHub OAuth credentials")
-        print("   See the example in examples/mcp_compose.toml")
+        print("   See the example in examples/ui/mcp_compose.toml")
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback

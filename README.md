@@ -67,7 +67,7 @@ open http://localhost:8000
 
 ```bash
 # Start the server with Web UI
-mcp-compose serve --config examples/mcp_compose.toml
+mcp-compose serve --config examples/ui/mcp_compose.toml
 
 # Access Web UI at http://localhost:8000
 # Access API at http://localhost:8000/api/v1

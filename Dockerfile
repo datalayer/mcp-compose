@@ -9,13 +9,13 @@ FROM node:18-alpine AS ui-builder
 WORKDIR /ui
 
 # Copy UI package files
-COPY ui/package*.json ./
+COPY ui/package.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy UI source
-COPY ui/ .
+COPY ui/ ./
 
 # Build UI
 RUN npm run build
@@ -31,8 +31,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python package files
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md LICENSE hatch_build.py ./
 COPY mcp_compose/ ./mcp_compose/
+COPY tests/ ./tests/
 
 # Install Python dependencies
 RUN pip install --user --no-cache-dir -e .
@@ -58,7 +59,7 @@ COPY mcp_compose/ /app/mcp_compose/
 COPY pyproject.toml README.md /app/
 
 # Copy example configuration
-COPY examples/mcp_compose.toml /app/config.toml
+COPY examples/ui/mcp_compose.toml /app/config.toml
 
 # Make sure scripts in .local are usable
 ENV PATH=/root/.local/bin:$PATH
