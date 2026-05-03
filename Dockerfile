@@ -9,10 +9,10 @@ FROM node:18-alpine AS ui-builder
 WORKDIR /ui
 
 # Copy UI package files
-COPY ui/package*.json ./
+COPY ui/package.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy UI source
 COPY ui/ ./
