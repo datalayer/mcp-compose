@@ -58,7 +58,7 @@ COPY mcp_compose/ /app/mcp_compose/
 COPY pyproject.toml README.md /app/
 
 # Copy example configuration
-COPY examples/mcp_compose.toml /app/config.toml
+COPY examples/ui/mcp_compose.toml /app/config.toml
 
 # Make sure scripts in .local are usable
 ENV PATH=/root/.local/bin:$PATH
