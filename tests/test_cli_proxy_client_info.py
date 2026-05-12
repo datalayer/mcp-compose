@@ -5,8 +5,9 @@
 Tests for upstream clientInfo propagation through SSE and Streamable HTTP proxy paths.
 """
 
-import asyncio
+from contextlib import asynccontextmanager
 
+import anyio
 import pytest
 import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
@@ -40,15 +41,18 @@ def _build_sub_server(port: int):
     return sub, received
 
 
-async def _start_uvicorn(app, port: int):
+@asynccontextmanager
+async def _run_uvicorn(app, port: int):
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
     server = uvicorn.Server(config)
-    task = asyncio.create_task(server.serve())
-    for _ in range(100):
-        await asyncio.sleep(0.05)
-        if server.started:
-            break
-    return server, task
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(server.serve)
+        for _ in range(100):
+            await anyio.sleep(0.05)
+            if server.started:
+                break
+        yield server
+        server.should_exit = True
 
 
 class TestSseProxyClientInfo:
@@ -56,9 +60,7 @@ class TestSseProxyClientInfo:
     async def test_sse_proxy_passes_upstream_client_info(self):
         port = 19201
         sub, received = _build_sub_server(port)
-        userver, server_task = await _start_uvicorn(sub.sse_app(), port)
-
-        try:
+        async with _run_uvicorn(sub.sse_app(), port):
             from mcp import ClientSession
             from mcp.client.sse import sse_client
 
@@ -84,17 +86,12 @@ class TestSseProxyClientInfo:
             assert result == "pong"
             assert received["name"] == "upstream-llm"
             assert received["version"] == "4.2.0"
-        finally:
-            userver.should_exit = True
-            await server_task
 
     @pytest.mark.asyncio
     async def test_sse_proxy_falls_back_without_ctx(self):
         port = 19202
         sub, received = _build_sub_server(port)
-        userver, server_task = await _start_uvicorn(sub.sse_app(), port)
-
-        try:
+        async with _run_uvicorn(sub.sse_app(), port):
             from mcp import ClientSession
             from mcp.client.sse import sse_client
 
@@ -117,9 +114,6 @@ class TestSseProxyClientInfo:
             await sse_tool_proxy(ctx=None)
 
             assert received["name"] == "mcp-compose"
-        finally:
-            userver.should_exit = True
-            await server_task
 
 
 class TestStreamableHttpProxyClientInfo:
@@ -127,9 +121,7 @@ class TestStreamableHttpProxyClientInfo:
     async def test_streamable_http_proxy_passes_upstream_client_info(self):
         port = 19203
         sub, received = _build_sub_server(port)
-        userver, server_task = await _start_uvicorn(sub.streamable_http_app(), port)
-
-        try:
+        async with _run_uvicorn(sub.streamable_http_app(), port):
             from mcp import ClientSession
 
             from mcp_compose.client_info import resolve_client_info
@@ -161,17 +153,12 @@ class TestStreamableHttpProxyClientInfo:
             assert result == "pong"
             assert received["name"] == "streaming-agent"
             assert received["version"] == "1.0.0"
-        finally:
-            userver.should_exit = True
-            await server_task
 
     @pytest.mark.asyncio
     async def test_streamable_http_proxy_falls_back_without_ctx(self):
         port = 19204
         sub, received = _build_sub_server(port)
-        userver, server_task = await _start_uvicorn(sub.streamable_http_app(), port)
-
-        try:
+        async with _run_uvicorn(sub.streamable_http_app(), port):
             from mcp import ClientSession
 
             from mcp_compose.client_info import resolve_client_info
@@ -200,9 +187,6 @@ class TestStreamableHttpProxyClientInfo:
             await streamable_http_tool_proxy(ctx=None)
 
             assert received["name"] == "mcp-compose"
-        finally:
-            userver.should_exit = True
-            await server_task
 
 
 if __name__ == "__main__":

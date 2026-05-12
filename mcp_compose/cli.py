@@ -1377,17 +1377,12 @@ async def run_server(config, args: argparse.Namespace) -> int:
         from .api import create_app
         from .api.dependencies import set_composer, set_config
 
-        # Determine port priority: CLI arg (if explicitly set) > composer config > default
-        # Note: 8000 is the argparse default for serve command
-        if hasattr(args, "port") and args.port != 8000:
-            # CLI arg was explicitly provided
+        if args.port is not None:
             server_port = args.port
         elif config.composer and config.composer.port:
-            # Use composer config port
             server_port = config.composer.port
         else:
-            # Fall back to default
-            server_port = args.port
+            server_port = 8000
 
         # Determine UI port (for logging purposes)
         ui_port = server_port  # Default: UI on same port as transport
@@ -1648,7 +1643,7 @@ def create_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument(
         "--port",
         type=int,
-        default=8000,
+        default=None,
         help="Port to bind to (default: 8000)",
     )
     serve_parser.add_argument(
