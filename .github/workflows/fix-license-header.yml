@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -28,7 +28,7 @@ jobs:
 
       - name: Fix License Header
         # pin to include https://github.com/apache/skywalking-eyes/pull/168
-        uses: apache/skywalking-eyes/header@e0cc16d0e47f446fbc456d0e670dc50dec09719e
+        uses: apache/skywalking-eyes/header@315732dd4b8d3a015d8d9b91936b935a0b854817
         with:
           mode: fix
 
