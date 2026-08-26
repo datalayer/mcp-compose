@@ -1,0 +1,8 @@
+{
+  "folder_name": "north-sea-sst",
+  "short_name": "MUR-JPL-L4-GLOB-v4.1",
+  "count": 10,
+  "temporal": ["2025-08-01", "2025-08-31"],
+  "bounding_box": [-4.0, 51.0, 9.0, 61.0],
+  "mode": "manifest"
+}

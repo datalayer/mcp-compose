@@ -1,0 +1,52 @@
+# MCP Compose Configuration
+# Earthdata + Jupyter: discover with one server, execute with the other.
+#
+# The Earthdata server finds datasets and granules and turns a selection into
+# a manifest or a download script; it never moves bytes through MCP JSON. The
+# Jupyter server runs that script inside the assigned Code Sandbox, where the
+# bytes land on the sandbox's filesystem. The composition is what lets one
+# agent use both without either server knowing about the other.
+
+[composer]
+name = "earthdata-jupyter"
+conflict_resolution = "prefix"  # earthdata_search_earth_datasets, jupyter_execute_code, …
+log_level = "INFO"
+port = 8888
+
+# ============================================================================
+# Transport — Streamable HTTP, so an agent or a Contents MCP source can reach
+# the composition over the network.
+# ============================================================================
+[transport]
+stdio_enabled = false
+streamable_http_enabled = true
+streamable_http_path = "/mcp"
+streamable_http_cors_enabled = true
+sse_enabled = false
+
+[ui]
+enabled = false
+
+# ============================================================================
+# Earthdata MCP Server — discovery and acquisition planning.
+# Tools: search_earth_datasets, search_earth_datagranules,
+#        download_earth_data_granules (mode=manifest|script|download)
+# ============================================================================
+[[servers.proxied.stdio]]
+name = "earthdata"
+command = ["earthdata-mcp-server", "start", "--transport", "stdio"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+restart_policy = "on-failure"
+env = { EARTHDATA_USERNAME = "${EARTHDATA_USERNAME}", EARTHDATA_PASSWORD = "${EARTHDATA_PASSWORD}" }
+
+# ============================================================================
+# Jupyter MCP Server — execution inside the Code Sandbox.
+# Tools: use_notebook, insert_execute_code_cell, execute_code, read_notebook,
+#        list_files, …
+# ============================================================================
+[[servers.proxied.stdio]]
+name = "jupyter"
+command = ["jupyter-mcp-server", "start", "--transport", "stdio"]
+working_dir = "${MCP_COMPOSE_CONFIG_DIR}"
+restart_policy = "on-failure"
+env = { DOCUMENT_URL = "${DOCUMENT_URL}", DOCUMENT_TOKEN = "${DOCUMENT_TOKEN}", RUNTIME_URL = "${RUNTIME_URL}", RUNTIME_TOKEN = "${RUNTIME_TOKEN}", DOCUMENT_ID = "${DOCUMENT_ID}" }
