@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   test:
-    name: Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    name: Tests (Python ${{ matrix.python-version }}, ${{ matrix.os }}${{ matrix.mcp != 'latest' && matrix.mcp && format(', mcp{0}', matrix.mcp) || '' }})
     runs-on: ${{ matrix.os }}
     env:
       MCP_COMPOSE_SKIP_UI_BUILD: ${{ matrix.skip-ui-build || '' }}
@@ -34,12 +34,17 @@ jobs:
       matrix:
         python-version: ['3.10', '3.11', '3.12']
         os: [ubuntu-latest]
+        mcp: ['latest']
         include:
           - python-version: '3.12'
             os: windows-latest
             skip-ui-build: '1'
           - python-version: '3.12'
             os: macos-latest
+          # mcp-compose supports both MCP Python SDK majors; keep 1.x covered.
+          - python-version: '3.12'
+            os: ubuntu-latest
+            mcp: '<2'
 
     steps:
       - name: Checkout
@@ -65,12 +70,17 @@ jobs:
           uv pip install .
           uv pip install .[test]
 
+      - name: Pin the MCP SDK
+        if: matrix.mcp && matrix.mcp != 'latest'
+        run: |
+          uv pip install "mcp[cli]${{ matrix.mcp }}"
+
       - name: Run tests
         run: |
           pytest tests/ --cov=mcp_compose --cov-report=term-missing --cov-report=xml --override-ini="addopts="
 
       - name: Upload coverage
-        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest' && matrix.mcp == 'latest'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report

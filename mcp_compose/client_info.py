@@ -5,16 +5,20 @@ from typing import Any
 
 from mcp.types import Implementation
 
+from .mcp_compat import client_info_of
+
 FALLBACK_CLIENT_INFO = Implementation(name="mcp-compose", version="0.1.0")
 
 
 def resolve_client_info(ctx: Any = None) -> Implementation:
-    """Return upstream clientInfo from a FastMCP Context, or the mcp-compose fallback."""
+    """Return upstream clientInfo from an MCP server Context, or the mcp-compose fallback."""
     try:
         if ctx is not None:
             client_params = ctx.session.client_params
             if client_params is not None:
-                return client_params.clientInfo
+                client_info = client_info_of(client_params)
+                if client_info is not None:
+                    return client_info
     except AttributeError:
         pass
     return FALLBACK_CLIENT_INFO

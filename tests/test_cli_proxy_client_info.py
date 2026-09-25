@@ -10,16 +10,18 @@ from contextlib import asynccontextmanager
 import anyio
 import pytest
 import uvicorn
-from mcp.server.fastmcp import Context, FastMCP
-from mcp.types import Implementation
+from mcp.types import ClientCapabilities, Implementation, InitializeRequestParams
+
+from mcp_compose.mcp_compat import Context, MCPServer, client_info_of
 
 
 def _make_ctx(name: str = "test-agent", version: str = "2.0.0"):
     from unittest.mock import MagicMock
 
     info = Implementation(name=name, version=version)
-    client_params = MagicMock()
-    client_params.clientInfo = info
+    client_params = InitializeRequestParams(
+        protocolVersion="2025-06-18", capabilities=ClientCapabilities(), clientInfo=info
+    )
     session = MagicMock()
     session.client_params = client_params
     ctx = MagicMock()
@@ -29,13 +31,14 @@ def _make_ctx(name: str = "test-agent", version: str = "2.0.0"):
 
 def _build_sub_server(port: int):
     received = {}
-    sub = FastMCP("sub-server")
+    sub = MCPServer("sub-server")
 
     @sub.tool()
     async def ping(ctx: Context) -> str:
         if ctx and ctx.session and ctx.session.client_params:
-            received["name"] = ctx.session.client_params.clientInfo.name
-            received["version"] = ctx.session.client_params.clientInfo.version
+            client_info = client_info_of(ctx.session.client_params)
+            received["name"] = client_info.name
+            received["version"] = client_info.version
         return "pong"
 
     return sub, received

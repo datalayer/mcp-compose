@@ -9,7 +9,10 @@ Simple MCP server providing string manipulation operations via SSE.
 Authentication is handled at the MCP Compose level.
 """
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.mcpserver import MCPServer as FastMCP
+except ImportError:  # mcp < 2
+    from mcp.server.fastmcp import FastMCP
 
 # Create MCP server
 mcp = FastMCP("echo-server")

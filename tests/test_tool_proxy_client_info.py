@@ -62,11 +62,12 @@ if __name__ == "__main__":
 def _make_ctx(name: str = "test-agent", version: str = "2.0.0"):
     from unittest.mock import MagicMock
 
-    from mcp.types import Implementation
+    from mcp.types import ClientCapabilities, Implementation, InitializeRequestParams
 
     info = Implementation(name=name, version=version)
-    client_params = MagicMock()
-    client_params.clientInfo = info
+    client_params = InitializeRequestParams(
+        protocolVersion="2025-06-18", capabilities=ClientCapabilities(), clientInfo=info
+    )
     session = MagicMock()
     session.client_params = client_params
     ctx = MagicMock()
@@ -197,9 +198,8 @@ class TestToolProxyProxyFunctionSignature:
     def test_proxy_function_has_ctx_parameter(self, recording_script):
         from unittest.mock import MagicMock
 
-        from mcp.server.fastmcp import Context
-
         from mcp_compose.composer import MCPServerComposer
+        from mcp_compose.mcp_compat import Context
         from mcp_compose.process import Process
         from mcp_compose.process_manager import ProcessManager
         from mcp_compose.tool_proxy import ToolProxy

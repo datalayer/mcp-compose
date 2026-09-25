@@ -43,7 +43,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=7.0", "pytest-asyncio>=0.21.0", "pytest-cov>=4.0.0"]
+test = [
+    "httpx2",  # starlette.testclient deprecates httpx in favour of httpx2
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+]
 lint = ["ruff~=0.15.0", "mypy>=1.0.0"]
 dev = ["pre-commit>=3.0.0"]
 otel = [

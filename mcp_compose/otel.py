@@ -501,15 +501,15 @@ def uninstrument_mcp_compose() -> None:
 
                     module = HttpStreamTransport
                 elif module_path == "FastMCPToolManager":
-                    from mcp.server.fastmcp.tools import ToolManager as FastMCPToolManager
+                    from .mcp_compat import SDKToolManager as FastMCPToolManager
 
                     module = FastMCPToolManager
                 elif module_path == "FastMCP":
-                    from mcp.server.fastmcp import FastMCP
+                    from .mcp_compat import MCPServer as FastMCP
 
                     module = FastMCP
                 elif module_path == "MCPServer":
-                    from mcp.server.fastmcp.server import MCPServer
+                    from .mcp_compat import MCPServer
 
                     module = MCPServer
                 elif module_path == "LowLevelServer":
@@ -528,7 +528,7 @@ def uninstrument_mcp_compose() -> None:
                     method_name = "_handle_request"
 
                 elif module_path == "FastMCP.run_stdio_async":
-                    from mcp.server.fastmcp import FastMCP
+                    from .mcp_compat import MCPServer as FastMCP
 
                     module = FastMCP
                     method_name = "run_stdio_async"
@@ -582,12 +582,15 @@ def _instrument_tool_proxy(
             try:
                 if ctx is not None:
                     try:
+                        from .mcp_compat import client_info_of
+
                         client_params = ctx.session.client_params
-                        if client_params is not None:
-                            span.set_attribute("mcp.client.name", client_params.clientInfo.name)
-                            span.set_attribute(
-                                "mcp.client.version", client_params.clientInfo.version
-                            )
+                        client_info = (
+                            client_info_of(client_params) if client_params is not None else None
+                        )
+                        if client_info is not None:
+                            span.set_attribute("mcp.client.name", client_info.name)
+                            span.set_attribute("mcp.client.version", client_info.version)
                     except AttributeError:
                         pass
 
@@ -1351,8 +1354,9 @@ def _instrument_fastmcp(tracer: Any, capture_config: dict) -> None:
     capture_results = capture_config.get("tool_results", True)
 
     try:
-        from mcp.server.fastmcp.server import StreamableHTTPSessionManager
-        from mcp.server.fastmcp.tools import ToolManager as FastMCPToolManager
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+
+        from .mcp_compat import SDKToolManager as FastMCPToolManager
 
         # Instrument call_tool method which handles incoming tool calls
         if hasattr(FastMCPToolManager, "call_tool"):
@@ -1446,7 +1450,7 @@ def _instrument_fastmcp(tracer: Any, capture_config: dict) -> None:
 
     # Also try to instrument the MCP server's request handler for list operations
     try:
-        from mcp.server.fastmcp import FastMCP
+        from .mcp_compat import MCPServer as FastMCP
 
         # Instrument list_tools to trace tools/list requests
         if hasattr(FastMCP, "_mcp_list_tools"):
@@ -1485,7 +1489,7 @@ def _instrument_fastmcp(tracer: Any, capture_config: dict) -> None:
 
     # Instrument FastMCP.run_stdio_async
     try:
-        from mcp.server.fastmcp import FastMCP
+        from .mcp_compat import MCPServer as FastMCP
 
         if hasattr(FastMCP, "run_stdio_async"):
             _original_methods["FastMCP.run_stdio_async"] = FastMCP.run_stdio_async

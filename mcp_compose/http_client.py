@@ -9,8 +9,9 @@ Provides compatibility wrapper for the MCP SDK's streamable HTTP client.
 
 from contextlib import asynccontextmanager
 
-import httpx
 from mcp.client.streamable_http import streamable_http_client
+
+from .mcp_compat import httpx_module
 
 
 def streamable_http_client_compat(url, headers=None, timeout=30, verify=True):
@@ -45,15 +46,21 @@ def streamable_http_client_compat(url, headers=None, timeout=30, verify=True):
 
     @asynccontextmanager
     async def _context():
-        async with httpx.AsyncClient(
+        # mcp 2.x transports take an httpx2 client, mcp 1.x an httpx one.
+        async with httpx_module.AsyncClient(
             headers=headers,
-            timeout=httpx.Timeout(float(timeout)),
+            timeout=httpx_module.Timeout(float(timeout)),
             verify=verify,
         ) as http_client:
             async with streamable_http_client(
                 url=url,
                 http_client=http_client,
             ) as streams:
-                yield streams
+                if len(streams) == 2:
+                    # mcp 2.x no longer yields get_session_id; keep the 3-tuple interface.
+                    read_stream, write_stream = streams
+                    yield read_stream, write_stream, lambda: None
+                else:
+                    yield streams
 
     return _context()
