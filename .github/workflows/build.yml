@@ -47,6 +47,13 @@ jobs:
           python -c "from mcp_compose.__version__ import __version__; print(f'mcp-compose {__version__}')"
           python -c "import mcp_compose; print('Import OK')"
 
+      - name: Smoke test the installed UI
+        run: |
+          uv pip install httpx2
+          cp .github/scripts/smoke_installed_ui.py "$RUNNER_TEMP/"
+          cd "$RUNNER_TEMP"
+          python smoke_installed_ui.py
+
       - name: Upload build artifacts
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v7

@@ -59,6 +59,10 @@ jobs:
           /tmp/verify/bin/pip install dist/*.whl
           /tmp/verify/bin/python -c "import mcp_compose; print(mcp_compose.__version__)"
           /tmp/verify/bin/mcp-compose --help > /dev/null
+          # The installed wheel must serve its UI at /ui, away from the checkout.
+          /tmp/verify/bin/pip install httpx2
+          cp .github/scripts/smoke_installed_ui.py "$RUNNER_TEMP/"
+          (cd "$RUNNER_TEMP" && /tmp/verify/bin/python smoke_installed_ui.py)
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

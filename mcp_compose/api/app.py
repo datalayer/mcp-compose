@@ -213,6 +213,34 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
 
+def ui_dist_candidates() -> list[Path]:
+    """Return the directories the built UI is looked up in, in order.
+
+    ./ui/dist in the working directory comes first (the historical location,
+    e.g. /app/ui/dist in the Docker image), then the UI shipped inside the
+    installed package (wheels force-include ui/dist as mcp_compose/ui/dist),
+    then the source checkout for editable installs.
+    """
+    package_dir = Path(__file__).resolve().parent.parent
+    return [
+        Path.cwd() / "ui" / "dist",
+        package_dir / "ui" / "dist",
+        package_dir.parent / "ui" / "dist",
+    ]
+
+
+def find_ui_dist_path() -> Path | None:
+    """Return the first built UI directory, or None when no UI was built.
+
+    A directory only counts when it holds index.html: builds without Node.js
+    ship a placeholder ui/dist with no UI in it.
+    """
+    for candidate in ui_dist_candidates():
+        if (candidate / "index.html").is_file():
+            return candidate
+    return None
+
+
 def register_routes(app: FastAPI) -> None:
     """
     Register API routes.
@@ -234,8 +262,8 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(settings.router, prefix="/api/v1", tags=["settings"])
 
     # Serve UI static files if available
-    ui_dist_path = Path.cwd() / "ui" / "dist"
-    if ui_dist_path.exists() and ui_dist_path.is_dir():
+    ui_dist_path = find_ui_dist_path()
+    if ui_dist_path is not None:
         logger.info(f"Serving UI from {ui_dist_path}")
 
         from starlette.responses import FileResponse
@@ -268,7 +296,10 @@ def register_routes(app: FastAPI) -> None:
             """Serve UI root."""
             return FileResponse(ui_dist_path / "index.html")
     else:
-        logger.warning(f"UI dist folder not found at {ui_dist_path}")
+        logger.warning(
+            "UI not found (looked in %s); /ui is not served",
+            ", ".join(str(p) for p in ui_dist_candidates()),
+        )
 
     # Root endpoint
     @app.get("/", include_in_schema=False)
@@ -284,6 +315,7 @@ def register_routes(app: FastAPI) -> None:
 
 __all__ = [
     "create_app",
+    "find_ui_dist_path",
     "register_exception_handlers",
     "register_routes",
 ]
