@@ -17,8 +17,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
-
 from .config import MCPComposerConfig, ToolManagerConfig
 from .discovery import MCPServerDiscovery, MCPServerInfo
 from .exceptions import (
@@ -26,6 +24,7 @@ from .exceptions import (
     MCPPromptConflictError,
     MCPToolConflictError,
 )
+from .mcp_compat import MCPServer
 from .process_manager import ProcessManager
 from .tool_manager import ToolManager
 
@@ -197,7 +196,7 @@ class MCPServerComposer:
         self.config = config
 
         # Create the composed server instance
-        self.composed_server = FastMCP(composed_server_name)
+        self.composed_server = MCPServer(composed_server_name)
 
         # Track composition state
         self.composed_tools: dict[str, Any] = {}
@@ -243,7 +242,7 @@ class MCPServerComposer:
         pyproject_path: str | Path | None = None,
         include_servers: list[str] | None = None,
         exclude_servers: list[str] | None = None,
-    ) -> FastMCP:
+    ) -> MCPServer:
         """
         Compose MCP servers discovered from pyproject.toml dependencies.
 
@@ -253,7 +252,7 @@ class MCPServerComposer:
             exclude_servers: List of server names to exclude.
 
         Returns:
-            Composed FastMCP server instance.
+            Composed MCPServer server instance.
 
         Raises:
             MCPCompositionError: If composition fails.
@@ -315,7 +314,7 @@ class MCPServerComposer:
     async def compose_from_config(
         self,
         config: MCPComposerConfig | None = None,
-    ) -> FastMCP:
+    ) -> MCPServer:
         """
         Compose MCP servers from configuration.
 
@@ -327,7 +326,7 @@ class MCPServerComposer:
             config: Composer configuration. Uses self.config if not provided.
 
         Returns:
-            Composed FastMCP server instance.
+            Composed MCPServer server instance.
 
         Raises:
             MCPCompositionError: If composition fails.
@@ -482,7 +481,7 @@ class MCPServerComposer:
             processes = self.process_manager.list_processes()
             logger.info(f"Managing {len(processes)} proxied server processes")
 
-    def compose_servers(self, servers: dict[str, MCPServerInfo]) -> FastMCP:
+    def compose_servers(self, servers: dict[str, MCPServerInfo]) -> MCPServer:
         """
         Compose specific MCP servers.
 
@@ -490,7 +489,7 @@ class MCPServerComposer:
             servers: Dictionary mapping server names to MCPServerInfo objects.
 
         Returns:
-            Composed FastMCP server instance.
+            Composed MCPServer server instance.
         """
         logger.info(f"Composing {len(servers)} specified MCP servers")
 

@@ -15,7 +15,10 @@ import asyncio
 from typing import AsyncIterator
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.mcpserver import MCPServer as FastMCP
+except ImportError:  # mcp < 2
+    from mcp.server.fastmcp import FastMCP
 
 # Create MCP server
 mcp = FastMCP("echo-server")

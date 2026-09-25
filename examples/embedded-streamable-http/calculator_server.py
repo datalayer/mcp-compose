@@ -9,7 +9,10 @@ Simple MCP server providing calculator operations.
 This module is designed to be imported by mcp-compose as an embedded server.
 """
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.mcpserver import MCPServer as FastMCP
+except ImportError:  # mcp < 2
+    from mcp.server.fastmcp import FastMCP
 
 # Create MCP server - this 'mcp' object will be imported by the composer
 mcp = FastMCP("calculator-server")

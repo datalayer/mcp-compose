@@ -76,7 +76,7 @@ class TestApplication:
         app = create_app()
         assert app.title == "MCP Compose API"
         assert app.version is not None
-        assert "/api/v1/health" in [route.path for route in app.routes]
+        assert "/api/v1/health" in app.openapi()["paths"]
 
     def test_create_app_custom_title(self):
         """Test creating app with custom title."""

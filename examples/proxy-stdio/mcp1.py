@@ -8,7 +8,10 @@ MCP Server 1 - Calculator Tools
 Simple MCP server providing calculator operations.
 """
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.mcpserver import MCPServer as FastMCP
+except ImportError:  # mcp < 2
+    from mcp.server.fastmcp import FastMCP
 
 # Create MCP server
 mcp = FastMCP("calculator-server")

@@ -22,6 +22,7 @@ from .config_loader import find_config_file, load_config
 from .discovery import MCPServerDiscovery
 from .exceptions import MCPComposerError
 from .http_client import streamable_http_client_compat
+from .mcp_compat import tool_input_schema
 from .process_manager import ProcessManager
 
 logger = logging.getLogger(__name__)
@@ -660,9 +661,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     tool_name = f"{server_config.name}_{tool.name}"
 
                                     # Extract input schema
-                                    input_schema = {}
-                                    if hasattr(tool, "inputSchema") and tool.inputSchema:
-                                        input_schema = tool.inputSchema
+                                    input_schema = tool_input_schema(tool)
 
                                     tool_def = {
                                         "name": tool.name,  # Use original name for MCP protocol
@@ -708,9 +707,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     # Create the proxy function
                                     proxy_func = make_sse_proxy(server_config.url, tool.name)
 
-                                    # Register with FastMCP using the tool decorator
-                                    from mcp.server.fastmcp.tools.base import Tool
-
+                                    # Register with the MCP server
+                                    from .mcp_compat import Tool
                                     from .tool_proxy import fix_tool_argument_model
 
                                     tool_obj = Tool.from_function(
@@ -845,9 +843,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                             tool_name = f"{server_config.name}_{tool.name}"
 
                                             # Extract input schema
-                                            input_schema = {}
-                                            if hasattr(tool, "inputSchema") and tool.inputSchema:
-                                                input_schema = tool.inputSchema
+                                            input_schema = tool_input_schema(tool)
 
                                             tool_def = {
                                                 "name": tool.name,
@@ -936,9 +932,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                                 server_config, tool.name, tool_def["description"]
                                             )
 
-                                            # Register with FastMCP using the tool decorator
-                                            from mcp.server.fastmcp.tools.base import Tool
-
+                                            # Register with the MCP server
+                                            from .mcp_compat import Tool
                                             from .tool_proxy import fix_tool_argument_model
 
                                             tool_obj = Tool.from_function(
@@ -994,9 +989,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                         tool_name = f"{server_config.name}_{tool.name}"
 
                                         # Extract input schema
-                                        input_schema = {}
-                                        if hasattr(tool, "inputSchema") and tool.inputSchema:
-                                            input_schema = tool.inputSchema
+                                        input_schema = tool_input_schema(tool)
 
                                         tool_def = {
                                             "name": tool.name,
@@ -1058,9 +1051,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                         # Create the proxy function
                                         proxy_func = make_http_proxy(server_config, tool.name)
 
-                                        # Register with FastMCP using the tool decorator
-                                        from mcp.server.fastmcp.tools.base import Tool
-
+                                        # Register with the MCP server
+                                        from .mcp_compat import Tool
                                         from .tool_proxy import fix_tool_argument_model
 
                                         tool_obj = Tool.from_function(
@@ -1192,9 +1184,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                     tool_name = f"{server_config.name}_{tool.name}"
 
                                     # Extract input schema
-                                    input_schema = {}
-                                    if hasattr(tool, "inputSchema") and tool.inputSchema:
-                                        input_schema = tool.inputSchema
+                                    input_schema = tool_input_schema(tool)
 
                                     tool_def = {
                                         "name": tool.name,
@@ -1264,9 +1254,8 @@ async def run_server(config, args: argparse.Namespace) -> int:
                                         server_config, tool.name, tool_def["description"]
                                     )
 
-                                    # Register with FastMCP using the tool decorator
-                                    from mcp.server.fastmcp.tools.base import Tool
-
+                                    # Register with the MCP server
+                                    from .mcp_compat import Tool
                                     from .tool_proxy import fix_tool_argument_model
 
                                     tool_obj = Tool.from_function(
@@ -1395,9 +1384,12 @@ async def run_server(config, args: argparse.Namespace) -> int:
 
         # For streamable-http, we need to run the session manager in the lifespan
         session_manager = None
+        streamable_app = None
         if transport_mode == "streamable-http":
-            # Trigger creation of the streamable HTTP app to initialize session manager
-            _ = composer.composed_server.streamable_http_app()
+            # Build the streamable HTTP app once: mcp 2.x creates a new session
+            # manager on every streamable_http_app() call, so the routes we mount
+            # must come from the same call as the session manager we run.
+            streamable_app = composer.composed_server.streamable_http_app()
             session_manager = composer.composed_server.session_manager
 
         # Create a custom lifespan that also runs the session manager
@@ -1427,8 +1419,6 @@ async def run_server(config, args: argparse.Namespace) -> int:
         if transport_mode == "streamable-http":
             # Get the Streamable HTTP app and add its routes
             try:
-                streamable_app = composer.composed_server.streamable_http_app()
-
                 # Add the routes from the streamable app to our main app
                 if hasattr(streamable_app, "routes"):
                     logger.info(f"Streamable HTTP app has {len(streamable_app.routes)} routes")
@@ -1441,7 +1431,7 @@ async def run_server(config, args: argparse.Namespace) -> int:
                 print(f"⚠️  Warning: Streamable HTTP endpoint not available: {e}", file=out)
         else:
             # SSE transport (deprecated)
-            # Get the FastMCP SSE app and include its routes directly
+            # Get the MCP server SSE app and include its routes directly
             try:
                 sse_app = composer.composed_server.sse_app()
 

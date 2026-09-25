@@ -14,10 +14,8 @@ import json
 import logging
 from typing import Any
 
-from mcp.server.fastmcp import Context
-from mcp.server.fastmcp.tools.base import Tool
-
 from .client_info import resolve_client_info
+from .mcp_compat import ArgModelBase, Context, Tool
 from .process import Process
 from .process_manager import ProcessManager
 
@@ -183,7 +181,7 @@ class ToolProxy:
             # Add return annotation
             annotations["return"] = str
 
-            # ctx is injected by FastMCP at call time; exclude from tool schema
+            # ctx is injected by the MCP server at call time; exclude from tool schema
             ctx_param = inspect.Parameter(
                 "ctx", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Context
             )
@@ -256,7 +254,7 @@ class ToolProxy:
         proxy_func.__name__ = safe_name
         proxy_func.__doc__ = tool_def.get("description", "")
 
-        # Register with FastMCP server
+        # Register with the MCP server
         # Use from_function to create proper Tool object, then override parameters
         try:
             # Create Tool from function (this generates fn_metadata)
@@ -378,7 +376,6 @@ def fix_tool_argument_model(tool_obj: Tool, input_schema: dict[str, Any]) -> Non
         from typing import Any as AnyType
         from typing import Optional
 
-        from mcp.server.fastmcp.utilities.func_metadata import ArgModelBase
         from pydantic import create_model
 
         # Build field definitions for Pydantic model
