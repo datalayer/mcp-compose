@@ -352,3 +352,71 @@ class TestLifespan:
 
         # Client context exit triggers shutdown
         # No exceptions means success
+
+
+class TestUIDistResolution:
+    """Test where the built UI is served from."""
+
+    @staticmethod
+    def _built_ui(root, marker: str):
+        dist = root / "ui" / "dist"
+        (dist / "assets").mkdir(parents=True)
+        (dist / "index.html").write_text(f"<html>{marker}</html>")
+        (dist / "assets" / "app.js").write_text("console.log('ui')")
+        return dist
+
+    @staticmethod
+    def _placeholder_ui(root):
+        dist = root / "ui" / "dist"
+        dist.mkdir(parents=True)
+        (dist / ".placeholder").write_text("UI assets were not built in this environment.\n")
+        return dist
+
+    def test_package_dir_is_a_candidate(self):
+        """The UI a wheel ships as mcp_compose/ui/dist is looked up."""
+        from pathlib import Path
+
+        import mcp_compose
+        from mcp_compose.api.app import ui_dist_candidates
+
+        packaged = Path(mcp_compose.__file__).resolve().parent / "ui" / "dist"
+        assert packaged in ui_dist_candidates()
+
+    def test_placeholder_dist_is_skipped(self, tmp_path, monkeypatch):
+        """A ui/dist without index.html (no Node.js at build time) is not a UI."""
+        import mcp_compose.api.app as app_module
+
+        cwd_dist = self._placeholder_ui(tmp_path / "cwd")
+        packaged = self._built_ui(tmp_path / "pkg", "packaged")
+        monkeypatch.setattr(app_module, "ui_dist_candidates", lambda: [cwd_dist, packaged])
+
+        assert app_module.find_ui_dist_path() == packaged
+
+    def test_no_ui_built(self, tmp_path, monkeypatch):
+        """Without a built UI, nothing is resolved and /ui is not served."""
+        import mcp_compose.api.app as app_module
+
+        placeholder = self._placeholder_ui(tmp_path)
+        monkeypatch.setattr(app_module, "ui_dist_candidates", lambda: [placeholder])
+
+        assert app_module.find_ui_dist_path() is None
+        client = TestClient(create_app())
+        assert client.get("/ui/").status_code == status.HTTP_404_NOT_FOUND
+
+    def test_serves_packaged_ui_outside_a_checkout(self, tmp_path, monkeypatch):
+        """Started from a config directory, the app serves the packaged UI."""
+        import mcp_compose.api.app as app_module
+
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        monkeypatch.chdir(config_dir)
+        packaged = self._built_ui(tmp_path / "pkg", "packaged-ui")
+        candidates = app_module.ui_dist_candidates()
+        monkeypatch.setattr(app_module, "ui_dist_candidates", lambda: [candidates[0], packaged])
+
+        client = TestClient(create_app())
+        for path in ("/ui", "/ui/", "/ui/servers"):
+            response = client.get(path)
+            assert response.status_code == status.HTTP_200_OK, path
+            assert b"packaged-ui" in response.content
+        assert client.get("/ui/assets/app.js").content == b"console.log('ui')"

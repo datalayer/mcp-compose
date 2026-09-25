@@ -1533,13 +1533,10 @@ async def run_server(config, args: argparse.Namespace) -> int:
         print(f"  Tools List:    http://localhost:{server_port}/tools", file=out)
         print(f"  REST API:      http://localhost:{server_port}/api/v1", file=out)
         print(f"  Health Check:  http://localhost:{server_port}/api/v1/health", file=out)
-        # Check if UI is available
-        from pathlib import Path as PathLib
+        # Advertise the UI only when the app actually serves it
+        from .api.app import find_ui_dist_path
 
-        ui_dist_path = PathLib(__file__).parent / "ui" / "dist"
-        if not ui_dist_path.exists():
-            ui_dist_path = PathLib(__file__).parent.parent / "ui" / "dist"
-        if ui_dist_path.exists() and ui_dist_path.is_dir():
+        if find_ui_dist_path() is not None:
             print(f"  Web UI:        http://localhost:{ui_port}/ui", file=out)
         print(file=out)
         print("✓ Unified MCP server is now running!", file=out)

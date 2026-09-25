@@ -29,6 +29,9 @@ WORKDIR /build
 COPY pyproject.toml README.md LICENSE hatch_build.py ./
 COPY mcp_compose/ ./mcp_compose/
 
+# Ship the built UI inside the wheel (the build hook sees it and skips npm)
+COPY --from=ui-builder /ui/dist ./ui/dist
+
 # Build the wheel
 RUN pip install --upgrade build \
     && python -m build --wheel --outdir dist
@@ -46,9 +49,6 @@ WORKDIR /app
 # Copy and install the wheel from the builder stage
 COPY --from=python-builder /build/dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
-
-# Copy UI build from ui-builder
-COPY --from=ui-builder /ui/dist /app/ui/dist
 
 # Copy example configuration
 COPY examples/ui/mcp_compose.toml /app/config.toml
