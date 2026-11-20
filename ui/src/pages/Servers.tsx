@@ -272,12 +272,7 @@ export default function Servers() {
 
       {/* Add Server Dialog */}
       {showAddDialog && (
-        <Dialog
-          isOpen={showAddDialog}
-          onDismiss={() => setShowAddDialog(false)}
-          aria-labelledby="add-server-title"
-        >
-          <Dialog.Header id="add-server-title">Add Server</Dialog.Header>
+        <Dialog title="Add Server" onClose={() => setShowAddDialog(false)}>
           <Box style={{ padding: '16px' }}>
             <Text style={{ color: '#656d76', marginBottom: '16px', display: 'block' }}>
               Server configuration via UI coming in next iteration.
