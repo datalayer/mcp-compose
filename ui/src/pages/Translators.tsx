@@ -315,12 +315,7 @@ export default function Translators() {
 
       {/* Add Translator Dialog */}
       {showAddDialog && (
-        <Dialog
-          isOpen={showAddDialog}
-          onDismiss={resetForm}
-          aria-labelledby="add-translator-title"
-        >
-          <Dialog.Header id="add-translator-title">Add Protocol Translator</Dialog.Header>
+        <Dialog title="Add Protocol Translator" onClose={resetForm}>
           <Box as="form" onSubmit={handleCreate} style={{ padding: '16px' }}>
             {/* Translator Type Selection */}
             <FormControl>
